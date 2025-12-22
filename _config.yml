@@ -4,8 +4,9 @@ description: KitchnTabs food court ordering application.
 url: "https://kitchntabs.github.io" # Your site's base URL
 baseurl: "/kitchntabs.github.io"       # Leave as "" for user/org sites
 
-# Theme Selection
-theme: jekyll-theme-minimal        # One of GitHub's supported themes
+remote_theme: pages-themes/cayman@v0.2.0
+plugins:
+- jekyll-remote-theme # add this line to the plugins list if you already have one
 
 # Build Settings
 markdown: kramdown
