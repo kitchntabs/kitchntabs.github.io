@@ -1,0 +1,16 @@
+# Basic Site Metadata
+title: Kitchntabs
+description: KitchnTabs food court ordering application.
+url: "https://kitchntabs.github.io" # Your site's base URL
+baseurl: "/kitchntabs.github.io"       # Leave as "" for user/org sites
+
+# Theme Selection
+theme: jekyll-theme-minimal        # One of GitHub's supported themes
+
+# Build Settings
+markdown: kramdown
+permalink: /:title/
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
