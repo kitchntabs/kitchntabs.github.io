@@ -1,0 +1,131 @@
+---
+layout: default
+---
+
+<div class="container">
+  <div class="row">
+    <!-- Sidebar Navigation -->
+    <div class="col-md-3">
+      <div class="sidebar">
+        <h3>Documentation</h3>
+        <nav>
+          <ul class="nav nav-pills nav-stacked">
+            <li><a href="/">🏠 Home</a></li>
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                📋 Privacy Policy <span class="caret"></span>
+              </a>
+              <ul class="dropdown-menu">
+                <li><a href="/privacy/en">🇺🇸 English</a></li>
+                <li><a href="/privacy/es">🇪🇸 Español</a></li>
+              </ul>
+            </li>
+            <li><a href="#restaurant">🏪 Restaurant Management</a></li>
+            <li><a href="#marketplace">🛒 Marketplace Integration</a></li>
+            <li><a href="#api">🔧 API Documentation</a></li>
+            <li><a href="#mobile">📱 Mobile Apps</a></li>
+          </ul>
+        </nav>
+
+        <hr>
+
+        <h4>Quick Links</h4>
+        <ul class="nav nav-pills nav-stacked">
+          <li><a href="https://kitchntabs.com">🌐 Website</a></li>
+          <li><a href="mailto:support@kitchntabs.com">📧 Support</a></li>
+          <li><a href="https://github.com/kitchntabs">🐙 GitHub</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="col-md-9">
+      <div class="main-content">
+        {{ content }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.sidebar {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+}
+
+.sidebar h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+.sidebar .nav > li > a {
+  color: #555;
+  padding: 8px 15px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}
+
+.sidebar .nav > li > a:hover {
+  background-color: #e9ecef;
+  color: #333;
+}
+
+.sidebar .dropdown-menu {
+  background: white;
+  border: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.sidebar .dropdown-menu > li > a {
+  padding: 8px 20px;
+  color: #555;
+}
+
+.sidebar .dropdown-menu > li > a:hover {
+  background-color: #f8f9fa;
+}
+
+.main-content {
+  background: white;
+  padding: 30px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    margin-bottom: 20px;
+  }
+
+  .main-content {
+    padding: 20px;
+  }
+}
+</style>
+
+<script>
+// Simple dropdown toggle for mobile
+document.addEventListener('DOMContentLoaded', function() {
+  var dropdowns = document.querySelectorAll('.dropdown-toggle');
+
+  dropdowns.forEach(function(dropdown) {
+    dropdown.addEventListener('click', function(e) {
+      e.preventDefault();
+      var menu = this.nextElementSibling;
+      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    });
+  });
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.dropdown')) {
+      var menus = document.querySelectorAll('.dropdown-menu');
+      menus.forEach(function(menu) {
+        menu.style.display = 'none';
+      });
+    }
+  });
+});
+</script>
