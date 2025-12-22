@@ -18,6 +18,9 @@ lsi: false
 excerpt_separator: "\n\n"
 incremental: false
 
+# Permalink structure for clean URLs
+permalink: /:categories/:title/
+
 # Cayman Theme Settings
 show_downloads: false
 google_analytics: # Add your GA tracking ID here if needed
