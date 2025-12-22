@@ -1,5 +1,4 @@
 ---
-layout: docs
 title: Privacy Policy - English
 ---
 

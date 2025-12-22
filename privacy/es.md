@@ -1,5 +1,4 @@
 ---
-layout: docs
 title: Política de Privacidad - Español
 ---
 

@@ -1,17 +1,33 @@
 # Basic Site Metadata
-title: Kitchntabs
+title: KitchnTabs
 description: KitchnTabs food court ordering application.
-url: "https://kitchntabs.github.io" # Your site's base URL
-baseurl: "/kitchntabs.github.io"       # Leave as "" for user/org sites
+url: "https://kitchntabs.github.io"
+baseurl: ""
 
+# Cayman Theme Configuration
 remote_theme: pages-themes/cayman@v0.2.0
+
+# Plugins
 plugins:
-- jekyll-remote-theme # add this line to the plugins list if you already have one
+- jekyll-remote-theme
 
 # Build Settings
 markdown: kramdown
-permalink: /:title/
+highlighter: rouge
+lsi: false
+excerpt_separator: "\n\n"
+incremental: false
+
+# Cayman Theme Settings
+show_downloads: false
+google_analytics: # Add your GA tracking ID here if needed
+
+# Exclude from processing
 exclude:
   - Gemfile
   - Gemfile.lock
-  - node_modules
+  - vendor/
+  - .bundle/
+  - .sass-cache/
+  - .jekyll-cache/
+  - gemfiles/
