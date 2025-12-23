@@ -438,36 +438,60 @@
                 align-items: center;
                 justify-content: center;
             }
+
+            /* Hide breadcrumb on mobile for cleaner look */
+            .breadcrumb {
+                display: none;
+            }
+
+        /* Breadcrumb Navigation */
+        .breadcrumb {
+            background: rgba(143, 0, 203, 0.05);
+            padding: 0.75rem 2rem;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 0.9rem;
         }
 
-        /* Scroll to Top Button */
-        .scroll-top {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: var(--accent-gradient);
-            color: white;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
+        .breadcrumb-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .breadcrumb ol {
+            list-style: none;
+            margin: 0;
+            padding: 0;
             display: flex;
             align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(143, 0, 203, 0.3);
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
         }
 
-        .scroll-top.visible {
-            opacity: 1;
-            visibility: visible;
+        .breadcrumb li {
+            display: flex;
+            align-items: center;
         }
 
-        .scroll-top:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 20px rgba(143, 0, 203, 0.4);
+        .breadcrumb li:not(:last-child)::after {
+            content: "›";
+            margin: 0 0.5rem;
+            color: var(--text-light);
+            opacity: 0.6;
+            font-weight: bold;
+        }
+
+        .breadcrumb a {
+            color: var(--primary-color);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-dark);
+            text-decoration: underline;
+        }
+
+        .breadcrumb .current {
+            color: var(--text-light);
+            font-weight: 500;
         }
     </style>
 </head>
@@ -484,6 +508,14 @@
             </nav>
         </div>
     </header>
+
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+        <div class="breadcrumb-container">
+            <ol id="breadcrumb-list">
+                <li><a href="/">Home</a></li>
+            </ol>
+        </div>
+    </nav>
 
     <div class="main-layout">
         <div class="main-content">
@@ -542,8 +574,6 @@
         </aside>
     </div>
 
-    <button class="sidebar-toggle" id="sidebarToggle">☰</button>
-
     <footer class="footer-section">
         <p><strong>© 2025 KitchnTabs.</strong> All rights reserved.</p>
         <p>Built with ❤️ for the restaurant industry</p>
@@ -551,6 +581,8 @@
             API Endpoint: <code>https://api.kitchntabs.com</code>
         </p>
     </footer>
+
+    <button class="sidebar-toggle" id="sidebarToggle">☰</button>
 
     <div class="scroll-top" id="scrollTop">
         ↑
@@ -603,8 +635,92 @@
             });
         }
 
+        // Generate breadcrumbs based on current path
+        function generateBreadcrumbs() {
+            const breadcrumbList = document.getElementById('breadcrumb-list');
+            const currentPath = window.location.pathname;
+            
+            // Clear existing breadcrumbs except Home
+            const homeLink = breadcrumbList.querySelector('li:first-child');
+            breadcrumbList.innerHTML = '';
+            breadcrumbList.appendChild(homeLink);
+            
+            if (currentPath === '/' || currentPath === '/index.html') {
+                // On home page, just show Home as current
+                const homeLi = breadcrumbList.querySelector('li');
+                homeLi.innerHTML = '<span class="current">Home</span>';
+                return;
+            }
+            
+            // Split path into segments
+            const pathSegments = currentPath.split('/').filter(segment => segment);
+            
+            let currentPathBuild = '';
+            
+            pathSegments.forEach((segment, index) => {
+                currentPathBuild += '/' + segment;
+                
+                const li = document.createElement('li');
+                
+                if (index === pathSegments.length - 1) {
+                    // Last segment - current page
+                    const pageTitle = getPageTitle(segment, pathSegments);
+                    li.innerHTML = `<span class="current">${pageTitle}</span>`;
+                } else {
+                    // Intermediate segment - link
+                    const segmentTitle = getSegmentTitle(segment, pathSegments);
+                    li.innerHTML = `<a href="${currentPathBuild}">${segmentTitle}</a>`;
+                }
+                
+                breadcrumbList.appendChild(li);
+            });
+        }
+        
+        // Helper function to get readable titles for segments
+        function getSegmentTitle(segment, allSegments) {
+            const titleMap = {
+                'docs': 'Documentation',
+                'mall-app': 'Mall App',
+                'tech': 'Technical',
+                'features': 'Features',
+                'acl': 'ACL',
+                'customer-app': 'Customer App',
+                'staff-app': 'Staff App',
+                'tenant-app': 'Tenant App',
+                'privacy': 'Privacy',
+                'legal': 'Legal'
+            };
+            
+            // Handle numbered files (like 01-OVERVIEW.html)
+            if (segment.match(/^\d+-/)) {
+                return segment.replace(/^\d+-/, '').replace(/\.html$/, '').replace(/-/g, ' ');
+            }
+            
+            return titleMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
+        }
+        
+        // Helper function to get page title
+        function getPageTitle(segment, allSegments) {
+            // Handle numbered files
+            if (segment.match(/^\d+-/)) {
+                return segment.replace(/^\d+-/, '').replace(/\.html$/, '').replace(/-/g, ' ');
+            }
+            
+            // Handle markdown files
+            if (segment.endsWith('.md')) {
+                return segment.replace('.md', '').replace(/-/g, ' ');
+            }
+            
+            // Handle HTML files
+            if (segment.endsWith('.html')) {
+                return segment.replace('.html', '').replace(/-/g, ' ');
+            }
+            
+            return segment.charAt(0).toUpperCase() + segment.slice(1);
+        }
+        
         // Run on page load
-        highlightActiveNav();
+        generateBreadcrumbs();
 
         // Add external link indicators
         document.querySelectorAll('a[href^="http"]').forEach(link => {
