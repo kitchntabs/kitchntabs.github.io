@@ -34,8 +34,10 @@
             color: var(--text-light);
             background-color: var(--bg-light);
             padding-top: 80px;
+            padding-bottom: 120px; /* Space for fixed footer */
             display: flex;
             min-height: 100vh;
+            flex-direction: column;
         }
 
         /* Main Layout */
@@ -43,25 +45,26 @@
             display: flex;
             flex: 1;
             width: 100%;
+            margin-top: 50px; /* Account for fixed breadcrumb */
+        }
+
+        .sidebar {
+            width: 300px;
+            background: var(--bg-light);
+            border-right: 1px solid var(--border-light);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            left: 0;
+            top: 130px; /* Header (80px) + Breadcrumb (50px) */
+            height: calc(100vh - 130px - 120px); /* Subtract header, breadcrumb, and footer */
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
         }
 
         .main-content {
             flex: 1;
+            margin-left: 300px; /* Account for fixed left sidebar */
             padding: 0 2rem 4rem;
-            max-width: calc(100% - 300px);
-        }
-
-        /* Right Sidebar */
-        .sidebar {
-            width: 300px;
-            background: var(--bg-light);
-            border-left: 1px solid var(--border-light);
-            padding: 2rem 1.5rem;
-            position: sticky;
-            top: 80px;
-            height: calc(100vh - 80px);
-            overflow-y: auto;
-            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.05);
         }
 
         .sidebar-nav {
@@ -115,7 +118,7 @@
             display: none;
             position: fixed;
             top: 90px;
-            right: 1rem;
+            left: 1rem;
             background: var(--primary-color);
             color: white;
             border: none;
@@ -358,10 +361,14 @@
         /* Footer */
         .footer-section {
             text-align: center;
-            padding: 3rem 2rem;
+            padding: 2rem;
             background: var(--code-bg-light);
             border-top: 2px solid var(--primary-color);
-            margin-top: 4rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
         }
 
         .footer-section p {
@@ -414,12 +421,12 @@
             .sidebar {
                 display: none;
                 position: fixed;
-                top: 60px;
-                right: 0;
+                top: 140px; /* Below fixed header (80px) + breadcrumb (60px) */
+                left: 0;
                 width: 280px;
-                height: calc(100vh - 60px);
+                height: calc(100vh - 140px);
                 z-index: 1000;
-                transform: translateX(100%);
+                transform: translateX(-100%);
                 transition: transform 0.3s ease;
             }
 
@@ -431,6 +438,7 @@
             .main-content {
                 max-width: 100%;
                 padding: 0 1rem 2rem;
+                margin-left: 0;
             }
 
             .sidebar-toggle {
@@ -439,9 +447,22 @@
                 justify-content: center;
             }
 
-            /* Hide breadcrumb on mobile for cleaner look */
+            /* Show breadcrumb on mobile but adjust for fixed positioning */
             .breadcrumb {
-                display: none;
+                display: block;
+                position: fixed;
+                top: 80px;
+                left: 0;
+                right: 0;
+                width: 100%;
+                z-index: 999;
+            }
+
+            /* Adjust body padding for mobile with fixed elements */
+            body {
+                padding-top: 140px; /* Header (80px) + breadcrumb (60px) */
+                padding-bottom: 120px; /* Fixed footer */
+                padding-left: 0;
             }
 
         /* Breadcrumb Navigation */
@@ -450,6 +471,11 @@
             padding: 0.75rem 2rem;
             border-bottom: 1px solid var(--border-light);
             font-size: 0.9rem;
+            position: fixed;
+            top: 80px;
+            left: 0;
+            right: 0;
+            z-index: 999;
         }
 
         .breadcrumb-container {
