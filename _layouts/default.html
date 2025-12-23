@@ -45,7 +45,7 @@
             display: flex;
             flex: 1;
             width: 100%;
-            margin-top: 50px; /* Account for fixed breadcrumb */
+            margin-top: 0; /* No fixed breadcrumb anymore */
         }
 
         .sidebar {
@@ -156,6 +156,12 @@
             justify-content: space-between;
         }
 
+        .logo-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
         .logo-link {
             display: flex;
             align-items: center;
@@ -163,6 +169,7 @@
             color: var(--primary-color);
             font-weight: 600;
             font-size: 1.2rem;
+            margin-bottom: 0.25rem;
         }
 
         .logo-link img {
@@ -361,7 +368,7 @@
         /* Footer */
         .footer-section {
             text-align: center;
-            padding: 2rem;
+            padding: 0.5rem;
             background: var(--code-bg-light);
             border-top: 2px solid var(--primary-color);
             position: fixed;
@@ -450,37 +457,40 @@
             /* Show breadcrumb on mobile but adjust for fixed positioning */
             .breadcrumb {
                 display: block;
-                position: fixed;
-                top: 80px;
-                left: 0;
-                right: 0;
-                width: 100%;
-                z-index: 999;
+                position: static;
+                top: auto;
+                left: auto;
+                right: auto;
+                width: auto;
+                z-index: auto;
+                margin-left: 0; /* Reset margin on mobile */
+                font-size: 0.7rem;
             }
 
             /* Adjust body padding for mobile with fixed elements */
             body {
-                padding-top: 140px; /* Header (80px) + breadcrumb (60px) */
-                padding-bottom: 120px; /* Fixed footer */
+                padding-top: 80px; /* Header only (breadcrumb is now inside header) */
+                padding-bottom: 60px; /* Thinner fixed footer */
                 padding-left: 0;
             }
 
         /* Breadcrumb Navigation */
         .breadcrumb {
-            background: rgba(143, 0, 203, 0.05);
-            padding: 0.75rem 2rem;
-            border-bottom: 1px solid var(--border-light);
-            font-size: 0.9rem;
-            position: fixed;
-            top: 80px;
-            left: 0;
-            right: 0;
-            z-index: 999;
+            background: transparent;
+            padding: 0;
+            border-bottom: none;
+            font-size: 0.75rem;
+            position: static;
+            top: auto;
+            left: auto;
+            right: auto;
+            z-index: auto;
+            margin-left: 52px; /* Align with logo text */
         }
 
         .breadcrumb-container {
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: none;
+            margin: 0;
         }
 
         .breadcrumb ol {
@@ -497,17 +507,19 @@
         }
 
         .breadcrumb li:not(:last-child)::after {
-            content: "›";
-            margin: 0 0.5rem;
+            content: "→";
+            margin: 0 0.25rem;
             color: var(--text-light);
             opacity: 0.6;
-            font-weight: bold;
+            font-size: 0.7rem;
+            font-weight: normal;
         }
 
         .breadcrumb a {
             color: var(--primary-color);
             text-decoration: none;
             transition: color 0.3s ease;
+            font-size: 0.75rem;
         }
 
         .breadcrumb a:hover {
@@ -518,30 +530,32 @@
         .breadcrumb .current {
             color: var(--text-light);
             font-weight: 500;
+            font-size: 0.75rem;
         }
     </style>
 </head>
 <body>
     <header>
         <div class="header-container">
-            <a href="/" class="logo-link">
-                <img src="/assets/kitchntabs-c.png" alt="KitchnTabs Logo">
-                KitchnTabs
-            </a>
+            <div class="logo-section">
+                <a href="/" class="logo-link">
+                    <img src="/assets/kitchntabs-c.png" alt="KitchnTabs Logo">
+                    KitchnTabs
+                </a>
+                <nav class="breadcrumb" aria-label="Breadcrumb">
+                    <div class="breadcrumb-container">
+                        <ol id="breadcrumb-list">
+                            <li><a href="/">Home</a></li>
+                        </ol>
+                    </div>
+                </nav>
+            </div>
             <nav>
                 <a href="/">Home</a>
                 <a href="/privacy/en/">Privacy</a>
             </nav>
         </div>
     </header>
-
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-        <div class="breadcrumb-container">
-            <ol id="breadcrumb-list">
-                <li><a href="/">Home</a></li>
-            </ol>
-        </div>
-    </nav>
 
     <div class="main-layout">
         <div class="main-content">
