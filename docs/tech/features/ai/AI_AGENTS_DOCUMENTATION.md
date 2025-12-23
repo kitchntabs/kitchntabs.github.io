@@ -412,6 +412,7 @@ The drawer displays:
 
 ### Implementation
 
+{% raw %}
 ```typescript
 const renderAnalysisDrawer = () => (
     <SwipeableDrawer
@@ -431,6 +432,7 @@ const renderAnalysisDrawer = () => (
     </SwipeableDrawer>
 );
 ```
+{% endraw %}
 
 ---
 

@@ -114,6 +114,7 @@ const handleDrop = useCallback((e: React.DragEvent) => {
 ```
 
 4. **Enhanced UI for Empty State**
+{% raw %}
 ```tsx
 <Box
   onDragEnter={handleDragEnter}
@@ -137,8 +138,10 @@ const handleDrop = useCallback((e: React.DragEvent) => {
   </Typography>
 </Box>
 ```
+{% endraw %}
 
 5. **Enhanced UI for Existing Image State**
+{% raw %}
 ```tsx
 <Box
   onDragEnter={handleDragEnter}
@@ -160,6 +163,7 @@ const handleDrop = useCallback((e: React.DragEvent) => {
   )}
 </Box>
 ```
+{% endraw %}
 
 ### Backend: Tenant Model
 

@@ -1474,6 +1474,7 @@ POST /unsubscribe/{token}
 
 The unsubscribe link is automatically added to the email footer:
 
+{% raw %}
 ```blade
 @if(isset($unsubscribeUrl))
     <a href="{{ $unsubscribeUrl }}">
@@ -1481,6 +1482,7 @@ The unsubscribe link is automatically added to the email footer:
     </a>
 @endif
 ```
+{% endraw %}
 
 ## API Examples
 
