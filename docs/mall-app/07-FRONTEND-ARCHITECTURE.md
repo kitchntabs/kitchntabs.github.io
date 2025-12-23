@@ -564,6 +564,7 @@ export const MallSessionEchoProvider: React.FC<MallSessionEchoProviderProps> = (
         setTenantStatuses({});
     };
 
+{% raw %}
     return (
         <MallSessionEchoContext.Provider
             value={{
@@ -579,9 +580,9 @@ export const MallSessionEchoProvider: React.FC<MallSessionEchoProviderProps> = (
             {children}
         </MallSessionEchoContext.Provider>
     );
-};
+{% endraw %}
 
-export const useMallSessionEcho = () => useContext(MallSessionEchoContext);
+    export const useMallSessionEcho = () => useContext(MallSessionEchoContext);
 
 export default MallSessionEchoContext;
 ```
