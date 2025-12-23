@@ -34,6 +34,102 @@
             color: var(--text-light);
             background-color: var(--bg-light);
             padding-top: 80px;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Main Layout */
+        .main-layout {
+            display: flex;
+            flex: 1;
+            width: 100%;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 0 2rem 4rem;
+            max-width: calc(100% - 300px);
+        }
+
+        /* Right Sidebar */
+        .sidebar {
+            width: 300px;
+            background: var(--bg-light);
+            border-left: 1px solid var(--border-light);
+            padding: 2rem 1.5rem;
+            position: sticky;
+            top: 80px;
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .sidebar-nav {
+            margin-bottom: 2rem;
+        }
+
+        .sidebar-nav h3 {
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar-nav ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .sidebar-nav li {
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar-nav a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-light);
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .sidebar-nav a:hover,
+        .sidebar-nav a.active {
+            background: rgba(143, 0, 203, 0.1);
+            color: var(--primary-color);
+            transform: translateX(5px);
+        }
+
+        .sidebar-nav a.active {
+            background: var(--accent-gradient);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Sidebar Toggle for Mobile */
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            top: 90px;
+            right: 1rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(143, 0, 203, 0.3);
+            z-index: 1001;
+            font-size: 1.2rem;
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--primary-dark);
         }
 
         /* Header */
@@ -114,9 +210,8 @@
 
         /* Main Content */
         .container {
-            max-width: 1200px;
+            max-width: 100%;
             margin: 0 auto;
-            padding: 0 2rem 4rem;
         }
 
         h1, h2, h3, h4, h5, h6 {
@@ -314,6 +409,35 @@
             h2 {
                 font-size: 1.5rem;
             }
+
+            /* Hide sidebar on mobile, show toggle button */
+            .sidebar {
+                display: none;
+                position: fixed;
+                top: 60px;
+                right: 0;
+                width: 280px;
+                height: calc(100vh - 60px);
+                z-index: 1000;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.open {
+                display: block;
+                transform: translateX(0);
+            }
+
+            .main-content {
+                max-width: 100%;
+                padding: 0 1rem 2rem;
+            }
+
+            .sidebar-toggle {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
         }
 
         /* Scroll to Top Button */
@@ -363,9 +487,64 @@
         </div>
     </header>
 
-    <div class="container">
-        {{ content }}
+    <div class="main-layout">
+        <div class="main-content">
+            <div class="container">
+                {{ content }}
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <h3>📚 Documentation</h3>
+                <ul>
+                    <li><a href="/docs/mall-app/01-OVERVIEW.html">Mall App Overview</a></li>
+                    <li><a href="/docs/mall-app/02-ARCHITECTURE.html">Architecture</a></li>
+                    <li><a href="/docs/mall-app/03-BACKEND-MODELS.html">Backend Models</a></li>
+                    <li><a href="/docs/mall-app/04-BACKEND-CONTROLLERS.html">Controllers</a></li>
+                    <li><a href="/docs/mall-app/05-BACKEND-SERVICES.html">Services</a></li>
+                    <li><a href="/docs/mall-app/06-NOTIFICATIONS.html">Notifications</a></li>
+                    <li><a href="/docs/mall-app/07-FRONTEND-ARCHITECTURE.html">Frontend Architecture</a></li>
+                    <li><a href="/docs/mall-app/08-FRONTEND-COMPONENTS.html">Components</a></li>
+                    <li><a href="/docs/mall-app/09-USER-STORIES.html">User Stories</a></li>
+                    <li><a href="/docs/mall-app/10-FLOW-DIAGRAMS.html">Flow Diagrams</a></li>
+                </ul>
+            </nav>
+
+            <nav class="sidebar-nav">
+                <h3>⚙️ Technical</h3>
+                <ul>
+                    <li><a href="/docs/tech/features/acl/dash-role-permission-overview.html">ACL & Permissions</a></li>
+                    <li><a href="/docs/tech/architecture/">Architecture</a></li>
+                    <li><a href="/docs/tech/features/">Features</a></li>
+                    <li><a href="/docs/tech/tests/">Testing</a></li>
+                    <li><a href="/docs/tech/toolchain/">Toolchain</a></li>
+                </ul>
+            </nav>
+
+            <nav class="sidebar-nav">
+                <h3>👥 Apps</h3>
+                <ul>
+                    <li><a href="/docs/customer-app/">Customer App</a></li>
+                    <li><a href="/docs/staff-app/">Staff App</a></li>
+                    <li><a href="/docs/tenant-app/">Tenant App</a></li>
+                </ul>
+            </nav>
+
+            <nav class="sidebar-nav">
+                <h3>📋 Resources</h3>
+                <ul>
+                    <li><a href="/privacy/en/">Privacy Policy</a></li>
+                    <li><a href="/legal/">Legal</a></li>
+                    <li><a href="/CONTRIBUTING.md">Contributing</a></li>
+                    <li><a href="/README.md">README</a></li>
+                    <li><a href="/SITEMAP.md">Site Map</a></li>
+                </ul>
+            </nav>
+        </aside>
     </div>
+
+    <button class="sidebar-toggle" id="sidebarToggle">☰</button>
 
     <footer class="footer-section">
         <p><strong>© 2025 KitchnTabs.</strong> All rights reserved.</p>
@@ -394,6 +573,40 @@
         scrollTop.addEventListener('click', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
+
+        // Sidebar toggle functionality for mobile
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.querySelector('.sidebar');
+
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+        });
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', (event) => {
+            if (window.innerWidth <= 768) {
+                if (!sidebar.contains(event.target) && !sidebarToggle.contains(event.target)) {
+                    sidebar.classList.remove('open');
+                }
+            }
+        });
+
+        // Highlight active navigation item
+        function highlightActiveNav() {
+            const currentPath = window.location.pathname;
+            const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
+            
+            sidebarLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        }
+
+        // Run on page load
+        highlightActiveNav();
 
         // Add external link indicators
         document.querySelectorAll('a[href^="http"]').forEach(link => {
