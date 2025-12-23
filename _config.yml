@@ -1,15 +1,18 @@
 # Basic Site Metadata
-title: KitchnTabs
-description: KitchnTabs food court ordering application.
+title: KitchnTabs Documentation
+description: Comprehensive documentation for KitchnTabs restaurant and food court management platform. Built with Laravel and React for enterprise-grade performance.
 url: "https://kitchntabs.github.io"
 baseurl: ""
+logo: /assets/kitchntabs-h.png
 
-# Cayman Theme Configuration
+# Theme Configuration
 remote_theme: pages-themes/cayman@v0.2.0
 
 # Plugins
 plugins:
 - jekyll-remote-theme
+- jekyll-seo-tag
+- jekyll-sitemap
 
 # Build Settings
 markdown: kramdown
@@ -17,10 +20,32 @@ highlighter: rouge
 lsi: false
 excerpt_separator: "\n\n"
 incremental: false
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    css_class: 'highlight'
 
-# Cayman Theme Settings
+# Theme Settings
 show_downloads: false
-google_analytics: # Add your GA tracking ID here if needed
+github:
+  is_project_page: true
+  repository_name: kitchntabs/kitchntabs.github.io
+
+# SEO & Social
+twitter:
+  username: kitchntabs
+  card: summary_large_image
+facebook:
+  app_id: 
+  publisher:
+social:
+  name: KitchnTabs
+  links:
+    - https://github.com/kitchntabs
+
+# API Endpoint
+api_endpoint: https://api.kitchntabs.com
 
 # Exclude from processing
 exclude:
@@ -31,3 +56,6 @@ exclude:
   - .sass-cache/
   - .jekyll-cache/
   - gemfiles/
+  - README.md
+  - LICENSE
+  - node_modules/
