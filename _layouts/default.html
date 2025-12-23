@@ -83,36 +83,6 @@
             color: var(--primary-color);
         }
 
-        .theme-toggle {
-            background: none;
-            border: 2px solid var(--primary-color);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            color: var(--primary-color);
-            font-size: 18px;
-        }
-
-        .theme-toggle:hover {
-            background: var(--primary-color);
-            color: white;
-            transform: scale(1.1);
-        }
-
-        .dark-mode .theme-toggle {
-            border-color: var(--primary-color);
-            color: var(--primary-color);
-        }
-
-        .dark-mode .theme-toggle:hover {
-            background: var(--primary-color);
-        }
-
         /* Hero Section */
         .hero-section {
             text-align: center;
@@ -346,46 +316,6 @@
             }
         }
 
-        /* Dark Mode Support */
-        .dark-mode {
-            background-color: var(--bg-dark);
-            color: var(--text-dark);
-        }
-
-        .dark-mode header {
-            background: var(--bg-dark);
-            border-bottom-color: var(--primary-dark);
-        }
-
-        .dark-mode nav a {
-            color: var(--text-dark);
-        }
-
-        .dark-mode code {
-            background-color: var(--code-bg-dark);
-            color: var(--primary-color);
-        }
-
-        .dark-mode pre {
-            background-color: var(--code-bg-dark);
-        }
-
-        .dark-mode pre code {
-            color: var(--text-dark);
-        }
-
-        .dark-mode th, .dark-mode td {
-            border-bottom-color: var(--border-dark);
-        }
-
-        .dark-mode .doc-card {
-            background: var(--code-bg-dark);
-        }
-
-        .dark-mode .footer-section {
-            background: var(--code-bg-dark);
-        }
-
         /* Scroll to Top Button */
         .scroll-top {
             position: fixed;
@@ -430,9 +360,6 @@
                 <a href="/docs/tech/features/acl/dash-role-permission-overview.html">ACL</a>
                 <a href="/privacy/en/">Privacy</a>
             </nav>
-            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
-                <span class="theme-icon">🌙</span>
-            </button>
         </div>
     </header>
 
@@ -473,37 +400,6 @@
             if (!link.hostname.includes('kitchntabs')) {
                 link.setAttribute('target', '_blank');
                 link.setAttribute('rel', 'noopener noreferrer');
-            }
-        });
-
-        // Theme toggle functionality
-        const themeToggle = document.getElementById('theme-toggle');
-        const themeIcon = document.querySelector('.theme-icon');
-        const body = document.body;
-
-        // Check for saved theme preference or default to light mode
-        const currentTheme = localStorage.getItem('theme') || 'light';
-        
-        // Apply saved theme on page load
-        if (currentTheme === 'dark') {
-            body.classList.add('dark-mode');
-            themeIcon.textContent = '☀️';
-        } else {
-            themeIcon.textContent = '🌙';
-        }
-
-        // Toggle theme on button click
-        themeToggle.addEventListener('click', () => {
-            if (body.classList.contains('dark-mode')) {
-                // Switch to light mode
-                body.classList.remove('dark-mode');
-                themeIcon.textContent = '🌙';
-                localStorage.setItem('theme', 'light');
-            } else {
-                // Switch to dark mode
-                body.classList.add('dark-mode');
-                themeIcon.textContent = '☀️';
-                localStorage.setItem('theme', 'dark');
             }
         });
     </script>
