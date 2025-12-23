@@ -160,6 +160,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
+            flex: 1;
         }
 
         .logo-link {
@@ -485,7 +486,9 @@
             left: auto;
             right: auto;
             z-index: auto;
-            margin-left: 52px; /* Align with logo text */
+            margin: 2px 0 0 52px; /* Align with logo text, small top margin */
+            line-height: 1;
+            width: 100%;
         }
 
         .breadcrumb-container {
@@ -499,11 +502,13 @@
             padding: 0;
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .breadcrumb li {
             display: flex;
             align-items: center;
+            margin-right: 0.25rem;
         }
 
         .breadcrumb li:not(:last-child)::after {
@@ -520,6 +525,8 @@
             text-decoration: none;
             transition: color 0.3s ease;
             font-size: 0.75rem;
+            padding: 0.1rem 0;
+            display: inline-block;
         }
 
         .breadcrumb a:hover {
@@ -531,6 +538,16 @@
             color: var(--text-light);
             font-weight: 500;
             font-size: 0.75rem;
+            padding: 0.1rem 0;
+            display: inline-block;
+        }
+
+        .breadcrumb .intermediate {
+            color: var(--text-light);
+            opacity: 0.7;
+            font-size: 0.75rem;
+            padding: 0.1rem 0;
+            display: inline-block;
         }
     </style>
 </head>
@@ -707,9 +724,9 @@
                     const pageTitle = getPageTitle(segment, pathSegments);
                     li.innerHTML = `<span class="current">${pageTitle}</span>`;
                 } else {
-                    // Intermediate segment - link
+                    // Intermediate segment - don't create links to avoid 404s
                     const segmentTitle = getSegmentTitle(segment, pathSegments);
-                    li.innerHTML = `<a href="${currentPathBuild}">${segmentTitle}</a>`;
+                    li.innerHTML = `<span class="intermediate">${segmentTitle}</span>`;
                 }
                 
                 breadcrumbList.appendChild(li);
