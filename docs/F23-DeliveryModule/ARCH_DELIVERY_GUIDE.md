@@ -1175,6 +1175,7 @@ const OrderMapView: React.FC<IDashAutoAdminCustomFieldComponent> = () => {
     }
     
     return (
+```jsx
         <Box sx={{ width: '100%', height: '100%', p: 2 }}>
             <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
                 <Typography id="distance-text" variant="body1">
@@ -1182,6 +1183,8 @@ const OrderMapView: React.FC<IDashAutoAdminCustomFieldComponent> = () => {
                 </Typography>
             </Paper>
             <Box 
+                ref={mapRef} 
+```
                 ref={mapRef} 
                 sx={{ 
                     width: '100%', 
@@ -1292,6 +1295,7 @@ const TrackingUrlButton = () => {
             <Dialog open={open} onClose={handleClose} maxWidth="md">
                 <DialogTitle>Order Tracking URL</DialogTitle>
                 <DialogContent>
+```jsx
                     <Typography variant="body2" sx={{ mb: 2 }}>
                         Share this link with the customer to track their order:
                     </Typography>
@@ -1299,12 +1303,15 @@ const TrackingUrlButton = () => {
                         <TextField
                             fullWidth
                             value={trackingUrl}
+```
+                            value={trackingUrl}
                             InputProps={{
                                 readOnly: true,
                             }}
                             variant="outlined"
                             size="small"
                         />
+```jsx
                         <IconButton onClick={handleCopy} sx={{ ml: 1 }}>
                             <ContentCopyIcon />
                         </IconButton>
@@ -1319,6 +1326,8 @@ const TrackingUrlButton = () => {
                 </DialogActions>
             </Dialog>
         </>
+    );
+```
     );
 };
 
@@ -1434,12 +1443,15 @@ const AssignDriverButton = () => {
                 <DialogContent>
                     {!verificationCode ? (
                         <>
+```jsx
                             <Typography variant="body2" sx={{ mb: 2 }}>
                                 Select a driver to assign to this order:
                             </Typography>
                             <FormControl fullWidth sx={{ mb: 2 }}>
                                 <InputLabel>Driver</InputLabel>
                                 <Select
+                                    value={selectedDriver}
+```
                                     value={selectedDriver}
                                     onChange={(e) => setSelectedDriver(e.target.value)}
                                     label="Driver"
@@ -1453,6 +1465,7 @@ const AssignDriverButton = () => {
                             </FormControl>
                         </>
                     ) : (
+```jsx
                         <Box sx={{ textAlign: 'center', py: 2 }}>
                             <Typography variant="h6" sx={{ mb: 2 }}>
                                 Driver Assigned Successfully
@@ -1462,14 +1475,19 @@ const AssignDriverButton = () => {
                             </Typography>
                             <Chip
                                 label={verificationCode}
+```
+                                label={verificationCode}
                                 color="primary"
                                 size="large"
+```jsx
                                 sx={{ fontSize: '1.5rem', py: 3, px: 2 }}
                             />
                             <Typography variant="caption" sx={{ display: 'block', mt: 2 }}>
                                 Please provide this code to the driver
                             </Typography>
                         </Box>
+                    )}
+```
                     )}
                 </DialogContent>
                 <DialogActions>
@@ -1648,6 +1666,7 @@ const DeliveryDashboard = () => {
     if (error) return <Error error="Failed to load active orders" />;
     
     return (
+```jsx
         <Box sx={{ p: 3 }}>
             <Typography variant="h4" sx={{ mb: 3 }}>
                 Delivery Dashboard
@@ -1661,6 +1680,8 @@ const DeliveryDashboard = () => {
                         </Typography>
                         
                         <Box 
+                            ref={mapRef} 
+```
                             ref={mapRef} 
                             sx={{ 
                                 width: '100%', 
@@ -1681,13 +1702,19 @@ const DeliveryDashboard = () => {
                 </Grid>
                 
                 <Grid item xs={12} md={4}>
+```jsx
                     <Card sx={{ mb: 3 }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
                                 Active Deliveries: {activeOrders.length}
+```
+                                Active Deliveries: {activeOrders.length}
                             </Typography>
+```jsx
                             <Box sx={{ display: 'flex', gap: 1 }}>
                                 <Chip 
+                                    icon={<LocalShippingIcon />} 
+```
                                     icon={<LocalShippingIcon />} 
                                     label={`Assigned: ${activeOrders.filter(o => o.delivery_status === 'assigned').length}`} 
                                     color="warning" 
@@ -1703,6 +1730,7 @@ const DeliveryDashboard = () => {
                         </CardContent>
                     </Card>
                     
+```jsx
                     <Paper elevation={3} sx={{ maxHeight: 'calc(70vh - 100px)', overflow: 'auto' }}>
                         <Typography variant="h6" sx={{ p: 2, pb: 1 }}>
                             Active Orders
@@ -1723,6 +1751,8 @@ const DeliveryDashboard = () => {
                                                     {order.delivery_status === 'assigned' 
                                                         ? <RestaurantIcon /> 
                                                         : <LocalShippingIcon />}
+```
+                                                        : <LocalShippingIcon />}
                                                 </Avatar>
                                             </ListItemAvatar>
                                             <ListItemText 
@@ -1742,9 +1772,12 @@ const DeliveryDashboard = () => {
                                                             label={order.delivery_status === 'assigned' ? 'Assigned' : 'In Transit'} 
                                                             color={order.delivery_status === 'assigned' ? 'warning' : 'primary'} 
                                                             variant="outlined"
+```jsx
                                                             sx={{ mt: 1 }}
                                                         />
                                                     </>
+                                                }
+```
                                                 }
                                             />
                                         </ListItem>
@@ -1900,6 +1933,7 @@ const PublicTrackingPage = () => {
     
     if (loading) {
         return (
+```jsx
             <Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>
                 <CircularProgress />
                 <Typography variant="h6" sx={{ mt: 2 }}>
@@ -1907,12 +1941,17 @@ const PublicTrackingPage = () => {
                 </Typography>
             </Container>
         );
+```
+        );
     }
     
     if (error) {
         return (
+```jsx
             <Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>
                 <Typography variant="h5" color="error" gutterBottom>
+                    {error}
+```
                     {error}
                 </Typography>
                 <Typography variant="body1">
@@ -1925,6 +1964,7 @@ const PublicTrackingPage = () => {
     const activeStep = getStepFromStatus(order.status);
     
     return (
+```jsx
         <Container maxWidth="md" sx={{ py: 5 }}>
             <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -1934,13 +1974,18 @@ const PublicTrackingPage = () => {
                         </Typography>
                         <Typography variant="subtitle1">
                             Tracking Number: {order.tracking_number}
+```
+                            Tracking Number: {order.tracking_number}
                         </Typography>
                     </Box>
                     {order.status === 'delivered' && (
                         <CheckCircleIcon 
                             color="success" 
+```jsx
                             sx={{ ml: 'auto', fontSize: 40 }} 
                         />
+                    )}
+```
                     )}
                 </Box>
                 
@@ -1948,9 +1993,12 @@ const PublicTrackingPage = () => {
                     {steps.map((step, index) => (
                         <Step key={step.label}>
                             <StepLabel StepIconComponent={() => (
+```jsx
                                 <Box sx={{ textAlign: 'center' }}>
                                     {index <= activeStep ? (
                                         <Box sx={{ color: 'primary.main' }}>
+                                            {step.icon}
+```
                                             {step.icon}
                                         </Box>
                                     ) : step.icon}
@@ -1966,6 +2014,7 @@ const PublicTrackingPage = () => {
             <Grid container spacing={4}>
                 <Grid item xs={12} md={7}>
                     <Paper elevation={3}>
+```jsx
                         <Box sx={{ p: 2 }}>
                             <Typography variant="h6" gutterBottom>
                                 Delivery Map
@@ -1974,13 +2023,18 @@ const PublicTrackingPage = () => {
                         <Divider />
                         <Box 
                             ref={mapRef} 
+```
+                            ref={mapRef} 
                             sx={{ 
                                 width: '100%', 
                                 height: 350,
                             }}
                         />
+```jsx
                         <Box sx={{ p: 2 }}>
                             <Typography variant="body2" color="textSecondary">
+                                {order.shipping_address.address}
+```
                                 {order.shipping_address.address}
                             </Typography>
                         </Box>
@@ -1988,6 +2042,7 @@ const PublicTrackingPage = () => {
                 </Grid>
                 
                 <Grid item xs={12} md={5}>
+```jsx
                     <Card sx={{ mb: 3 }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
@@ -1997,6 +2052,8 @@ const PublicTrackingPage = () => {
                                 <ListItem>
                                     <ListItemText 
                                         primary="Estimated Preparation Time" 
+                                        secondary={`${order.preparation_time} minutes`} 
+```
                                         secondary={`${order.preparation_time} minutes`} 
                                     />
                                 </ListItem>
@@ -2023,6 +2080,7 @@ const PublicTrackingPage = () => {
                     </Card>
                     
                     <Paper elevation={3}>
+```jsx
                         <Box sx={{ p: 2 }}>
                             <Typography variant="h6" gutterBottom>
                                 Order Status Updates
@@ -2035,6 +2093,8 @@ const PublicTrackingPage = () => {
                                     <ListItemText 
                                         primary={(() => {
                                             switch(history.status) {
+                                                case 'paid': return 'Order Confirmed';
+```
                                                 case 'paid': return 'Order Confirmed';
                                                 case 'assigned': return 'Preparing Your Order';
                                                 case 'withdrawed': return 'Out for Delivery';
