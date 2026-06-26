@@ -3,6 +3,7 @@ title: KitchnTabs Documentation
 description: Comprehensive documentation for KitchnTabs restaurant and food court management platform. Built with Laravel and React for enterprise-grade performance.
 url: "https://kitchntabs.github.io"
 baseurl: ""
+repository: kitchntabs/kitchntabs.github.io
 logo: /assets/kitchntabs-h.png
 
 # Theme Configuration
