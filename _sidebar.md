@@ -174,6 +174,10 @@
   - **F23: Delivery Module**
     - [ARCH DELIVERY GUIDE](/docs/F23-DeliveryModule/ARCH_DELIVERY_GUIDE.md)
 - **Non-Functional Epics**
+  - **N0: Architecture**
+    - [Architecture Overview](/docs/N0-Architecture/README.md)
+    - [Core Layer ER Diagram](/docs/N0-Architecture/N0-Architecture_ER_DIAGRAM_CORE_LAYER.md)
+    - [Domain Layer ER Diagram](/docs/N0-Architecture/N0-Architecture_ER_DIAGRAM_DOMAIN_LAYER.md)
   - **N1: Backend Framework**
     - [ARCH README](/docs/N1-Backend-Framework/ARCH_README.md)
     - [ADDING ATTRIBUTE TO MODEL](/docs/N1-Backend-Framework/N1-Backend-Framework_ADDING_ATTRIBUTE_TO_MODEL.md)

@@ -284,6 +284,19 @@ Cash management and drawer operations.
 
 ---
 
+## Non-Functional Epics (N0–N10)
+
+### [N0: Architecture](/docs/N0-Architecture/README.md)
+**Foundation & System Architecture Documentation.**
+
+Complete entity-relationship diagrams and documentation of the KitchnTabs system architecture, organized into Core and Domain layers.
+
+- Directory: `/docs/N0-Architecture/`
+- Documents: 3
+- Key topics: System design, Core layer, Domain layer, ER diagrams, Multi-tenancy
+
+---
+
 ## Non-Functional Epics (N1–N10)
 
 ### [N1: Backend Framework](/docs/N1-Backend-Framework/ARCH_README.md)
