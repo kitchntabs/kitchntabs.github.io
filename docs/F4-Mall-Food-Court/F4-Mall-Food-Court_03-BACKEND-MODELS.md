@@ -208,29 +208,16 @@ public function scopeByStatus($query, string $status)
 
 #### Session Lifecycle
 
-```
-┌─────────────┐
-│   PENDING   │ ← Created via QR code
-└──────┬──────┘
-       │
-       │ Customer accesses session
-       │ (validates IP/UserAgent)
-       ▼
-┌─────────────┐
-│   ACTIVE    │ ← Can create orders
-└──────┬──────┘
-       │
-       │ All orders completed OR 6 hours elapsed
-       ▼
-┌─────────────┐
-│  COMPLETED  │
-└─────────────┘
-
-       OR
-
-┌─────────────┐
-│  CANCELLED  │ ← Manual cancellation
-└─────────────┘
+```mermaid
+flowchart TD
+    Pending["PENDING<br/>Created via QR code"]
+    Active["ACTIVE<br/>Can create orders"]
+    Completed["COMPLETED"]
+    Cancelled["CANCELLED<br/>Manual cancellation"]
+    
+    Pending -->|"Customer accesses session<br/>validates IP/UserAgent"| Active
+    Active -->|"All orders completed<br/>OR 6 hours elapsed"| Completed
+    Pending --> Cancelled
 ```
 
 ---

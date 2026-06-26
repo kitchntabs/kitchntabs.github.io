@@ -43,36 +43,27 @@ The DASH Admin Framework is a full-stack solution built on:
 
 ## 2. Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DASH ADMIN ARCHITECTURE                            │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                    FRONTEND (React)                      BACKEND (Laravel)
-               ┌─────────────────────┐              ┌─────────────────────┐
-               │  IAppResourceConfig │              │ ReactAdminBase      │
-               │  - model            │   REST API   │ Controller          │
-               │  - schema           │ ────────────▶│ - getList()         │
-               │  - component        │              │ - getOne()          │
-               │  - contextComponent │              │ - create()          │
-               └─────────────────────┘              │ - update()          │
-                        │                           │ - delete()          │
-                        ▼                           └─────────────────────┘
-               ┌─────────────────────┐                       │
-               │  ResourceTemplate   │                       │
-               │  - List View        │                       ▼
-               │  - Edit View        │              ┌─────────────────────┐
-               │  - Create View      │              │ Model + Resource    │
-               │  - Show View        │              │ + Request Validator │
-               └─────────────────────┘              └─────────────────────┘
-                        │
-                        ▼
-               ┌─────────────────────┐
-               │  Schema Attributes  │
-               │  - type             │
-               │  - component        │
-               │  - inEdit/inList    │
-               └─────────────────────┘
+```mermaid
+flowchart TD
+    Title["DASH ADMIN ARCHITECTURE"]
+    
+    subgraph Frontend["FRONTEND React"]
+        Config["IAppResourceConfig<br/>- model<br/>- schema<br/>- component<br/>- contextComponent"]
+        Template["ResourceTemplate<br/>- List View<br/>- Edit View<br/>- Create View<br/>- Show View"]
+        Schema["Schema Attributes<br/>- type<br/>- component<br/>- inEdit/inList"]
+    end
+    
+    subgraph Backend["BACKEND Laravel"]
+        Controller["ReactAdminBase Controller<br/>- getList<br/>- getOne<br/>- create<br/>- update<br/>- delete"]
+        Model["Model + Resource<br/>+ Request Validator"]
+    end
+    
+    Title --> Frontend
+    Title --> Backend
+    Config -->|REST API| Controller
+    Controller --> Model
+    Config --> Template
+    Template --> Schema
 ```
 
 ---
