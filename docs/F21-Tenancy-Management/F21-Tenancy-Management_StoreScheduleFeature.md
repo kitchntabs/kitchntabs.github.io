@@ -1,6 +1,3 @@
----
-description: Store Schedule Feature Documentation
----
 
 # Store Schedule Feature Documentation
 

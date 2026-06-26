@@ -1,7 +1,3 @@
----
-layout: default
-title: F15-Notifications-Messaging DASH NOTIFICATIONS CATALOG
----
 
 # Dash Notifications Catalog
 

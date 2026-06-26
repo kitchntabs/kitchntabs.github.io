@@ -1,7 +1,3 @@
----
-layout: default
-title: F10-Point-of-Sale FEAT-SYSTEM-POINT-OF-SALES
----
 
 # System Point of Sale — Technical Documentation
 

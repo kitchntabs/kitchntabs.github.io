@@ -1,7 +1,3 @@
----
-layout: default
-title: F9-Marketplaces FEAT-SYSTEM-MARKETPLACES
----
 
 # System Marketplaces — Technical Documentation
 

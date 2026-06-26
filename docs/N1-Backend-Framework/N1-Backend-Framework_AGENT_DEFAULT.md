@@ -1,7 +1,3 @@
----
-layout: default
-title: N1-Backend-Framework AGENT DEFAULT
----
 
 -Use sail if needed.
 -Dont use 2>&1 in outputs.

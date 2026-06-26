@@ -1,7 +1,3 @@
----
-layout: default
-title: F1-Orders-Tabs HASH ID IMPLEMENTATION
----
 
 # Hash ID Implementation Guide
 

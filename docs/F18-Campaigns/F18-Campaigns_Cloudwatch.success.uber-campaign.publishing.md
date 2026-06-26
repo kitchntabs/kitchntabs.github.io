@@ -1,7 +1,3 @@
----
-layout: default
-title: F18-Campaigns Cloudwatch.success.uber-campaign.publishing
----
 
 **CloudWatch Logs Live tail**              
 Region: us-east-2              

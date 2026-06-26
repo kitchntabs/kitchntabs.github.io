@@ -1,9 +1,3 @@
----
-title: Mall App - User Stories
-layout: default
-nav_order: 9
-parent: Mall Application
----
 
 # Mall App - User Stories
 

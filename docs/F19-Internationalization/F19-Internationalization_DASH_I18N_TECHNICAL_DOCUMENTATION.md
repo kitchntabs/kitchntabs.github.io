@@ -1,7 +1,3 @@
----
-layout: default
-title: F19-Internationalization DASH I18N TECHNICAL DOCUMENTATION
----
 
 # Dash Framework - Internationalization (i18n) Technical Documentation
 
@@ -151,7 +147,7 @@ export const I18nBridgeProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     return (
-        {% raw %}<I18nBridgeContext.Provider value={{ i18nProvider, locale, setI18nProvider, setLocale }}>{% endraw %}
+        <I18nBridgeContext.Provider value={{ i18nProvider, locale, setI18nProvider, setLocale }}>
             {children}
         </I18nBridgeContext.Provider>
     );

@@ -1,7 +1,3 @@
----
-layout: default
-title: N4-Build-Toolchain ELECTRON BUILD PROCESS
----
 
 # Electron Build Process Documentation
 

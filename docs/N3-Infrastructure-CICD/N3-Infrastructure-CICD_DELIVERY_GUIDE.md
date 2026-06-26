@@ -1,7 +1,3 @@
----
-layout: default
-title: N3-Infrastructure-CICD DELIVERY GUIDE
----
 
 Migration Guide: PinoyWok Delivery System to Dash Framework
 Based on the codebase you've shared, I'll guide you through migrating the PinoyWok delivery system to your existing Dash architecture. Since you mentioned you already have messaging, Order, and Product models, we'll focus on extending those while adding the delivery tracking functionality.
@@ -1175,15 +1171,15 @@ const OrderMapView: React.FC<IDashAutoAdminCustomFieldComponent> = () => {
     }
     
     return (
-        {% raw %}<Box sx={{ width: '100%', height: '100%', p: 2 }}>{% endraw %}
-            {% raw %}<Paper elevation={3} sx={{ p: 2, mb: 2 }}>{% endraw %}
+        <Box sx={{ width: '100%', height: '100%', p: 2 }}>
+            <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
                 <Typography id="distance-text" variant="body1">
                     Loading route information...
                 </Typography>
             </Paper>
             <Box 
                 ref={mapRef} 
-                {% raw %}sx={{ {% endraw %}
+                sx={{ 
                     width: '100%', 
                     height: 400, 
                     borderRadius: 1,
@@ -1292,20 +1288,20 @@ const TrackingUrlButton = () => {
             <Dialog open={open} onClose={handleClose} maxWidth="md">
                 <DialogTitle>Order Tracking URL</DialogTitle>
                 <DialogContent>
-                    {% raw %}<Typography variant="body2" sx={{ mb: 2 }}>{% endraw %}
+                    <Typography variant="body2" sx={{ mb: 2 }}>
                         Share this link with the customer to track their order:
                     </Typography>
-                    {% raw %}<Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>{% endraw %}
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                         <TextField
                             fullWidth
                             value={trackingUrl}
-                            {% raw %}InputProps={{{% endraw %}
+                            InputProps={{
                                 readOnly: true,
                             }}
                             variant="outlined"
                             size="small"
                         />
-                        {% raw %}<IconButton onClick={handleCopy} sx={{ ml: 1 }}>{% endraw %}
+                        <IconButton onClick={handleCopy} sx={{ ml: 1 }}>
                             <ContentCopyIcon />
                         </IconButton>
                     </Box>
@@ -1434,10 +1430,10 @@ const AssignDriverButton = () => {
                 <DialogContent>
                     {!verificationCode ? (
                         <>
-                            {% raw %}<Typography variant="body2" sx={{ mb: 2 }}>{% endraw %}
+                            <Typography variant="body2" sx={{ mb: 2 }}>
                                 Select a driver to assign to this order:
                             </Typography>
-                            {% raw %}<FormControl fullWidth sx={{ mb: 2 }}>{% endraw %}
+                            <FormControl fullWidth sx={{ mb: 2 }}>
                                 <InputLabel>Driver</InputLabel>
                                 <Select
                                     value={selectedDriver}
@@ -1453,20 +1449,20 @@ const AssignDriverButton = () => {
                             </FormControl>
                         </>
                     ) : (
-                        {% raw %}<Box sx={{ textAlign: 'center', py: 2 }}>{% endraw %}
-                            {% raw %}<Typography variant="h6" sx={{ mb: 2 }}>{% endraw %}
+                        <Box sx={{ textAlign: 'center', py: 2 }}>
+                            <Typography variant="h6" sx={{ mb: 2 }}>
                                 Driver Assigned Successfully
                             </Typography>
-                            {% raw %}<Typography variant="body2" sx={{ mb: 2 }}>{% endraw %}
+                            <Typography variant="body2" sx={{ mb: 2 }}>
                                 The driver will need this verification code to access the order details:
                             </Typography>
                             <Chip
                                 label={verificationCode}
                                 color="primary"
                                 size="large"
-                                {% raw %}sx={{ fontSize: '1.5rem', py: 3, px: 2 }}{% endraw %}
+                                sx={{ fontSize: '1.5rem', py: 3, px: 2 }}
                             />
-                            {% raw %}<Typography variant="caption" sx={{ display: 'block', mt: 2 }}>{% endraw %}
+                            <Typography variant="caption" sx={{ display: 'block', mt: 2 }}>
                                 Please provide this code to the driver
                             </Typography>
                         </Box>
@@ -1648,21 +1644,21 @@ const DeliveryDashboard = () => {
     if (error) return <Error error="Failed to load active orders" />;
     
     return (
-        {% raw %}<Box sx={{ p: 3 }}>{% endraw %}
-            {% raw %}<Typography variant="h4" sx={{ mb: 3 }}>{% endraw %}
+        <Box sx={{ p: 3 }}>
+            <Typography variant="h4" sx={{ mb: 3 }}>
                 Delivery Dashboard
             </Typography>
             
             <Grid container spacing={3}>
                 <Grid item xs={12} md={8}>
-                    {% raw %}<Paper elevation={3} sx={{ height: '70vh', p: 2 }}>{% endraw %}
-                        {% raw %}<Typography variant="h6" sx={{ mb: 2 }}>{% endraw %}
+                    <Paper elevation={3} sx={{ height: '70vh', p: 2 }}>
+                        <Typography variant="h6" sx={{ mb: 2 }}>
                             Active Deliveries Map
                         </Typography>
                         
                         <Box 
                             ref={mapRef} 
-                            {% raw %}sx={{ {% endraw %}
+                            sx={{ 
                                 width: '100%', 
                                 height: 'calc(100% - 40px)',
                                 borderRadius: 1,
@@ -1681,12 +1677,12 @@ const DeliveryDashboard = () => {
                 </Grid>
                 
                 <Grid item xs={12} md={4}>
-                    {% raw %}<Card sx={{ mb: 3 }}>{% endraw %}
+                    <Card sx={{ mb: 3 }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
                                 Active Deliveries: {activeOrders.length}
                             </Typography>
-                            {% raw %}<Box sx={{ display: 'flex', gap: 1 }}>{% endraw %}
+                            <Box sx={{ display: 'flex', gap: 1 }}>
                                 <Chip 
                                     icon={<LocalShippingIcon />} 
                                     label={`Assigned: ${activeOrders.filter(o => o.delivery_status === 'assigned').length}`} 
@@ -1703,8 +1699,8 @@ const DeliveryDashboard = () => {
                         </CardContent>
                     </Card>
                     
-                    {% raw %}<Paper elevation={3} sx={{ maxHeight: 'calc(70vh - 100px)', overflow: 'auto' }}>{% endraw %}
-                        {% raw %}<Typography variant="h6" sx={{ p: 2, pb: 1 }}>{% endraw %}
+                    <Paper elevation={3} sx={{ maxHeight: 'calc(70vh - 100px)', overflow: 'auto' }}>
+                        <Typography variant="h6" sx={{ p: 2, pb: 1 }}>
                             Active Orders
                         </Typography>
                         <Divider />
@@ -1742,7 +1738,7 @@ const DeliveryDashboard = () => {
                                                             label={order.delivery_status === 'assigned' ? 'Assigned' : 'In Transit'} 
                                                             color={order.delivery_status === 'assigned' ? 'warning' : 'primary'} 
                                                             variant="outlined"
-                                                            {% raw %}sx={{ mt: 1 }}{% endraw %}
+                                                            sx={{ mt: 1 }}
                                                         />
                                                     </>
                                                 }
@@ -1900,9 +1896,9 @@ const PublicTrackingPage = () => {
     
     if (loading) {
         return (
-            {% raw %}<Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>{% endraw %}
+            <Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>
                 <CircularProgress />
-                {% raw %}<Typography variant="h6" sx={{ mt: 2 }}>{% endraw %}
+                <Typography variant="h6" sx={{ mt: 2 }}>
                     Loading order tracking...
                 </Typography>
             </Container>
@@ -1911,7 +1907,7 @@ const PublicTrackingPage = () => {
     
     if (error) {
         return (
-            {% raw %}<Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>{% endraw %}
+            <Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>
                 <Typography variant="h5" color="error" gutterBottom>
                     {error}
                 </Typography>
@@ -1925,9 +1921,9 @@ const PublicTrackingPage = () => {
     const activeStep = getStepFromStatus(order.status);
     
     return (
-        {% raw %}<Container maxWidth="md" sx={{ py: 5 }}>{% endraw %}
-            {% raw %}<Paper elevation={3} sx={{ p: 3, mb: 4 }}>{% endraw %}
-                {% raw %}<Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>{% endraw %}
+        <Container maxWidth="md" sx={{ py: 5 }}>
+            <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                     <Box>
                         <Typography variant="h4" gutterBottom>
                             Order #{order.id} Tracking
@@ -1939,7 +1935,7 @@ const PublicTrackingPage = () => {
                     {order.status === 'delivered' && (
                         <CheckCircleIcon 
                             color="success" 
-                            {% raw %}sx={{ ml: 'auto', fontSize: 40 }} {% endraw %}
+                            sx={{ ml: 'auto', fontSize: 40 }} 
                         />
                     )}
                 </Box>
@@ -1948,9 +1944,9 @@ const PublicTrackingPage = () => {
                     {steps.map((step, index) => (
                         <Step key={step.label}>
                             <StepLabel StepIconComponent={() => (
-                                {% raw %}<Box sx={{ textAlign: 'center' }}>{% endraw %}
+                                <Box sx={{ textAlign: 'center' }}>
                                     {index <= activeStep ? (
-                                        {% raw %}<Box sx={{ color: 'primary.main' }}>{% endraw %}
+                                        <Box sx={{ color: 'primary.main' }}>
                                             {step.icon}
                                         </Box>
                                     ) : step.icon}
@@ -1966,7 +1962,7 @@ const PublicTrackingPage = () => {
             <Grid container spacing={4}>
                 <Grid item xs={12} md={7}>
                     <Paper elevation={3}>
-                        {% raw %}<Box sx={{ p: 2 }}>{% endraw %}
+                        <Box sx={{ p: 2 }}>
                             <Typography variant="h6" gutterBottom>
                                 Delivery Map
                             </Typography>
@@ -1974,12 +1970,12 @@ const PublicTrackingPage = () => {
                         <Divider />
                         <Box 
                             ref={mapRef} 
-                            {% raw %}sx={{ {% endraw %}
+                            sx={{ 
                                 width: '100%', 
                                 height: 350,
                             }}
                         />
-                        {% raw %}<Box sx={{ p: 2 }}>{% endraw %}
+                        <Box sx={{ p: 2 }}>
                             <Typography variant="body2" color="textSecondary">
                                 {order.shipping_address.address}
                             </Typography>
@@ -1988,7 +1984,7 @@ const PublicTrackingPage = () => {
                 </Grid>
                 
                 <Grid item xs={12} md={5}>
-                    {% raw %}<Card sx={{ mb: 3 }}>{% endraw %}
+                    <Card sx={{ mb: 3 }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
                                 Delivery Info
@@ -2023,7 +2019,7 @@ const PublicTrackingPage = () => {
                     </Card>
                     
                     <Paper elevation={3}>
-                        {% raw %}<Box sx={{ p: 2 }}>{% endraw %}
+                        <Box sx={{ p: 2 }}>
                             <Typography variant="h6" gutterBottom>
                                 Order Status Updates
                             </Typography>

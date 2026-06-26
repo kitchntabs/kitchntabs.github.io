@@ -1,7 +1,3 @@
----
-layout: default
-title: F12-Billing-Subscriptions-Payments SUBSCRIPTION BUG FIXES
----
 
 # Subscription System Bug Fixes
 

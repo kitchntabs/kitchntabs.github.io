@@ -1,7 +1,3 @@
----
-layout: default
-title: F20-Media-Images ADDING IMAGE TO MODEL
----
 
 # Adding an Image Field to a Model in Dash Framework
 
@@ -300,7 +296,7 @@ const ZoomPortal: React.FC<ZoomPortalProps> = ({ src, alt, label, mousePosition,
   if (!isVisible) return null;
 
   return createPortal(
-    {% raw %}<div style={{{% endraw %}
+    <div style={{
       position: 'fixed',
       left: mousePosition.x + ICON_SETTINGS.PORTAL.OFFSET_X,
       top: mousePosition.y + ICON_SETTINGS.PORTAL.OFFSET_Y,
@@ -318,7 +314,7 @@ const ZoomPortal: React.FC<ZoomPortalProps> = ({ src, alt, label, mousePosition,
       <img 
         src={src} 
         alt={alt} 
-        {% raw %}style={{{% endraw %}
+        style={{
           width: ICON_SETTINGS.ZOOM.WIDTH,
           height: ICON_SETTINGS.ZOOM.HEIGHT,
           objectFit: ICON_SETTINGS.ZOOM.OBJECT_FIT,
@@ -327,7 +323,7 @@ const ZoomPortal: React.FC<ZoomPortalProps> = ({ src, alt, label, mousePosition,
         draggable={false}
       />
       {label && (
-        {% raw %}<div style={{{% endraw %}
+        <div style={{
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
           color: '#ffffff',
           fontSize: '12px',
@@ -373,11 +369,11 @@ const YourModelIconList: React.FC<IDashAutoAdminCustomFieldComponent> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onMouseMove={handleMouseMove}
-        {% raw %}style={{ display: 'inline-block' }}{% endraw %}
+        style={{ display: 'inline-block' }}
       >
         <ImagePlaceHolder
           placeHolder={
-            {% raw %}<Box sx={{{% endraw %}
+            <Box sx={{
               width: ICON_SETTINGS.THUMBNAIL.WIDTH,
               height: ICON_SETTINGS.THUMBNAIL.HEIGHT,
               display: 'flex',
@@ -387,13 +383,13 @@ const YourModelIconList: React.FC<IDashAutoAdminCustomFieldComponent> = ({
               borderRadius: 1,
               border: '1px solid #e0e0e0',
             }}>
-              {% raw %}<Box sx={{ fontSize: '10px', color: '#999', textAlign: 'center' }}>{% endraw %}
+              <Box sx={{ fontSize: '10px', color: '#999', textAlign: 'center' }}>
                 Sin imagen
               </Box>
             </Box>
           }
           src={iconUrl}
-          {% raw %}style={{{% endraw %}
+          style={{
             width: ICON_SETTINGS.THUMBNAIL.WIDTH,
             height: ICON_SETTINGS.THUMBNAIL.HEIGHT,
             objectFit: ICON_SETTINGS.THUMBNAIL.OBJECT_FIT,
@@ -443,7 +439,7 @@ const YourModelImageView: React.FC<YourModelImageProps> = ({ attribute }) => {
   }
 
   return (
-    {% raw %}<Box sx={{{% endraw %}
+    <Box sx={{
       width: 300,
       height: 104,
       display: 'flex',
@@ -456,7 +452,7 @@ const YourModelImageView: React.FC<YourModelImageProps> = ({ attribute }) => {
       <img
         src={record[attribute.listAttribute]}
         alt="Item Image"
-        {% raw %}style={{ width: '100%', height: '100%', objectFit: 'contain' }}{% endraw %}
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
       />
     </Box>
   );
@@ -536,7 +532,7 @@ const YourModelImageEdit: React.FC<YourModelImageProps> = ({ attribute }) => {
   const displayUrl = previewUrl || currentImageUrl;
 
   return (
-    {% raw %}<Card sx={{ width: '100%' }}>{% endraw %}
+    <Card sx={{ width: '100%' }}>
       <CardHeader title={attribute.label || "Imagen"} />
       <CardContent>
         <Box
@@ -545,7 +541,7 @@ const YourModelImageEdit: React.FC<YourModelImageProps> = ({ attribute }) => {
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          {% raw %}sx={{{% endraw %}
+          sx={{
             width: 300,
             height: 104,
             border: isDragging ? '2px solid #1976d2' : displayUrl ? '1px solid #e0e0e0' : '2px dashed #ccc',
@@ -569,10 +565,10 @@ const YourModelImageEdit: React.FC<YourModelImageProps> = ({ attribute }) => {
               <img
                 src={displayUrl}
                 alt="Preview"
-                {% raw %}style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}{% endraw %}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
               />
               {isDragging && (
-                {% raw %}<Box sx={{{% endraw %}
+                <Box sx={{
                   position: 'absolute',
                   top: 0, left: 0, right: 0, bottom: 0,
                   display: 'flex',
@@ -581,13 +577,13 @@ const YourModelImageEdit: React.FC<YourModelImageProps> = ({ attribute }) => {
                   backgroundColor: 'rgba(25, 118, 210, 0.8)',
                   zIndex: 1,
                 }}>
-                  {% raw %}<CloudUploadIcon sx={{ fontSize: 48, color: 'white' }} />{% endraw %}
+                  <CloudUploadIcon sx={{ fontSize: 48, color: 'white' }} />
                 </Box>
               )}
             </>
           ) : (
             <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
-              {% raw %}<CloudUploadIcon sx={{ fontSize: 48, color: isDragging ? '#1976d2' : '#ccc' }} />{% endraw %}
+              <CloudUploadIcon sx={{ fontSize: 48, color: isDragging ? '#1976d2' : '#ccc' }} />
               <Typography variant="caption" color="textSecondary" textAlign="center">
                 {isDragging ? 'Suelte la imagen aquí' : 'Arrastre una imagen o haga clic'}
               </Typography>

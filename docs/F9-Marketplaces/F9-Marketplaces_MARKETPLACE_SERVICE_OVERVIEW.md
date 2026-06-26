@@ -1,7 +1,3 @@
----
-layout: default
-title: F9-Marketplaces MARKETPLACE SERVICE OVERVIEW
----
 
 # Marketplace Service Architecture - Technical Documentation
 

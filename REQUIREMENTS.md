@@ -1,8 +1,3 @@
----
-title: Requirements Specification
-layout: default
-nav_order: 2
----
 
 # KitchnTabs — Functional & Non-Functional Requirements
 

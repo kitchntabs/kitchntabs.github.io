@@ -1,7 +1,3 @@
----
-layout: default
-title: F14-Auth-Access-Control BULK PERMISSION MANAGER ROUTE FIX
----
 
 # Bulk Permission Manager - Route Fix
 

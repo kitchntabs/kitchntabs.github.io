@@ -1,9 +1,3 @@
----
-title: Mall App - Architecture
-layout: default
-nav_order: 2
-parent: Mall Application
----
 
 # Mall App - System Architecture
 

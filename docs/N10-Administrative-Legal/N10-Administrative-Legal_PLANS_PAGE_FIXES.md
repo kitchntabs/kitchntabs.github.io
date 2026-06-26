@@ -1,7 +1,3 @@
----
-layout: default
-title: N10-Administrative-Legal PLANS PAGE FIXES
----
 
 # Plans Page Fixes - Currency Selector & Translations
 
@@ -130,7 +126,7 @@ const handleCurrencyChange = (
 ```typescript
 {/* Currency Selector */}
 {currencies && currencies.length > 1 && (
-    {% raw %}<Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>{% endraw %}
+    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
         <ToggleButtonGroup
             value={selectedCurrency}
             exclusive

@@ -1,7 +1,3 @@
----
-layout: default
-title: F18-Campaigns campaign-management-manual
----
 
 # Campaign Management Manual
 

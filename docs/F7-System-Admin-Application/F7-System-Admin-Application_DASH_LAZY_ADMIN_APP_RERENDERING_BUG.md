@@ -1,7 +1,3 @@
----
-layout: default
-title: F7-System-Admin-Application DASH LAZY ADMIN APP RERENDERING BUG
----
 
 1. @DASH-PW-PROJECT/dash-frontend/apps/dash/src/DASHAppLoader.tsx 
 2. @DASH-PW-PROJECT/dash-frontend/apps/dash/src/DASHPublicApp.tsx 

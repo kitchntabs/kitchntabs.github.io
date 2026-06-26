@@ -1,7 +1,3 @@
----
-layout: default
-title: F3-Product-Import-Export PRODUCT IMPORT SYSTEM DOCUMENTATION
----
 
 # Product Import/Export System — Technical Documentation
 

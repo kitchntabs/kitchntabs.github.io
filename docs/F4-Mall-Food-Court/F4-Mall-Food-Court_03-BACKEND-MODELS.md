@@ -1,9 +1,3 @@
----
-title: Mall App - Backend Models
-layout: default
-nav_order: 3
-parent: Mall Application
----
 
 # Mall App - Backend Models
 

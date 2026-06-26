@@ -1,7 +1,3 @@
----
-layout: default
-title: F16-AI-Agents AI AGENTS DOCUMENTATION
----
 
 # AI Agents Documentation - Voice & Image Features
 
@@ -417,7 +413,7 @@ The drawer displays:
 
 ### Implementation
 
-{% raw %}
+
 ```typescript
 const renderAnalysisDrawer = () => (
     <SwipeableDrawer
@@ -437,7 +433,7 @@ const renderAnalysisDrawer = () => (
     </SwipeableDrawer>
 );
 ```
-{% endraw %}
+
 
 ---
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: F6-Tenant-Staff-App PYTHON SERVICE TESTING
----
 
 # Python Service Testing Guide
 

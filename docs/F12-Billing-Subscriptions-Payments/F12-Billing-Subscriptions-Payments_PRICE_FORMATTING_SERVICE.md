@@ -1,7 +1,3 @@
----
-layout: default
-title: F12-Billing-Subscriptions-Payments PRICE FORMATTING SERVICE
----
 
 # Price Formatting Service
 

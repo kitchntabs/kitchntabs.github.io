@@ -1,7 +1,3 @@
----
-layout: default
-title: N3-Infrastructure-CICD HTTP2
----
 
 Why does HTTP/2 break file downloads?
 HTTP/2 multiplexes streams and handles headers differently.

@@ -1,7 +1,3 @@
----
-layout: default
-title: F11-Checkout-Gateways TRANSBANK INTEGRATION
----
 
 # KitchnTabs — Transbank Webpay Plus (PST) Integration — Full Technical Documentation
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: F15-Notifications-Messaging DASH EMAIL NOTIFICATION SYSTEM
----
 
 # Dash Email Notification System - Technical Documentation
 
@@ -246,7 +242,7 @@ The following notification classes have the `mail` channel enabled:
 - Order totals
 
 **Tenant Data Usage:**
-{% raw %}
+
 ```php
 @php
     // Normalize tenant data (handles stdClass conversion)
@@ -269,7 +265,7 @@ The following notification classes have the `mail` channel enabled:
 </tr>
 @endif
 ```
-{% endraw %}
+
 
 ### Generic Template: `notifications/generic.blade.php`
 

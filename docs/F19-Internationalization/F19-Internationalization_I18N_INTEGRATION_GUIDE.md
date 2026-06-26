@@ -1,7 +1,3 @@
----
-layout: default
-title: F19-Internationalization I18N INTEGRATION GUIDE
----
 
 # i18n Integration Guide - KitchnTabs Application
 
@@ -215,10 +211,10 @@ referenceFilters: [
 showLayout(render) {
     return (
         <Grid container spacing={2}>
-            {% raw %}<Grid size={{ xs: 12 }}>{% endraw %}
+            <Grid size={{ xs: 12 }}>
                 {render("tab.resource.layout.products")}
             </Grid>
-            {% raw %}<Grid size={{ xs: 12 }}>{% endraw %}
+            <Grid size={{ xs: 12 }}>
                 {render("tab.resource.layout.order")}
             </Grid>
         </Grid>

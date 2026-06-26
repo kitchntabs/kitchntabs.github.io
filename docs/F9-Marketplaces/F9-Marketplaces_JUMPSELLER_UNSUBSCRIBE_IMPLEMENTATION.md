@@ -1,7 +1,3 @@
----
-layout: default
-title: F9-Marketplaces JUMPSELLER UNSUBSCRIBE IMPLEMENTATION
----
 
 # Jumpseller Email Unsubscribe - Quick Implementation Guide
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: F7-System-Admin-Application SIDEBAR ARCHITECTURE
----
 
 # Sidebar Architecture
 
@@ -140,7 +136,7 @@ When `sidebarPosition` is `"top"` or `"bottom"`, the sidebar forces `effectiveNa
 [DomainHeader.tsx](file:///Users/farandal/DASH-PW-PROJECT/dash-frontend/packages/dash-admin/src/default-theme/DomainHeader.tsx) renders a burger icon visible only on small/medium screens:
 
 ```tsx
-{% raw %}<Box sx={{ display: { xs: 'flex', sm: 'flex', md: 'none' } }}>{% endraw %}
+<Box sx={{ display: { xs: 'flex', sm: 'flex', md: 'none' } }}>
     <IconButton onClick={() => NavEventManager.toggleExpanded()}>
         <MenuOpenIcon />
     </IconButton>

@@ -1,7 +1,3 @@
----
-layout: default
-title: N5-Desktop-Device-Service RASPBERRY PI SETUP
----
 
 # KitchnTabs on Raspberry Pi - Quick Setup Guide
 

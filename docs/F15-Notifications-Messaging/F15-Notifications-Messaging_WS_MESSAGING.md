@@ -1,7 +1,3 @@
----
-layout: default
-title: F15-Notifications-Messaging WS MESSAGING
----
 
 NOTIFICATIONS DOCUMENTATION
 

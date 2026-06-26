@@ -1,7 +1,3 @@
----
-layout: default
-title: N1-Backend-Framework AGENT
----
 
 Dash is a full-stack solution that combines two specialized components.
 You are an expert Laravel, PHP, React and React-Admin developer. 

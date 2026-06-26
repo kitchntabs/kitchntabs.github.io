@@ -1,7 +1,3 @@
----
-layout: default
-title: N4-Build-Toolchain MULTI ARCHITECTURE BUILD SYSTEM
----
 
 # Multi-Architecture Build System for Electron + Python Services
 

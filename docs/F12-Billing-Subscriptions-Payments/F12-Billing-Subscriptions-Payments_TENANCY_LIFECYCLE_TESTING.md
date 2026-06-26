@@ -1,7 +1,3 @@
----
-layout: default
-title: F12-Billing-Subscriptions-Payments TENANCY LIFECYCLE TESTING
----
 
 # TenancyAccount Lifecycle Management - Testing Flow
 

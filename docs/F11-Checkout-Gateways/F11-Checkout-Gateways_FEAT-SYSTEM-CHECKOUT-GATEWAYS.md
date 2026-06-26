@@ -1,7 +1,3 @@
----
-layout: default
-title: F11-Checkout-Gateways FEAT-SYSTEM-CHECKOUT-GATEWAYS
----
 
 # KitchnTabs Checkout Gateway — Technical Requirements & Implementation Plan
 
@@ -668,7 +664,7 @@ $tenantDisplayName = data_get_safe($rawTenant, 'display_name', config('app.name'
 ```
 ```blade
 @if(!empty($tenantHorizontalLogo))
-    {% raw %}<img src="{{ $tenantHorizontalLogo }}" alt="{{ $tenantDisplayName }} Logo" style="max-height: 60px;">{% endraw %}
+    <img src="{{ $tenantHorizontalLogo }}" alt="{{ $tenantDisplayName }} Logo" style="max-height: 60px;">
 @endif
 ```
 

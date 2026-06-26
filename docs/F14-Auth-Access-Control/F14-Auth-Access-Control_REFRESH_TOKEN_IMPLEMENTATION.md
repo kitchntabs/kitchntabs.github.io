@@ -1,7 +1,3 @@
----
-layout: default
-title: F14-Auth-Access-Control REFRESH TOKEN IMPLEMENTATION
----
 
 # Refresh Token Implementation
 

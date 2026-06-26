@@ -1,7 +1,3 @@
----
-layout: default
-title: F14-Auth-Access-Control BULK PERMISSION MANAGER CRUD FIX
----
 
 # Bulk Permission Manager - Complete CRUD Routes Fix
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: F12-Billing-Subscriptions-Payments FLOW PAYMENT GATEWAY
----
 
 # Flow.cl Payment Gateway Integration
 

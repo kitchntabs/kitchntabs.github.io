@@ -1,7 +1,3 @@
----
-layout: default
-title: INDEX
----
 
 # KitchnTabs Documentation Index
 

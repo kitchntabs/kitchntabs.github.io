@@ -1,7 +1,3 @@
----
-layout: default
-title: F11-Checkout-Gateways CHECKOUT GATEWAYS FEATURE
----
 
 # KitchnTabs Checkout Gateways — Full Technical Documentation
 

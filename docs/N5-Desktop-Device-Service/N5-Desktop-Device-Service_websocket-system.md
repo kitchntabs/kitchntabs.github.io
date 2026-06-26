@@ -1,7 +1,3 @@
----
-layout: default
-title: N5-Desktop-Device-Service websocket-system
----
 
 # DASH Real‑Time / WebSocket System — Technical Documentation
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: F14-Auth-Access-Control COMPLETE PERMISSION SYSTEM
----
 
 # Complete Permission System - Route-Based Implementation
 

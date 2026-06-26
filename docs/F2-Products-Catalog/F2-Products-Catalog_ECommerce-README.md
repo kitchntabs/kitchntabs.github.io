@@ -1,7 +1,3 @@
----
-layout: default
-title: F2-Products-Catalog ECommerce-README
----
 
 # ECommerce Module
 

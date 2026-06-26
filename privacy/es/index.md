@@ -1,6 +1,3 @@
----
-title: Política de Privacidad - Español
----
 
 # Política de Privacidad de KitchnTabs
 

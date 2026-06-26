@@ -1,7 +1,3 @@
----
-layout: default
-title: F8-Public-Web design-system-less-css
----
 
 # Dash Design System: Color & Theme Architecture
 

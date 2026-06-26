@@ -1,7 +1,3 @@
----
-layout: default
-title: N10-Administrative-Legal TENANT SETTINGS MODULE
----
 
 # Tenant Configuration Settings Module Documentation
 

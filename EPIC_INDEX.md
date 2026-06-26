@@ -1,7 +1,3 @@
----
-title: Epic-Based Documentation Index
-layout: default
----
 
 # KitchnTabs Documentation by Epic
 
@@ -13,7 +9,7 @@ This is the master index for navigating KitchnTabs documentation. All files are 
 
 ## Functional Epics (F1–F25)
 
-### [F1: Orders & Tabs](/docs/F1-Orders-Tabs/)
+### [F1: Orders & Tabs](/docs/F1-Orders-Tabs/F1-Orders-Tabs_DELETE_TENANCY_ACCOUNT.md)
 **Restaurant order management system with complete order lifecycle tracking.**
 
 6 documents covering tab models, order processing, hash ID security, delivery tracking, tenant lifecycle, and multi-tenant order architecture.
@@ -24,7 +20,7 @@ This is the master index for navigating KitchnTabs documentation. All files are 
 
 ---
 
-### [F2: Products & Catalog](/docs/F2-Products-Catalog/)
+### [F2: Products & Catalog](/docs/F2-Products-Catalog/F2-Products-Catalog_DISCOUNT_FEATURE.md)
 **Product information management with pricing and customization support.**
 
 Product domain models, category hierarchies, modifier groups, and pricing strategies.
@@ -35,7 +31,7 @@ Product domain models, category hierarchies, modifier groups, and pricing strate
 
 ---
 
-### [F3: Product Import / Export](/docs/F3-Product-Import-Export/)
+### [F3: Product Import / Export](/docs/F3-Product-Import-Export/F3-Product-Import-Export_PRODUCT_IMPORT_EXPORT_USER_GUIDE.md)
 **Bulk product data ingestion and export functionality.**
 
 Automated import systems with validation, error handling, and batch processing.
@@ -46,7 +42,7 @@ Automated import systems with validation, error handling, and batch processing.
 
 ---
 
-### [F4: Mall / Food Court](/docs/F4-Mall-Food-Court/)
+### [F4: Mall / Food Court](/docs/F4-Mall-Food-Court/F4-Mall-Food-Court_01-OVERVIEW.md)
 **Multi-store food court management and shared marketplace.**
 
 Complete food court ordering system with multi-tenant architecture and real-time synchronization.
@@ -57,7 +53,7 @@ Complete food court ordering system with multi-tenant architecture and real-time
 
 ---
 
-### [F5: Customer & Self-Service](/docs/F5-Customer-Self-Service/)
+### [F5: Customer & Self-Service](/docs/F5-Customer-Self-Service/F5-Customer-Self-Service_CUSTOMER_APP_COMPLETE_FLOW.md)
 **Customer-facing application and self-service ordering platform.**
 
 Mobile-first customer app with real-time tracking and WebSocket updates.
@@ -68,7 +64,7 @@ Mobile-first customer app with real-time tracking and WebSocket updates.
 
 ---
 
-### [F6: Tenant / Staff App](/docs/F6-Tenant-Staff-App/)
+### [F6: Tenant / Staff App](/docs/F6-Tenant-Staff-App/F6-Tenant-Staff-App_PYTHON_SERVICE_TESTING.md)
 **Staff and vendor management application with role-based workflows.**
 
 Real-time staff interface for order management and notifications.
@@ -79,7 +75,7 @@ Real-time staff interface for order management and notifications.
 
 ---
 
-### [F7: System Admin Application](/docs/F7-System-Admin-Application/)
+### [F7: System Admin Application](/docs/F7-System-Admin-Application/F7-System-Admin-Application_DASH-ADMIN-AUDIT.md)
 **Administrative dashboard for platform management and oversight.**
 
 Comprehensive admin portal with user management, audit trails, and system monitoring.
@@ -90,7 +86,7 @@ Comprehensive admin portal with user management, audit trails, and system monito
 
 ---
 
-### [F8: Public Web](/docs/F8-Public-Web/)
+### [F8: Public Web](/docs/F8-Public-Web/F8-Public-Web_DASH_DESIGN_SYSTEM_VARIABLES.md)
 **Public-facing website and brand presence.**
 
 Marketing site and public information portal.
@@ -101,7 +97,7 @@ Marketing site and public information portal.
 
 ---
 
-### [F9: Marketplaces](/docs/F9-Marketplaces/)
+### [F9: Marketplaces](/docs/F9-Marketplaces/F9-Marketplaces_FEAT-SYSTEM-MARKETPLACES.md)
 **Third-party marketplace integrations and synchronization.**
 
 Integrations with Jumpseller, Uber Eats, and other platforms.
@@ -112,7 +108,7 @@ Integrations with Jumpseller, Uber Eats, and other platforms.
 
 ---
 
-### [F10: Point of Sale](/docs/F10-Point-of-Sale/)
+### [F10: Point of Sale](/docs/F10-Point-of-Sale/F10-Point-of-Sale_FEAT-SYSTEM-POINT-OF-SALES.md)
 **Physical point-of-sale system integration and management.**
 
 Integration with traditional POS systems.
@@ -123,7 +119,7 @@ Integration with traditional POS systems.
 
 ---
 
-### [F11: Checkout Gateways](/docs/F11-Checkout-Gateways/)
+### [F11: Checkout Gateways](/docs/F11-Checkout-Gateways/F11-Checkout-Gateways_CHECKOUT_GATEWAYS_FEATURE.md)
 **Payment processor integrations and checkout flows.**
 
 Multi-gateway payment processing (Transbank, Mercado Pago, Flow.cl, Rebill).
@@ -134,7 +130,7 @@ Multi-gateway payment processing (Transbank, Mercado Pago, Flow.cl, Rebill).
 
 ---
 
-### [F12: Billing, Subscriptions & Payments](/docs/F12-Billing-Subscriptions-Payments/)
+### [F12: Billing, Subscriptions & Payments](/docs/F12-Billing-Subscriptions-Payments/F12-Billing-Subscriptions-Payments_BILLING_POLICY_README.md)
 **Subscription management, invoicing, and revenue operations.**
 
 Complete billing platform with subscription lifecycle and financial reporting.
@@ -145,7 +141,7 @@ Complete billing platform with subscription lifecycle and financial reporting.
 
 ---
 
-### [F13: Platform & Multi-Tenancy](/docs/F13-Platform-Multi-Tenancy/)
+### [F13: Platform & Multi-Tenancy](/docs/F13-Platform-Multi-Tenancy/F13-Platform-Multi-Tenancy_MULTI_TENANT_ASSOCIATION_APPLIED.md)
 **Core multi-tenancy architecture and tenant isolation.**
 
 Foundational multi-tenant infrastructure with data isolation.
@@ -156,7 +152,7 @@ Foundational multi-tenant infrastructure with data isolation.
 
 ---
 
-### [F14: Auth & Access Control](/docs/F14-Auth-Access-Control/)
+### [F14: Auth & Access Control](/docs/F14-Auth-Access-Control/F14-Auth-Access-Control_BULK_PERMISSION_MANAGER.md)
 **Role-based permissions and granular access control.**
 
 RBAC system with permission inheritance and permission selectors.
@@ -167,7 +163,7 @@ RBAC system with permission inheritance and permission selectors.
 
 ---
 
-### [F15: Notifications & Messaging](/docs/F15-Notifications-Messaging/)
+### [F15: Notifications & Messaging](/docs/F15-Notifications-Messaging/F15-Notifications-Messaging_AWS_SES_BOUNCE_COMPLAINT_IMPLEMENTATION.md)
 **Multi-channel notification delivery system.**
 
 Email, SMS, push notifications via AWS SES, Firebase.
@@ -178,7 +174,7 @@ Email, SMS, push notifications via AWS SES, Firebase.
 
 ---
 
-### [F16: AI Agents](/docs/F16-AI-Agents/)
+### [F16: AI Agents](/docs/F16-AI-Agents/F16-AI-Agents_AI_AGENTS_DOCUMENTATION.md)
 **Artificial intelligence and machine learning capabilities.**
 
 AI-powered features, recommendations, and automation.
@@ -189,7 +185,7 @@ AI-powered features, recommendations, and automation.
 
 ---
 
-### [F17: Inventory](/docs/F17-Inventory/)
+### F17: Inventory
 **Inventory management and stock tracking system.**
 
 Real-time stock tracking and reorder automation.
@@ -200,7 +196,7 @@ Real-time stock tracking and reorder automation.
 
 ---
 
-### [F18: Campaigns](/docs/F18-Campaigns/)
+### [F18: Campaigns](/docs/F18-Campaigns/F18-Campaigns_CAMPAIGN_MANAGER_TECHNICAL_DOCUMENTATION.md)
 **Marketing campaigns and promotional management.**
 
 Campaign creation, scheduling, and performance tracking.
@@ -211,7 +207,7 @@ Campaign creation, scheduling, and performance tracking.
 
 ---
 
-### [F19: Internationalization](/docs/F19-Internationalization/)
+### [F19: Internationalization](/docs/F19-Internationalization/F19-Internationalization_BACKEND_TRANSLATIONS.md)
 **Multi-language and localization support.**
 
 i18n infrastructure for global deployment.
@@ -222,7 +218,7 @@ i18n infrastructure for global deployment.
 
 ---
 
-### [F20: Media & Images](/docs/F20-Media-Images/)
+### [F20: Media & Images](/docs/F20-Media-Images/F20-Media-Images_ADDING_IMAGE_TO_MODEL.md)
 **Image management and media handling.**
 
 Centralized media system with CDN delivery and optimization.
@@ -233,7 +229,7 @@ Centralized media system with CDN delivery and optimization.
 
 ---
 
-### [F21: Tenancy Management](/docs/F21-Tenancy-Management/)
+### [F21: Tenancy Management](/docs/F21-Tenancy-Management/F21-Tenancy-Management_StoreScheduleFeature.md)
 **Tenant lifecycle and account management.**
 
 Tenant provisioning, customization, and termination.
@@ -244,7 +240,7 @@ Tenant provisioning, customization, and termination.
 
 ---
 
-### [F22: MiddlewareService](/docs/F22-MiddlewareService/)
+### F22: MiddlewareService
 **Service middleware and cross-cutting concerns.**
 
 Core middleware for auth, logging, rate limiting.
@@ -255,7 +251,7 @@ Core middleware for auth, logging, rate limiting.
 
 ---
 
-### [F23: DeliveryModule](/docs/F23-DeliveryModule/)
+### [F23: DeliveryModule](/docs/F23-DeliveryModule/ARCH_DELIVERY_GUIDE.md)
 **Delivery logistics and fulfillment management.**
 
 End-to-end delivery tracking and route optimization.
@@ -266,7 +262,7 @@ End-to-end delivery tracking and route optimization.
 
 ---
 
-### [F24: InventoryModule](/docs/F24-InventoryModule/)
+### F24: InventoryModule
 **Advanced inventory management and optimization.**
 
 Enterprise inventory with forecasting and multi-location support.
@@ -277,7 +273,7 @@ Enterprise inventory with forecasting and multi-location support.
 
 ---
 
-### [F25: CashcountModule](/docs/F25-CashcountModule/)
+### F25: CashcountModule
 **Cash handling and reconciliation system.**
 
 Cash management and drawer operations.
@@ -290,7 +286,7 @@ Cash management and drawer operations.
 
 ## Non-Functional Epics (N1–N10)
 
-### [N1: Backend Framework](/docs/N1-Backend-Framework/)
+### [N1: Backend Framework](/docs/N1-Backend-Framework/ARCH_README.md)
 **Core Laravel infrastructure and domain-driven design architecture.**
 
 Foundation with service layer patterns and DDD principles.
@@ -301,7 +297,7 @@ Foundation with service layer patterns and DDD principles.
 
 ---
 
-### [N2: Frontend Framework](/docs/N2-Frontend-Framework/)
+### [N2: Frontend Framework](/docs/N2-Frontend-Framework/N2-Frontend-Framework_COMPONENT_REGISTRY.md)
 **React-based component system and administrative UI framework.**
 
 React + React-Admin with design tokens and accessibility.
@@ -312,7 +308,7 @@ React + React-Admin with design tokens and accessibility.
 
 ---
 
-### [N3: Infrastructure & CI/CD](/docs/N3-Infrastructure-CICD/)
+### [N3: Infrastructure & CI/CD](/docs/N3-Infrastructure-CICD/N3-Infrastructure-CICD_CI.md)
 **Deployment infrastructure and continuous integration/deployment.**
 
 AWS CDK, CI/CD pipelines, environment management.
@@ -323,7 +319,7 @@ AWS CDK, CI/CD pipelines, environment management.
 
 ---
 
-### [N4: Build Toolchain](/docs/N4-Build-Toolchain/)
+### [N4: Build Toolchain](/docs/N4-Build-Toolchain/N4-Build-Toolchain_ELECTRON_BUILD_AND_CONFIG_SYSTEM.md)
 **Build processes and application compilation systems.**
 
 Webpack, Electron builds, multi-architecture compilation.
@@ -334,7 +330,7 @@ Webpack, Electron builds, multi-architecture compilation.
 
 ---
 
-### [N5: Desktop & Device Service](/docs/N5-Desktop-Device-Service/)
+### [N5: Desktop & Device Service](/docs/N5-Desktop-Device-Service/N5-Desktop-Device-Service_BUILD_DEBIAN_AMD64_WSL.md)
 **Electron-based desktop application and Python service integration.**
 
 Cross-platform Electron with IPC and hardware integration.
@@ -345,7 +341,7 @@ Cross-platform Electron with IPC and hardware integration.
 
 ---
 
-### [N6: Caching & Performance](/docs/N6-Caching-Performance/)
+### [N6: Caching & Performance](/docs/N6-Caching-Performance/N6-Caching-Performance_MALL_PRODUCTS_CACHE.md)
 **Performance optimization and caching strategies.**
 
 Redis caching, query optimization, performance monitoring.
@@ -356,7 +352,7 @@ Redis caching, query optimization, performance monitoring.
 
 ---
 
-### [N7: Security](/docs/N7-Security/)
+### N7: Security
 **Security practices and threat protection.**
 
 Authentication, encryption, vulnerability management.
@@ -367,7 +363,7 @@ Authentication, encryption, vulnerability management.
 
 ---
 
-### [N8: Observability](/docs/N8-Observability/)
+### N8: Observability
 **Logging, monitoring, and operational visibility.**
 
 CloudWatch, APM, real-time dashboards.
@@ -378,7 +374,7 @@ CloudWatch, APM, real-time dashboards.
 
 ---
 
-### [N9: App Publishing](/docs/N9-App-Publishing/)
+### N9: App Publishing
 **Mobile and desktop application distribution.**
 
 App store publishing, CI/CD for app releases.
@@ -389,7 +385,7 @@ App store publishing, CI/CD for app releases.
 
 ---
 
-### [N10: Administrative & Legal](/docs/N10-Administrative-Legal/)
+### [N10: Administrative & Legal](/docs/N10-Administrative-Legal/N10-Administrative-Legal_FRONTEND_ATTRIBUTES_FIELD_FIX.md)
 **Settings, utilities, and compliance documentation.**
 
 Configuration, backup, compliance requirements.
@@ -415,7 +411,7 @@ Configuration, backup, compliance requirements.
 1. **By Epic** — Use this index to explore documentation organized by product epic
 2. **By Technology** — See Non-Functional epics for architecture and infrastructure
 3. **By Feature** — See Functional epics for user-facing features
-4. **Full Index** — Visit [INDEX.md](INDEX.md) for a complete table of contents
+4. **Full Index** — Visit [docs/INDEX.md](docs/INDEX.md) for a complete table of contents
 
 ---
 

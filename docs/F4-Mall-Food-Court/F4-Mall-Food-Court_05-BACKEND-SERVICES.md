@@ -1,9 +1,3 @@
----
-title: Mall App - Backend Services
-layout: default
-nav_order: 5
-parent: Mall Application
----
 
 # Mall App - Backend Services
 

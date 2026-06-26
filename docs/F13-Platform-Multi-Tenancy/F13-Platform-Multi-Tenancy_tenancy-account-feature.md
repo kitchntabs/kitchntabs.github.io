@@ -1,7 +1,3 @@
----
-layout: default
-title: F13-Platform-Multi-Tenancy tenancy-account-feature
----
 
 # Tenancy Account Feature Documentation
 

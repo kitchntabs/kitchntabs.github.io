@@ -1,9 +1,3 @@
----
-title: Mall App - Flow Diagrams
-layout: default
-nav_order: 10
-parent: Mall Application
----
 
 # Mall App - Flow Diagrams
 

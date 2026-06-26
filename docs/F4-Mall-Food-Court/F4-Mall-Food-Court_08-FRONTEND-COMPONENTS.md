@@ -1,9 +1,3 @@
----
-title: Mall App - Frontend Components
-layout: default
-nav_order: 8
-parent: Mall Application
----
 
 # Mall App - Frontend Components
 
@@ -113,7 +107,7 @@ const MallClientTabsList: React.FC<IDashAutoAdminDataGrid> = ({ resourceConfig }
         }
     };
 
-{% raw %}
+
     return (
         <WithListContext render={({ isPending, data }) => (
             <>
@@ -165,7 +159,7 @@ const MallClientTabsList: React.FC<IDashAutoAdminDataGrid> = ({ resourceConfig }
 };
 
 export default MallClientTabsList;
-{% endraw %}
+
 
 ---
 ```
@@ -357,7 +351,7 @@ const MallSessionOrderProgress: React.FC<MallSessionOrderProgressProps> = ({ rec
         return null;
     }
 
-{% raw %}
+
     return (
         <Paper sx={{ p: 2, mb: 2 }}>
             <Typography variant="h6" gutterBottom>
@@ -385,7 +379,7 @@ const MallSessionOrderProgress: React.FC<MallSessionOrderProgressProps> = ({ rec
             ))}
         </Paper>
     );
-{% endraw %}
+
 
     export default MallSessionOrderProgress;
 ```
@@ -477,7 +471,7 @@ const MallSessionOrderNotifications: React.FC<MallSessionOrderNotificationsProps
         return null;
     }
 
-{% raw %}
+
     return (
         <Box sx={{ mb: 2 }}>
             <Typography variant="h6" gutterBottom>
@@ -517,7 +511,7 @@ const MallSessionOrderNotifications: React.FC<MallSessionOrderNotificationsProps
             ))}
         </Box>
     );
-{% endraw %}
+
 
     export default MallSessionOrderNotifications;
 ```
@@ -573,7 +567,7 @@ const MallQRGenerator: React.FC = () => {
         return `${window.location.origin}/mall/session/${hash}`;
     };
 
-{% raw %}
+
     return (
         <Box p={3}>
             <Typography variant="h4" gutterBottom>
@@ -620,7 +614,7 @@ const MallQRGenerator: React.FC = () => {
             </Grid>
         </Box>
     );
-{% endraw %}
+
 
     export default MallQRGenerator;
 ```

@@ -1,7 +1,3 @@
----
-layout: default
-title: N10-Administrative-Legal FRONTEND TENANT ATTRIBUTES REFACTORING
----
 
 # Frontend Tenant Attributes Refactoring
 

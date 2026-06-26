@@ -1,7 +1,3 @@
----
-layout: default
-title: F1-Orders-Tabs TABS MALLTABS ARCHITECTURE
----
 
 # Tabs & MallTabs Architecture - Technical Documentation
 

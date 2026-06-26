@@ -1,7 +1,3 @@
----
-layout: default
-title: F12-Billing-Subscriptions-Payments SUBSCRIPTION SYSTEM COMPLETE DOCUMENTATION
----
 
 # KitchnTabs Subscription System - Complete Documentation
 

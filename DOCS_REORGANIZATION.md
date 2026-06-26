@@ -1,7 +1,3 @@
----
-title: Documentation Reorganization Summary
-layout: default
----
 
 # Documentation Reorganization to ClickUp Epic Structure
 

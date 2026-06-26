@@ -1,7 +1,3 @@
----
-layout: default
-title: F3-Product-Import-Export PRODUCT IMPORT EXPORT USER GUIDE
----
 
 # Product Import & Export — User Guide
 

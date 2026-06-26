@@ -1,7 +1,3 @@
----
-layout: default
-title: F9-Marketplaces JUMPSELLER.PUBLISHING
----
 
 Jumpseller Product Publishing Flow
 

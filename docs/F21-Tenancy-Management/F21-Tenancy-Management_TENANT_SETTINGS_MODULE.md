@@ -1,7 +1,3 @@
----
-layout: default
-title: F21-Tenancy-Management TENANT SETTINGS MODULE
----
 
 # Tenant Configuration Settings Module Documentation
 

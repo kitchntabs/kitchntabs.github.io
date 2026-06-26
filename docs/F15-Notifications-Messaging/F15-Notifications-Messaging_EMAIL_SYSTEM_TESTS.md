@@ -1,7 +1,3 @@
----
-layout: default
-title: F15-Notifications-Messaging EMAIL SYSTEM TESTS
----
 
 # Email System Test Suite Documentation
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: F4-Mall-Food-Court KITCHNTABS MALL AUTH FLOW
----
 
 # KitchnTabs Mall Guest Authentication Flow
 

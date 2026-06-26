@@ -1,7 +1,3 @@
----
-layout: default
-title: F14-Auth-Access-Control ROLE PERMISSION VISUAL GUIDE
----
 
 # Role Permission System - Visual Overview
 

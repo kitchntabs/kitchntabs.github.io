@@ -1,7 +1,3 @@
----
-layout: default
-title: F20-Media-Images how-to-add-image-resource-to-model
----
 
 # How to Add an Image Resource to a Model Using HandlesImageUploads
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: F9-Marketplaces UBER API
----
 
 Introduction to Uber Eats Marketplace APIs
 

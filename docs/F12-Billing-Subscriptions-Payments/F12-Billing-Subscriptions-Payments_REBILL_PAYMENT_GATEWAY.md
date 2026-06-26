@@ -1,7 +1,3 @@
----
-layout: default
-title: F12-Billing-Subscriptions-Payments REBILL PAYMENT GATEWAY
----
 
 # REDBILL Payment Gateway Integration
 

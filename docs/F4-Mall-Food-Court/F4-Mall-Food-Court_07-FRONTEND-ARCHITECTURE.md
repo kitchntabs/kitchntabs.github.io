@@ -1,9 +1,3 @@
----
-title: Mall App - Frontend Architecture
-layout: default
-nav_order: 7
-parent: Mall Application
----
 
 # Mall App - Frontend Architecture
 
@@ -564,7 +558,7 @@ export const MallSessionEchoProvider: React.FC<MallSessionEchoProviderProps> = (
         setTenantStatuses({});
     };
 
-{% raw %}
+
     return (
         <MallSessionEchoContext.Provider
             value={{
@@ -580,7 +574,7 @@ export const MallSessionEchoProvider: React.FC<MallSessionEchoProviderProps> = (
             {children}
         </MallSessionEchoContext.Provider>
     );
-{% endraw %}
+
 
     export const useMallSessionEcho = () => useContext(MallSessionEchoContext);
 

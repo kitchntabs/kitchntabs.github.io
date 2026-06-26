@@ -1,7 +1,3 @@
----
-layout: default
-title: F13-Platform-Multi-Tenancy PROVISIONING SOLUTION
----
 
 # Tenant Provisioning Implementation - SOLUTION SUMMARY
 

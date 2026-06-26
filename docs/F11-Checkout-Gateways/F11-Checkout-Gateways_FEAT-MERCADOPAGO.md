@@ -1,7 +1,3 @@
----
-layout: default
-title: F11-Checkout-Gateways FEAT-MERCADOPAGO
----
 
 # KitchnTabs Checkout Gateway — Mercado Pago (Checkout Pro) Integration — Plan
 

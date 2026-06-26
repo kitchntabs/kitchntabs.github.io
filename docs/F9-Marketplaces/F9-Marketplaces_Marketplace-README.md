@@ -1,7 +1,3 @@
----
-layout: default
-title: F9-Marketplaces Marketplace-README
----
 
 # Marketplace Module
 

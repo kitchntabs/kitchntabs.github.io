@@ -1,7 +1,3 @@
----
-layout: default
-title: F11-Checkout-Gateways ML-CHECKOUT-PRO-DOCS
----
 
 # MD for: https://www.mercadopago.cl/developers/en/docs/checkout-pro/create-application.md
 
@@ -310,7 +306,7 @@ import (
 	"github.com/mercadopago/sdk-go/pkg/config"
 )
 
-{% raw %}cfg, err := config.New("{{ACCESS_TOKEN}}"){% endraw %}
+cfg, err := config.New("{{ACCESS_TOKEN}}")
 if err != nil {
 	fmt.Println(err)
 }
@@ -810,12 +806,12 @@ initMercadoPago('YOUR_PUBLIC_KEY');
 
 const App = () => {
   return (
-  {% raw %}<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '50px' }}>{% endraw %}
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '50px' }}>
   <h1>Payment Button</h1>
   <p>Click the button to make the payment.</p>
   {/* Renders the payment button */}
-  {% raw %}<div style={{ width: '300px' }}>{% endraw %}
-  {% raw %}<Wallet initialization={{ preferenceId: 'YOUR_PREFERENCE_ID' }} />{% endraw %}
+  <div style={{ width: '300px' }}>
+  <Wallet initialization={{ preferenceId: 'YOUR_PREFERENCE_ID' }} />
   </div>
   </div>
   );
@@ -2194,7 +2190,7 @@ import (
 	"github.com/mercadopago/sdk-go/pkg/preference"
 )
 
-{% raw %}cfg, err := config.New("{{ACCESS_TOKEN}}"){% endraw %}
+cfg, err := config.New("{{ACCESS_TOKEN}}")
 if err != nil {
   fmt.Println(err)
 }
@@ -2579,7 +2575,7 @@ mp.bricks().create("wallet", "wallet_container", {
 });
 ```
 ```react-jsx
-{% raw %}<Wallet initialization={{ preferenceId: '<PREFERENCE_ID>', redirectMode: 'blank' }} />{% endraw %}
+<Wallet initialization={{ preferenceId: '<PREFERENCE_ID>', redirectMode: 'blank' }} />
 ```
 ]]]
 :::
@@ -2765,7 +2761,7 @@ mp.bricks().create("wallet", "wallet_container", {
 ```
 ```react-jsx
 <Wallet
-  {% raw %}initialization={{ preferenceId: '<PREFERENCE_ID>', redirectMode: 'self' }}{% endraw %}
+  initialization={{ preferenceId: '<PREFERENCE_ID>', redirectMode: 'self' }}
   onReady={() => {}}
   onError={() => {}}
   onSubmit={() => {}}
@@ -2908,7 +2904,7 @@ Every time you make API calls, send the **Access Token** via _header_ instead of
 For example, if you perform a **GET** request to the `/users/me` resource, it would be like this:
 
 ```curl
-{% raw %}curl -H 'Authorization: Bearer {{YOUR_ACCESS_TOKEN}}' \{% endraw %}
+curl -H 'Authorization: Bearer {{YOUR_ACCESS_TOKEN}}' \
 https://api.mercadolibre.com/users/me
 ```
 
@@ -3157,7 +3153,7 @@ To consult more information about the chargeback, send a GET request to the endp
 ```
 curl --location --globoff 'https://api.mercadopago.com/v1/chargebacks/{id}' \
 --header 'Content-Type: application/json' \
-{% raw %}--header 'Authorization: Bearer {{access_token}}'{% endraw %}
+--header 'Authorization: Bearer {{access_token}}'
 ```
 
 Below is an example of a response to the request:
@@ -3190,7 +3186,7 @@ To consult more information about the chargeback, execute a GET request to the e
 ```
 curl --location 'https://api.mercadopago.com/v1/chargebacks/search?payment_id={payment_id}' \
 --header 'Content-Type: application/json' \
-{% raw %}--header 'Authorization: Bearer {{access_token}}'{% endraw %}
+--header 'Authorization: Bearer {{access_token}}'
 ```
 
 Below is an example of a response to the request:
@@ -3242,7 +3238,7 @@ At this stage, you can submit the documentation proving that the sale is valid t
 curl -X POST \
 -F 'files[]=@/path/to/file/file1.png' \
 -F 'files[]=@/path/to/file/file2.pdf' \
-{% raw %}-H 'Authorization: Bearer {{access_token}}'{% endraw %}
+-H 'Authorization: Bearer {{access_token}}'
 https://api.mercadopago.com/v1/chargebacks/{id}/documentation
 ```
 
@@ -3426,7 +3422,7 @@ Every time you make API calls, send the **Access Token** via _header_ instead of
 For example, if you perform a **GET** request to the `/users/me` resource, it would be like this:
 
 ```curl
-{% raw %}curl -H 'Authorization: Bearer {{YOUR_ACCESS_TOKEN}}' \{% endraw %}
+curl -H 'Authorization: Bearer {{YOUR_ACCESS_TOKEN}}' \
 https://api.mercadolibre.com/users/me
 ```
 

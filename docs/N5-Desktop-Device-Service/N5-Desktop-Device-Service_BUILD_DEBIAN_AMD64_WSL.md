@@ -1,7 +1,3 @@
----
-layout: default
-title: N5-Desktop-Device-Service BUILD DEBIAN AMD64 WSL
----
 
 # Building Electron App for Debian AMD64
 

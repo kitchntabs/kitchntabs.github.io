@@ -1,7 +1,3 @@
----
-layout: default
-title: F15-Notifications-Messaging EMAIL UNSUBSCRIBE IMPLEMENTATION SUMMARY
----
 
 # Email Unsubscribe System - Implementation Summary
 

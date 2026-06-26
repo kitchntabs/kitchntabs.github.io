@@ -1,7 +1,3 @@
----
-layout: default
-title: F6-Tenant-Staff-App STAFF APP COMPLETE FLOW
----
 
 # Staff App - Complete Flow Documentation
 

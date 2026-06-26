@@ -1,9 +1,3 @@
----
-title: Mall App - Notification System
-layout: default
-nav_order: 6
-parent: Mall Application
----
 
 # Mall App - Notification System
 

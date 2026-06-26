@@ -1,7 +1,3 @@
----
-layout: default
-title: N6-Caching-Performance MALL REACT QUERY CACHING SYSTEM
----
 
 # Mall React Query Caching System
 

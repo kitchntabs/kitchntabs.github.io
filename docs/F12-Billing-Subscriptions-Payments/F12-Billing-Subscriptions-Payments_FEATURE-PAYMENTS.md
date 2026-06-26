@@ -1,7 +1,3 @@
----
-layout: default
-title: F12-Billing-Subscriptions-Payments FEATURE-PAYMENTS
----
 
 DASH-PW-PROJECTWe will implement today the PointOfSales feature in the backend. 
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: ARCH README
----
 
 # .\*//Dash
 

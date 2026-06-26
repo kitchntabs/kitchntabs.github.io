@@ -1,7 +1,3 @@
----
-layout: default
-title: N4-Build-Toolchain ELECTRON BUILD AND CONFIG SYSTEM
----
 
 # Electron Build & Configuration System
 

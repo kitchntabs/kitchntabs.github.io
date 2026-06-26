@@ -1,7 +1,3 @@
----
-layout: default
-title: F15-Notifications-Messaging AWS SES EMAIL PRACTICES KITCHNTABS
----
 
 can you give me a latex version please. 
 

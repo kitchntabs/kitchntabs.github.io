@@ -1,6 +1,3 @@
----
-title: Privacy Policy - English
----
 
 # KitchnTabs Privacy Policy
 

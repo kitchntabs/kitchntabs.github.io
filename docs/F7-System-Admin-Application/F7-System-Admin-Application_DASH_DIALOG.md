@@ -1,7 +1,3 @@
----
-layout: default
-title: F7-System-Admin-Application DASH DIALOG
----
 
 # Dash Dialog Component
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: F5-Customer-Self-Service MALL SESSION NOTIFICATIONS FLOW
----
 
 # Mall Session Notifications Flow - Technical Documentation
 

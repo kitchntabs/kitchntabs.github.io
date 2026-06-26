@@ -1,7 +1,3 @@
----
-layout: default
-title: F5-Customer-Self-Service CUSTOMER APP COMPLETE FLOW
----
 
 # Customer App (Mall Client) - Complete Flow Documentation
 

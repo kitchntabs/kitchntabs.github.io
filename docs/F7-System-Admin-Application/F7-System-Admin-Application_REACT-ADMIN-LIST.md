@@ -1,7 +1,3 @@
----
-layout: default
-title: F7-System-Admin-Application REACT-ADMIN-LIST
----
 
 <List>
 The <List> component is the root component for list pages. It fetches a list of records from the data provider, puts it in a ListContext, renders the default list page layout (title, buttons, filters, pagination), and renders its children. Usual children of <List>, like <DataTable>, are responsible for displaying the list of records.
@@ -164,7 +160,7 @@ List with aside
 Pass a React element as the aside prop for that purpose:
 
 const Aside = () => (
-    {% raw %}<div style={{ width: 200, margin: '4em 1em' }}>{% endraw %}
+    <div style={{ width: 200, margin: '4em 1em' }}>
         <Typography variant="h6">Post details</Typography>
         <Typography variant="body2">
             Posts will only be published once an editor approves them
@@ -186,7 +182,7 @@ const Aside = () => {
     const { data, isPending } = useListContext();
     if (isPending) return null;
     return (
-        {% raw %}<div style={{ width: 200, margin: '4em 1em' }}>{% endraw %}
+        <div style={{ width: 200, margin: '4em 1em' }}>
             <Typography variant="h6">Posts stats</Typography>
             <Typography variant="body2">
                 Total views: {data.reduce((sum, post) => sum + post.views, 0)}
@@ -203,19 +199,19 @@ import MailIcon from '@mui/icons-material/MailOutline';
 import CategoryIcon from '@mui/icons-material/LocalOffer';
 
 export const PostFilterSidebar = () => (
-    {% raw %}<Card sx={{ order: -1, mr: 2, mt: 9, width: 200 }}>{% endraw %}
+    <Card sx={{ order: -1, mr: 2, mt: 9, width: 200 }}>
         <CardContent>
             <SavedQueriesList />
             <FilterLiveSearch />
             <FilterList label="Subscribed to newsletter" icon={<MailIcon />}>
-                {% raw %}<FilterListItem label="Yes" value={{ has_newsletter: true }} />{% endraw %}
-                {% raw %}<FilterListItem label="No" value={{ has_newsletter: false }} />{% endraw %}
+                <FilterListItem label="Yes" value={{ has_newsletter: true }} />
+                <FilterListItem label="No" value={{ has_newsletter: false }} />
             </FilterList>
             <FilterList label="Category" icon={<CategoryIcon />}>
-                {% raw %}<FilterListItem label="Tests" value={{ category: 'tests' }} />{% endraw %}
-                {% raw %}<FilterListItem label="News" value={{ category: 'news' }} />{% endraw %}
-                {% raw %}<FilterListItem label="Deals" value={{ category: 'deals' }} />{% endraw %}
-                {% raw %}<FilterListItem label="Tutorials" value={{ category: 'tutorials' }} />{% endraw %}
+                <FilterListItem label="Tests" value={{ category: 'tests' }} />
+                <FilterListItem label="News" value={{ category: 'news' }} />
+                <FilterListItem label="Deals" value={{ category: 'deals' }} />
+                <FilterListItem label="Tutorials" value={{ category: 'tutorials' }} />
             </FilterList>
         </CardContent>
     </Card>
@@ -623,7 +619,7 @@ You can choose to always filter the list, without letting the user disable this 
 
 // in src/posts.js
 export const PostList = () => (
-    {% raw %}<List filter={{ is_published: true }}>{% endraw %}
+    <List filter={{ is_published: true }}>
         ...
     </List>
 );
@@ -642,7 +638,7 @@ const postFilters = [
 ];
 
 export const PostList = () => (
-    {% raw %}<List filters={postFilters} filterDefaultValues={{ is_published: true }}>{% endraw %}
+    <List filters={postFilters} filterDefaultValues={{ is_published: true }}>
         ...
     </List>
 );
@@ -739,7 +735,7 @@ This can be useful e.g. to pass a custom meta to the dataProvider.getList() call
 import { List } from 'react-admin';
 
 const PostList = () => (
-    {% raw %}<List queryOptions={{ meta: { foo: 'bar' } }}>{% endraw %}
+    <List queryOptions={{ meta: { foo: 'bar' } }}>
         ...
     </List>
 );
@@ -759,7 +755,7 @@ const PostList = () => {
     };
 
     return (
-        {% raw %}<List queryOptions={{ onError }}>{% endraw %}
+        <List queryOptions={{ onError }}>
             ...
         </List>
     );
@@ -808,7 +804,7 @@ sort
 Pass an object literal as the sort prop to determine the default field and order used for sorting:
 
 export const PostList = () => (
-    {% raw %}<List sort={{ field: 'published_at', order: 'DESC' }}>{% endraw %}
+    <List sort={{ field: 'published_at', order: 'DESC' }}>
         ...
     </List>
 );
@@ -836,7 +832,7 @@ const NewerBooks = () => (
     <List
         resource="books"
         storeKey="newerBooks"
-        {% raw %}sort={{ field: 'year', order: 'DESC' }}{% endraw %}
+        sort={{ field: 'year', order: 'DESC' }}
     >
         <DataTable>
             <DataTable.Col source="id" />
@@ -851,7 +847,7 @@ const OlderBooks = () => (
     <List
         resource="books"
         storeKey="olderBooks"
-        {% raw %}sort={{ field: 'year', order: 'ASC' }}{% endraw %}
+        sort={{ field: 'year', order: 'ASC' }}
     >
         <DataTable>
             <DataTable source="id" />
@@ -922,7 +918,7 @@ Here is an example:
 
 const PostList = () => (
     <List
-        {% raw %}sx={{{% endraw %}
+        sx={{
             backgroundColor: 'yellow',
             '& .RaList-content': {
                 backgroundColor: 'red',
@@ -1001,7 +997,7 @@ Use the queryOptions prop to pass a custom meta to the dataProvider.getList() ca
 import { List } from 'react-admin';
 
 const PostList = () => (
-    {% raw %}<List queryOptions={{ meta: { foo: 'bar' } }}>{% endraw %}
+    <List queryOptions={{ meta: { foo: 'bar' } }}>
         ...
     </List>
 );
@@ -1035,7 +1031,7 @@ You might want to allow data to be fetched only when at least some filters have 
 export const PostList = () => (
     <List
         filters={postFilter}
-        {% raw %}queryOptions={{{% endraw %}
+        queryOptions={{
             enabled: query => {
                 const listParams = query.queryKey[2] as GetListParams;
                 return listParams.filter.q?.length > 2;
@@ -1128,8 +1124,8 @@ const Dashboard = () => (
         <Typography>Latest posts</Typography>
         <List 
             resource="posts"
-            {% raw %}sort={{ field: 'published_at', order: 'DESC' }}{% endraw %}
-            {% raw %}filter={{ is_published: true }}{% endraw %}
+            sort={{ field: 'published_at', order: 'DESC' }}
+            filter={{ is_published: true }}
             perPage={10}
         >
             <SimpleList
@@ -1140,7 +1136,7 @@ const Dashboard = () => (
         <Typography>Latest comments</Typography>
         <List
             resource="comments"
-            {% raw %}sort={{ field: 'published_at', order: 'DESC' }}{% endraw %}
+            sort={{ field: 'published_at', order: 'DESC' }}
             perPage={10}
         >
             <SimpleList
@@ -1166,8 +1162,8 @@ const Dashboard = () => (
         <Typography>Latest posts</Typography>
         <List 
             resource="posts"
-            {% raw %}sort={{ field: 'published_at', order: 'DESC' }}{% endraw %}
-            {% raw %}filter={{ is_published: true }}{% endraw %}
+            sort={{ field: 'published_at', order: 'DESC' }}
+            filter={{ is_published: true }}
             perPage={10}
             disableSyncWithLocation
         >
@@ -1179,7 +1175,7 @@ const Dashboard = () => (
         <Typography>Latest comments</Typography>
         <List
             resource="comments"
-            {% raw %}sort={{ field: 'published_at', order: 'DESC' }}{% endraw %}
+            sort={{ field: 'published_at', order: 'DESC' }}
             perPage={10}
             disableSyncWithLocation
         >

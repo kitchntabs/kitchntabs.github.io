@@ -1,7 +1,3 @@
----
-layout: default
-title: F2-Products-Catalog MODIFIER GROUPS FEATURE
----
 
 MODIFIER GROUPS FEATURE
 

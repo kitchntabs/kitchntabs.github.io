@@ -1,7 +1,3 @@
----
-layout: default
-title: F14-Auth-Access-Control PERMISSION SELECTOR LIST SOLUTION
----
 
 # Permission Selector - Material-UI Table Solution
 
@@ -74,7 +70,7 @@ PermissionsSelectorList
        actions={<PermissionListActions />}
        pagination={<PaginationComponent />}
        storeKey={`role-${record?.id}-permissions`}
-       {% raw %}queryOptions={{ enabled: false }}{% endraw %}
+       queryOptions={{ enabled: false }}
    >
    ```
 
@@ -197,7 +193,7 @@ Works with existing backend:
 
 ## Notes
 
-{% raw %}- The List component has `queryOptions={{ enabled: false }}` because we're providing data from SystemRequestsCache, not fetching from API{% endraw %}
+- The List component has `queryOptions={{ enabled: false }}` because we're providing data from SystemRequestsCache, not fetching from API
 - Uses `disableSyncWithLocation` to prevent URL state management (form already manages state)
 - Each role has unique `storeKey` to prevent state conflicts between different roles
 - Checkbox state is stored in `statePermissions` array, not in React Admin's selection model (selection model is only for visual feedback)

@@ -1,9 +1,3 @@
----
-title: Mall App - Overview
-layout: default
-nav_order: 1
-parent: Mall Application
----
 
 # KitchnTabs Mall App - Technical Documentation
 

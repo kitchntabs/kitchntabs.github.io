@@ -1,7 +1,3 @@
----
-layout: default
-title: F2-Products-Catalog DISCOUNT FEATURE
----
 
 # Discount Feature - Technical Documentation
 
@@ -127,13 +123,13 @@ Displays discount in receipt when present:
     <div>
         <span>Descuento 
             @if($tab['discount_type'] === 'percentage')
-                {% raw %}({{ $tab['discount_value'] }}%){% endraw %}
+                ({{ $tab['discount_value'] }}%)
             @endif
         </span>
-        {% raw %}<span style="color: #dc3545;">-{{ $tab['discount_amount'] }}</span>{% endraw %}
+        <span style="color: #dc3545;">-{{ $tab['discount_amount'] }}</span>
     </div>
     @if(!empty($tab['discount_reason']))
-        {% raw %}<small>{{ $tab['discount_reason'] }}</small>{% endraw %}
+        <small>{{ $tab['discount_reason'] }}</small>
     @endif
 @endif
 ```

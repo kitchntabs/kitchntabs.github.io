@@ -1,7 +1,3 @@
----
-layout: default
-title: F12-Billing-Subscriptions-Payments EVENT DRIVEN BILLING ARCHITECTURE
----
 
 # Event-Driven Billing Architecture
 

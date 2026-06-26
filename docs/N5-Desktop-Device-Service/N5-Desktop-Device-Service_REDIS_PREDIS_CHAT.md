@@ -1,7 +1,3 @@
----
-layout: default
-title: N5-Desktop-Device-Service REDIS PREDIS CHAT
----
 
 Let me check the current Dockerfile and Laravel Redis configuration to understand the setup and then enable TLS support for phpredis. 
 

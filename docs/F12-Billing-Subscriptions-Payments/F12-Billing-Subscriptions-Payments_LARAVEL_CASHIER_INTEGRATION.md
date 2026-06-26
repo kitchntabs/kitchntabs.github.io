@@ -1,7 +1,3 @@
----
-layout: default
-title: F12-Billing-Subscriptions-Payments LARAVEL CASHIER INTEGRATION
----
 
 # Laravel Cashier (Stripe) Integration Strategy
 

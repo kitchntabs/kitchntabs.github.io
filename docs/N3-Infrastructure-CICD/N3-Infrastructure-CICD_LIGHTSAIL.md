@@ -1,7 +1,3 @@
----
-layout: default
-title: N3-Infrastructure-CICD LIGHTSAIL
----
 
 # MINIMAL COST PREVIEW ENV SETUP ON LIGHTSAIL.
 

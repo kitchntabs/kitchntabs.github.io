@@ -1,7 +1,3 @@
----
-layout: default
-title: F14-Auth-Access-Control PERMISSION SELECTOR DATAGRID
----
 
 # Permission Selector DataGrid - Implementation Guide
 
@@ -282,7 +278,7 @@ yarn add @mui/x-data-grid
 - Enable column virtualization
 - Add more aggressive filtering
 
-{% raw %}
+
 ```tsx
 // In PermissionsSelectorDataGrid.tsx, update initialState:
 initialState={{
@@ -291,7 +287,7 @@ initialState={{
     },
 }}
 ```
-{% endraw %}
+
 
 ## Code Quality
 

@@ -1,7 +1,3 @@
----
-layout: default
-title: F7-System-Admin-Application DASH ADMIN FRAMEWORK
----
 
 # DASH Admin Framework - Technical Documentation
 
@@ -324,7 +320,7 @@ const fullResourceConfig: IDashAutoAdminResourceConfig = {
         rowClick: false,                   // Disable row click
     },
     dataGridWrapper: (props) => (
-        {% raw %}<TableContainer sx={{ maxHeight: 800 }}>{% endraw %}
+        <TableContainer sx={{ maxHeight: 800 }}>
             {props.children}
         </TableContainer>
     ),
@@ -643,7 +639,7 @@ const StatusSelectorView: React.FC<StatusSelectorProps> = ({ attribute }) => {
     };
     
     return (
-        {% raw %}<span style={{ color: statusColors[value] || 'gray' }}>{% endraw %}
+        <span style={{ color: statusColors[value] || 'gray' }}>
             {value || '-'}
         </span>
     );
@@ -805,7 +801,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     });
     
     return (
-        {% raw %}<SettingsContext.Provider value={{{% endraw %}
+        <SettingsContext.Provider value={{
             currencies: data?.currencies || [],
             languages: data?.languages || [],
             isLoading,

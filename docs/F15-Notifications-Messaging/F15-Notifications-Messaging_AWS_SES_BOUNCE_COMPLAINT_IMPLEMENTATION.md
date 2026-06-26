@@ -1,7 +1,3 @@
----
-layout: default
-title: F15-Notifications-Messaging AWS SES BOUNCE COMPLAINT IMPLEMENTATION
----
 
 # AWS SES Bounce & Complaint Handling - Implementation Summary
 

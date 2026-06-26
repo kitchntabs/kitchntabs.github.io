@@ -1,7 +1,3 @@
----
-layout: default
-title: N1-Backend-Framework ADDING ATTRIBUTE TO MODEL
----
 
 # Adding an Attribute to a Model in Dash Framework
 

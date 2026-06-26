@@ -1,7 +1,3 @@
----
-layout: default
-title: F5-Customer-Self-Service MALL SESSION ORDER UPDATE FLOW
----
 
 # Mall Session Order Update Flow - Technical Documentation
 

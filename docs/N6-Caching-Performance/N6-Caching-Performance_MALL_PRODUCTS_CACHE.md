@@ -1,7 +1,3 @@
----
-layout: default
-title: N6-Caching-Performance MALL PRODUCTS CACHE
----
 
 # Mall Products Server-Side Caching
 

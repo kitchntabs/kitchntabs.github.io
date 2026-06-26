@@ -1,7 +1,3 @@
----
-layout: default
-title: N4-Build-Toolchain SCAFFOLDING
----
 
 ## Basic Domain CRUD Tutorial (Todo List)
 

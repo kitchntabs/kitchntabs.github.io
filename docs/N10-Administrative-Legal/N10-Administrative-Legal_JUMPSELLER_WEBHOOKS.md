@@ -1,7 +1,3 @@
----
-layout: default
-title: N10-Administrative-Legal JUMPSELLER WEBHOOKS
----
 
 JUMPSELLER WEBHOOKS:
 

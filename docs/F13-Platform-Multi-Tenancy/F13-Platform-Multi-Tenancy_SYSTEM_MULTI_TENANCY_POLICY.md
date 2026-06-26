@@ -1,7 +1,3 @@
----
-layout: default
-title: F13-Platform-Multi-Tenancy SYSTEM MULTI TENANCY POLICY
----
 
 # SYSTEM MULTI TENANCY POLICY
 

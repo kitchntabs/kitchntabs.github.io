@@ -1,7 +1,3 @@
----
-layout: default
-title: N4-Build-Toolchain ELECTRON PYTHON SERVICE BUILD SYSTEM
----
 
 # Electron + Python Service Build System Documentation
 

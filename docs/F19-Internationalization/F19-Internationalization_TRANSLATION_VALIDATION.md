@@ -1,7 +1,3 @@
----
-layout: default
-title: F19-Internationalization TRANSLATION VALIDATION
----
 
 # Translation Key Validation Report
 
@@ -40,7 +36,7 @@ const getProductImage = (product: any) => {
     <Avatar
         src={getProductImage(item.product)}
         alt={item.product.name}
-        {% raw %}sx={{ width: 56, height: 56, mr: 2 }}{% endraw %}
+        sx={{ width: 56, height: 56, mr: 2 }}
     >
         {!getProductImage(item.product) && <FastfoodIcon />}
     </Avatar>

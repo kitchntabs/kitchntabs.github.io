@@ -1,7 +1,3 @@
----
-layout: default
-title: N10-Administrative-Legal FRONTEND ATTRIBUTES FIELD FIX
----
 
 # Frontend Attributes Field Not Populating Fix
 

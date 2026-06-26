@@ -1,7 +1,3 @@
----
-layout: default
-title: N2-Frontend-Framework COMPONENT REGISTRY
----
 
 # Component Registry
 
@@ -359,7 +355,7 @@ const TenantThemeEdit: React.FC = ({ method, tenant }) => {
 
     // DashAutoFormTabs internally uses AttributeToInput → useComponentRegistry()
     return <section>
-        {% raw %}{schema && <DashAutoFormTabs schema={schema} resourceConfig={null} options={{ mode: method }} />}{% endraw %}
+        {schema && <DashAutoFormTabs schema={schema} resourceConfig={null} options={{ mode: method }} />}
     </section>;
 };
 ```

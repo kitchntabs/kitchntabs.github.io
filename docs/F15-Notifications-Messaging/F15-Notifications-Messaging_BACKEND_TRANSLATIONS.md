@@ -1,7 +1,3 @@
----
-layout: default
-title: F15-Notifications-Messaging BACKEND TRANSLATIONS
----
 
 # Backend Translation Guide
 
@@ -142,26 +138,26 @@ class SubscriptionWelcome extends Mailable
 ### Blade Template Usage
 
 ```blade
-{% raw %}{{-- resources/views/emails/subscription-welcome.blade.php --}}{% endraw %}
+{{-- resources/views/emails/subscription-welcome.blade.php --}}
 @extends('layouts.emails')
 
 @section('content')
-    {% raw %}<h1>{{ __('emails.subscription_welcome') }}, {{ $name }}!</h1>{% endraw %}
+    <h1>{{ __('emails.subscription_welcome') }}, {{ $name }}!</h1>
     
-    {% raw %}<p>{{ __('emails.thank_you_subscribing') }} <strong>{{ $tenancyName }}</strong>.</p>{% endraw %}
+    <p>{{ __('emails.thank_you_subscribing') }} <strong>{{ $tenancyName }}</strong>.</p>
     
     <table>
         <tr>
-            {% raw %}<td>{{ __('emails.plan_label') }}:</td>{% endraw %}
-            {% raw %}<td>{{ $planName }}</td>{% endraw %}
+            <td>{{ __('emails.plan_label') }}:</td>
+            <td>{{ $planName }}</td>
         </tr>
         <tr>
-            {% raw %}<td>{{ __('emails.price_label') }}:</td>{% endraw %}
-            {% raw %}<td>{{ $planPrice }}</td>{% endraw %}
+            <td>{{ __('emails.price_label') }}:</td>
+            <td>{{ $planPrice }}</td>
         </tr>
     </table>
     
-    {% raw %}<a href="{{ $loginUrl }}">{{ __('emails.access_account_button') }}</a>{% endraw %}
+    <a href="{{ $loginUrl }}">{{ __('emails.access_account_button') }}</a>
 @endsection
 ```
 

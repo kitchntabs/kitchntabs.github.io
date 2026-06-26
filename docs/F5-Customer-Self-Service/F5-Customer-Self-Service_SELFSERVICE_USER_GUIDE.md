@@ -1,7 +1,3 @@
----
-layout: default
-title: F5-Customer-Self-Service SELFSERVICE USER GUIDE
----
 
 # Self-Service Kiosk - User Guide
 

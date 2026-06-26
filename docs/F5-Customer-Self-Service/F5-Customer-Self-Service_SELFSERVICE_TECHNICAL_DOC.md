@@ -1,7 +1,3 @@
----
-layout: default
-title: F5-Customer-Self-Service SELFSERVICE TECHNICAL DOC
----
 
 # Self-Service Kiosk - Technical Documentation
 

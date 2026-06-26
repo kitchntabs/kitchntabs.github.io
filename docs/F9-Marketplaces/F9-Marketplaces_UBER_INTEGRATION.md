@@ -1,7 +1,3 @@
----
-layout: default
-title: F9-Marketplaces UBER INTEGRATION
----
 
 ## 🍔 Uber Integration Testing Guide for POS
 
