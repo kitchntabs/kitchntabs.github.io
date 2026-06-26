@@ -1,0 +1,198 @@
+{
+  "note": "Inferred from git commit history across dash-backend and kitchntabs-frontend repos",
+  "generated": "2026-06-26T17:39:00.902497",
+  "epics": [
+    {
+      "epic_id": "F1",
+      "epic_name": "Orders & Tabs",
+      "start_date": "2025-03-07",
+      "end_date": "2026-06-24",
+      "inferred_from": "24 backend + 64 frontend commits",
+      "total_commits": 88
+    },
+    {
+      "epic_id": "F10",
+      "epic_name": "Point of Sale",
+      "start_date": "2025-04-22",
+      "end_date": "2026-06-24",
+      "inferred_from": "3 backend + 3 frontend commits",
+      "total_commits": 6
+    },
+    {
+      "epic_id": "F11",
+      "epic_name": "Checkout Gateways",
+      "start_date": "2026-01-15",
+      "end_date": "2026-06-23",
+      "inferred_from": "4 backend + 3 frontend commits",
+      "total_commits": 7
+    },
+    {
+      "epic_id": "F12",
+      "epic_name": "Billing, Subscriptions & Payments",
+      "start_date": "2026-01-15",
+      "end_date": "2026-02-19",
+      "inferred_from": "8 backend + 0 frontend commits",
+      "total_commits": 8
+    },
+    {
+      "epic_id": "F13",
+      "epic_name": "Platform & Multi-Tenancy",
+      "start_date": "2026-01-15",
+      "end_date": "2026-06-24",
+      "inferred_from": "6 backend + 0 frontend commits",
+      "total_commits": 6
+    },
+    {
+      "epic_id": "F14",
+      "epic_name": "Auth & Access Control",
+      "start_date": "2025-03-08",
+      "end_date": "2026-06-20",
+      "inferred_from": "36 backend + 23 frontend commits",
+      "total_commits": 59
+    },
+    {
+      "epic_id": "F15",
+      "epic_name": "Notifications & Messaging",
+      "start_date": "2025-03-07",
+      "end_date": "2026-05-29",
+      "inferred_from": "21 backend + 7 frontend commits",
+      "total_commits": 28
+    },
+    {
+      "epic_id": "F16",
+      "epic_name": "AI Agents",
+      "start_date": "2025-03-07",
+      "end_date": "2026-06-24",
+      "inferred_from": "45 backend + 9 frontend commits",
+      "total_commits": 54
+    },
+    {
+      "epic_id": "F19",
+      "epic_name": "Internationalization",
+      "start_date": "2025-05-25",
+      "end_date": "2026-01-15",
+      "inferred_from": "2 backend + 7 frontend commits",
+      "total_commits": 9
+    },
+    {
+      "epic_id": "F2",
+      "epic_name": "Products & Catalog",
+      "start_date": "2025-12-04",
+      "end_date": "2026-06-24",
+      "inferred_from": "130 backend + 11 frontend commits",
+      "total_commits": 141
+    },
+    {
+      "epic_id": "F20",
+      "epic_name": "Media & Images",
+      "start_date": "2025-07-18",
+      "end_date": "2026-05-20",
+      "inferred_from": "4 backend + 2 frontend commits",
+      "total_commits": 6
+    },
+    {
+      "epic_id": "F3",
+      "epic_name": "Product Import / Export",
+      "start_date": "2025-05-25",
+      "end_date": "2026-02-10",
+      "inferred_from": "3 backend + 9 frontend commits",
+      "total_commits": 12
+    },
+    {
+      "epic_id": "F4",
+      "epic_name": "Mall / Food Court",
+      "start_date": "2025-07-26",
+      "end_date": "2026-01-11",
+      "inferred_from": "2 backend + 15 frontend commits",
+      "total_commits": 17
+    },
+    {
+      "epic_id": "F5",
+      "epic_name": "Customer & Self-Service",
+      "start_date": "2026-01-09",
+      "end_date": "2026-06-20",
+      "inferred_from": "2 backend + 8 frontend commits",
+      "total_commits": 10
+    },
+    {
+      "epic_id": "F6",
+      "epic_name": "Tenant / Staff App",
+      "start_date": "2025-03-22",
+      "end_date": "2026-06-23",
+      "inferred_from": "19 backend + 11 frontend commits",
+      "total_commits": 30
+    },
+    {
+      "epic_id": "F7",
+      "epic_name": "System Admin Application",
+      "start_date": "2025-03-09",
+      "end_date": "2026-06-23",
+      "inferred_from": "4 backend + 46 frontend commits",
+      "total_commits": 50
+    },
+    {
+      "epic_id": "F8",
+      "epic_name": "Public Web",
+      "start_date": "2025-03-07",
+      "end_date": "2026-06-24",
+      "inferred_from": "13 backend + 11 frontend commits",
+      "total_commits": 24
+    },
+    {
+      "epic_id": "F9",
+      "epic_name": "Marketplaces",
+      "start_date": "2025-12-04",
+      "end_date": "2025-12-27",
+      "inferred_from": "6 backend + 1 frontend commits",
+      "total_commits": 7
+    },
+    {
+      "epic_id": "N1",
+      "epic_name": "Backend Framework",
+      "start_date": "2025-03-07",
+      "end_date": "2026-06-18",
+      "inferred_from": "5 backend + 9 frontend commits",
+      "total_commits": 14
+    },
+    {
+      "epic_id": "N2",
+      "epic_name": "Frontend Framework",
+      "start_date": "2025-03-09",
+      "end_date": "2026-01-09",
+      "inferred_from": "1 backend + 20 frontend commits",
+      "total_commits": 21
+    },
+    {
+      "epic_id": "N3",
+      "epic_name": "Infrastructure & CI/CD",
+      "start_date": "2025-04-09",
+      "end_date": "2025-04-09",
+      "inferred_from": "4 backend + 0 frontend commits",
+      "total_commits": 4
+    },
+    {
+      "epic_id": "N4",
+      "epic_name": "Build Toolchain",
+      "start_date": "2025-03-07",
+      "end_date": "2026-06-20",
+      "inferred_from": "46 backend + 47 frontend commits",
+      "total_commits": 93
+    },
+    {
+      "epic_id": "N5",
+      "epic_name": "Desktop & Device Service",
+      "start_date": "2025-11-30",
+      "end_date": "2025-11-30",
+      "inferred_from": "0 backend + 1 frontend commits",
+      "total_commits": 1
+    },
+    {
+      "epic_id": "N6",
+      "epic_name": "Caching & Performance",
+      "start_date": "2025-03-20",
+      "end_date": "2025-12-28",
+      "inferred_from": "8 backend + 2 frontend commits",
+      "total_commits": 10
+    }
+  ]
+}
