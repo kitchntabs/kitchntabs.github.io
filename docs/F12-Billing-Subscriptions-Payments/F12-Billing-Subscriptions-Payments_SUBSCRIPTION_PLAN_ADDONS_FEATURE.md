@@ -463,6 +463,7 @@ public function toArray($request): array
 
 A React context that fetches and caches both limit formats and add-on formats:
 
+{% raw %}
 ```tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAxios, idbSet, idbGet } from 'dash-admin';
@@ -547,11 +548,13 @@ export const SubscriptionPlanFormatsProvider: React.FC<Props> = ({
     );
 };
 ```
+{% endraw %}
 
 ### 2. PlanAddonsSettings Component
 
 **File:** `packages/dash-admin/src/components/subscription/PlanAddonsSettings.tsx`
 
+{% raw %}
 ```tsx
 import React from 'react';
 import { useRecordContext, useInput } from 'react-admin';
@@ -615,6 +618,7 @@ const PlanAddonsSettings: React.FC = () => {
 
 export default PlanAddonsSettings;
 ```
+{% endraw %}
 
 ### 3. Schema Integration
 

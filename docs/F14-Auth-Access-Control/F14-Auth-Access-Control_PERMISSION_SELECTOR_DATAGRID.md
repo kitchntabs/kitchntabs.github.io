@@ -282,6 +282,7 @@ yarn add @mui/x-data-grid
 - Enable column virtualization
 - Add more aggressive filtering
 
+{% raw %}
 ```tsx
 // In PermissionsSelectorDataGrid.tsx, update initialState:
 initialState={{
@@ -290,6 +291,7 @@ initialState={{
     },
 }}
 ```
+{% endraw %}
 
 ## Code Quality
 

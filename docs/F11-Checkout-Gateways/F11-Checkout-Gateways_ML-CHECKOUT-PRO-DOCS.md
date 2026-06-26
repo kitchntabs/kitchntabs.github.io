@@ -801,6 +801,7 @@ You will also need to use the payment preference ID that you obtained as a respo
 
 Next, replace the value `YOUR_PUBLIC_KEY` with your key and `YOUR_PREFERENCE_ID` with the **payment preference ID** in the `src/App.js` file. See the following example.
 
+{% raw %}
 ```JavaScript
 import React from 'react';
 import { initMercadoPago, Wallet } from '@mercadopago/sdk-react';
@@ -823,6 +824,7 @@ const App = () => {
 
 export default App;
 ```
+{% endraw %}
 
 ## Render the payment button
 
@@ -2578,9 +2580,11 @@ mp.bricks().create("wallet", "wallet_container", {
   },
 });
 ```
+{% raw %}
 ```react-jsx
 <Wallet initialization={{ preferenceId: '<PREFERENCE_ID>', redirectMode: 'blank' }} />
 ```
+{% endraw %}
 ]]]
 :::
 
@@ -2763,6 +2767,7 @@ mp.bricks().create("wallet", "wallet_container", {
   },
 });
 ```
+{% raw %}
 ```react-jsx
 <Wallet
   initialization={{ preferenceId: '<PREFERENCE_ID>', redirectMode: 'self' }}
@@ -2771,6 +2776,7 @@ mp.bricks().create("wallet", "wallet_container", {
   onSubmit={() => {}}
 />
 ```
+{% endraw %}
 ]]]
 
 | Callback | Description | When to use |
