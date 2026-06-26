@@ -1,3 +1,8 @@
+---
+layout: default
+title: N1-Backend-Framework ADDING ATTRIBUTE TO MODEL
+---
+
 # Adding an Attribute to a Model in Dash Framework
 
 This document describes the complete process of adding a new attribute to an existing model in the Dash framework, covering both backend (Laravel) and frontend (React) implementation.

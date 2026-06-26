@@ -1,3 +1,8 @@
+---
+layout: default
+title: F11-Checkout-Gateways FEAT-SYSTEM-CHECKOUT-GATEWAYS
+---
+
 # KitchnTabs Checkout Gateway — Technical Requirements & Implementation Plan
 
 > **Version:** 0.4 (partially implemented)

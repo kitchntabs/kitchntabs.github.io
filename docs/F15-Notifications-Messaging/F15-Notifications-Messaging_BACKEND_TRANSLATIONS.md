@@ -1,3 +1,8 @@
+---
+layout: default
+title: F15-Notifications-Messaging BACKEND TRANSLATIONS
+---
+
 # Backend Translation Guide
 
 This document explains how translations are implemented in the Laravel backend, including file locations, implementation patterns, and email localization.

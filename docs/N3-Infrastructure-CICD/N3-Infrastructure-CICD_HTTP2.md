@@ -1,3 +1,8 @@
+---
+layout: default
+title: N3-Infrastructure-CICD HTTP2
+---
+
 Why does HTTP/2 break file downloads?
 HTTP/2 multiplexes streams and handles headers differently.
 Some proxies/load balancers (including AWS ALB) have bugs or limitations with binary streaming, especially when using Content-Disposition: attachment for downloads.

@@ -1,3 +1,8 @@
+---
+layout: default
+title: F16-AI-Agents AI AGENTS DOCUMENTATION
+---
+
 # AI Agents Documentation - Voice & Image Features
 
 ## Overview

@@ -1,3 +1,8 @@
+---
+layout: default
+title: N2-Frontend-Framework COMPONENT REGISTRY
+---
+
 # Component Registry
 
 The **Component Registry** is a React Context-based system in `dash-auto-admin` that allows applications to register custom field components at runtime and reference them by string name in schema definitions. This enables a decoupled architecture where the backend can define form schemas (including custom component types) without the frontend needing to hardcode every component mapping.

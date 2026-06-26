@@ -1,3 +1,8 @@
+---
+layout: default
+title: F7-System-Admin-Application SIDEBAR ARCHITECTURE
+---
+
 # Sidebar Architecture
 
 Technical documentation of the sidebar implementation in the DASH Admin framework.

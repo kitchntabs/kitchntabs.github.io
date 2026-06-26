@@ -1,3 +1,8 @@
+---
+layout: default
+title: F5-Customer-Self-Service SELFSERVICE TECHNICAL DOC
+---
+
 # Self-Service Kiosk - Technical Documentation
 
 > Complete technical documentation for the Self-Service Kiosk feature, including architecture, flows, and component details.

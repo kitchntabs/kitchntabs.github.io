@@ -1,3 +1,8 @@
+---
+layout: default
+title: F19-Internationalization TRANSLATION GUIDE
+---
+
 # KitchnTabs Translation Guide
 
 ## Overview

@@ -1,3 +1,8 @@
+---
+layout: default
+title: INDEX
+---
+
 # KitchnTabs Documentation Index
 
 Complete documentation index organized by epic. Each section contains the epic description and all associated technical documents.

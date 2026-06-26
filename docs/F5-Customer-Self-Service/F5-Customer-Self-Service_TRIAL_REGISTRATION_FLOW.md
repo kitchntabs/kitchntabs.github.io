@@ -1,3 +1,8 @@
+---
+layout: default
+title: F5-Customer-Self-Service TRIAL REGISTRATION FLOW
+---
+
 # Trial Registration Flow - Technical Documentation
 
 ## Overview

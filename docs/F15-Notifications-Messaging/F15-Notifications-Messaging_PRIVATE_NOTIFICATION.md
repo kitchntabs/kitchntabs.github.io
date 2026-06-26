@@ -1,3 +1,8 @@
+---
+layout: default
+title: F15-Notifications-Messaging PRIVATE NOTIFICATION
+---
+
 $user = \App\Models\User::find(5); 
 \App\AppNotifications\AppNotificationBuilder::send(
     notificationClass: \App\AppNotifications\Notifications\PrivateMessageNotification::class,

@@ -1,3 +1,8 @@
+---
+layout: default
+title: F20-Media-Images ADDING IMAGE TO MODEL
+---
+
 # Adding an Image Field to a Model in Dash Framework
 
 This document describes the complete process of adding an image upload field to a model in the Dash framework, covering both backend (Laravel) and frontend (React) implementation.

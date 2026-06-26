@@ -1,3 +1,8 @@
+---
+layout: default
+title: N3-Infrastructure-CICD DELIVERY GUIDE
+---
+
 Migration Guide: PinoyWok Delivery System to Dash Framework
 Based on the codebase you've shared, I'll guide you through migrating the PinoyWok delivery system to your existing Dash architecture. Since you mentioned you already have messaging, Order, and Product models, we'll focus on extending those while adding the delivery tracking functionality.
 

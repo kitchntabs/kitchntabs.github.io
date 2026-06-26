@@ -1,3 +1,8 @@
+---
+layout: default
+title: F18-Campaigns CAMPAIGN MANAGER TECHNICAL DOCUMENTATION
+---
+
 # Campaign Manager & Publishing Service - Technical Documentation
 
 **Version**: 1.0  

@@ -1,3 +1,8 @@
+---
+layout: default
+title: F13-Platform-Multi-Tenancy TenancyFeature
+---
+
 # Tenancy Account Feature 
 ## High Level overview:
 

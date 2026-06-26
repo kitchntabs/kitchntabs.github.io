@@ -1,3 +1,8 @@
+---
+layout: default
+title: F1-Orders-Tabs HASH ID IMPLEMENTATION
+---
+
 # Hash ID Implementation Guide
 
 This document details the architecture and implementation steps for the 6-character alphanumeric Hash ID system used in this project. Using Hash IDs prevents exposing sequential primary keys in the API, improving security.

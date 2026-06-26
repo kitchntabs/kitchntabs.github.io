@@ -1,3 +1,8 @@
+---
+layout: default
+title: F19-Internationalization TRANSLATION VALIDATION
+---
+
 # Translation Key Validation Report
 
 ## Summary

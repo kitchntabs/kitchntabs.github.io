@@ -1,3 +1,8 @@
+---
+layout: default
+title: F8-Public-Web DASH DESIGN SYSTEM VARIABLES
+---
+
 # Dash Design System: Color & Theme Architecture
 
 ## Overview

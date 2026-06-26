@@ -1,3 +1,8 @@
+---
+layout: default
+title: F21-Tenancy-Management TENANT SETTINGS MODULE
+---
+
 # Tenant Configuration Settings Module Documentation
 
 This document outlines the architecture, interdependencies, and workflow of the Tenant Configuration Settings module in the Dash ecosystem.

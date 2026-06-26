@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments REBILL PAYMENT GATEWAY
+---
+
 # REDBILL Payment Gateway Integration
 
 REDBILL (Rebill) is a LATAM-focused payment gateway supporting Argentina, Brazil, Chile, Colombia, and Mexico.

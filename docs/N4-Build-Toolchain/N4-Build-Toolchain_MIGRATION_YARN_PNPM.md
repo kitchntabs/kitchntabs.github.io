@@ -1,3 +1,8 @@
+---
+layout: default
+title: N4-Build-Toolchain MIGRATION YARN PNPM
+---
+
 Some files (like esbuild.exe and rollup.win32-x64-msvc.node) are locked, likely by a running process (e.g., a dev server, terminal, or editor).
 
 To fix:

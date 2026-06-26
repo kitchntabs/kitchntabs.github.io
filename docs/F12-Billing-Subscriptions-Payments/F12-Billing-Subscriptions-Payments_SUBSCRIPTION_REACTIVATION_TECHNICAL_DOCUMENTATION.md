@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments SUBSCRIPTION REACTIVATION TECHNICAL DOCUMENTATION
+---
+
 # KitchnTabs Subscription Reactivation System - Technical Documentation
 
 > **Version:** 1.0  

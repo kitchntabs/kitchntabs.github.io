@@ -1,3 +1,8 @@
+---
+layout: default
+title: F7-System-Admin-Application DASH-ADMIN-AUDIT
+---
+
 # DASH Admin Audit Mechanism
 
 A comprehensive, centralized audit logging system for tracking changes to models in the DASH Admin framework. It leverages the **Spatie Laravel Activity Log** package on the backend and provides a reusable **AuditLog** component on the frontend.

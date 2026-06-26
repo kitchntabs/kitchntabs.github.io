@@ -1,3 +1,8 @@
+---
+layout: default
+title: F14-Auth-Access-Control ROLE PERMISSION SYSTEM
+---
+
 # Role & Permission System Documentation
 
 > **Last Updated:** June 2025 — Updated to reflect 4-role hierarchy, current permission counts, AccessMiddleware documentation, and compatibility with the Multi-Tenant Policy system.

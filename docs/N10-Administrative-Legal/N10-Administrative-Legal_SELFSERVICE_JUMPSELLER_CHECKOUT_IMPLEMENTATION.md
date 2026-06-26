@@ -1,3 +1,8 @@
+---
+layout: default
+title: N10-Administrative-Legal SELFSERVICE JUMPSELLER CHECKOUT IMPLEMENTATION
+---
+
 # Self-Service → Jumpseller Checkout — Implementation Plan
 
 > Status: Proposed / not yet implemented.

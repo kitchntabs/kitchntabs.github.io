@@ -1,3 +1,8 @@
+---
+layout: default
+title: F7-System-Admin-Application DASH DIALOG
+---
+
 # Dash Dialog Component
 
 The `dash-dialog` package provides a simple, imperative API for displaying confirmation dialogs in React applications.

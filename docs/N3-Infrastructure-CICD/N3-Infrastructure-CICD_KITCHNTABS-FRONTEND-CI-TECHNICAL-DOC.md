@@ -1,3 +1,8 @@
+---
+layout: default
+title: N3-Infrastructure-CICD KITCHNTABS-FRONTEND-CI-TECHNICAL-DOC
+---
+
 # KitchnTabs Frontend CI — Technical Architecture & Deployment Reference
 
 > **Scope** — This document covers the frontend CI/CD pipeline for the KitchnTabs platform:

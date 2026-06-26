@@ -1,3 +1,8 @@
+---
+layout: default
+title: F19-Internationalization DASH I18N TECHNICAL DOCUMENTATION
+---
+
 # Dash Framework - Internationalization (i18n) Technical Documentation
 
 ## Table of Contents

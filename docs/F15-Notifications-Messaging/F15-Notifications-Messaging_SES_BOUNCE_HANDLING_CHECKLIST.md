@@ -1,3 +1,8 @@
+---
+layout: default
+title: F15-Notifications-Messaging SES BOUNCE HANDLING CHECKLIST
+---
+
 # SES Bounce & Complaint Handling - Deployment Checklist
 
 ## Pre-Deployment Checklist

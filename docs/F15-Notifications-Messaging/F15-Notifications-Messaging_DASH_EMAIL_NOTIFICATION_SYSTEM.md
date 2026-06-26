@@ -1,3 +1,8 @@
+---
+layout: default
+title: F15-Notifications-Messaging DASH EMAIL NOTIFICATION SYSTEM
+---
+
 # Dash Email Notification System - Technical Documentation
 
 ## Overview

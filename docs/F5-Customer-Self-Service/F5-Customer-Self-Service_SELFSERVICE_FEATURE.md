@@ -1,3 +1,8 @@
+---
+layout: default
+title: F5-Customer-Self-Service SELFSERVICE FEATURE
+---
+
 # KitchnTabs Self-Service Kiosk — Full Technical Documentation
 
 > **Scope:** the complete self-service ("scan-to-order") feature: QR session lifecycle, guest

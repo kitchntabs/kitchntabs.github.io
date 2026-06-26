@@ -1,3 +1,8 @@
+---
+layout: default
+title: F7-System-Admin-Application DASH ADMIN FRAMEWORK
+---
+
 # DASH Admin Framework - Technical Documentation
 
 > **Version:** 2.0  

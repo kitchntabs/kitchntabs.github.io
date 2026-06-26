@@ -1,3 +1,8 @@
+---
+layout: default
+title: N1-Backend-Framework IMPLEMENTATION SUMMARY
+---
+
 # Implementation Summary: KitchnTabs Billing Policy
 
 **Date:** January 24, 2026  

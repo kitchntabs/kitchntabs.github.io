@@ -1,3 +1,8 @@
+---
+layout: default
+title: F14-Auth-Access-Control ROLE PERMISSION QUICK REFERENCE
+---
+
 # Quick Reference: Role Permission System
 
 > **Last Updated:** June 2025 — Updated for 4-role hierarchy (System, TenancyAdmin, Tenant, User).

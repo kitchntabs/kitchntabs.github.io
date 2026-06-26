@@ -1,3 +1,8 @@
+---
+layout: default
+title: F14-Auth-Access-Control BULK PERMISSION MANAGER ARCHITECTURE
+---
+
 # Bulk Permission Manager - System Architecture Diagram
 
 ## High-Level Architecture

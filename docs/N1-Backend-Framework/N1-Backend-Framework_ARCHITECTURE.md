@@ -1,3 +1,8 @@
+---
+layout: default
+title: N1-Backend-Framework ARCHITECTURE
+---
+
 # DASH Backend Architecture Documentation
 
 > **Version**: 1.0.0  

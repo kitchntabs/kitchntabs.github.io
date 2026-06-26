@@ -1,3 +1,8 @@
+---
+layout: default
+title: N5-Desktop-Device-Service websocket-system
+---
+
 # DASH Real‑Time / WebSocket System — Technical Documentation
 
 This document describes the end‑to‑end real‑time signaling system used by the DASH

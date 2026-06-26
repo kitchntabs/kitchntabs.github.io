@@ -1,3 +1,8 @@
+---
+layout: default
+title: F9-Marketplaces JUMPSELLER.PUBLISHING
+---
+
 Jumpseller Product Publishing Flow
 
 The Jumpseller product publishing process uses a multi-layered job architecture to handle large-scale product publishing operations efficiently. 

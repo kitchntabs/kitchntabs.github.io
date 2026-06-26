@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments SUBSCRIPTION PLAN ADDONS FEATURE
+---
+
 # Subscription Plan Add-ons Feature - Technical Documentation
 
 > **Version:** 1.0  

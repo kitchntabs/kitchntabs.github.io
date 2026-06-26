@@ -1,3 +1,8 @@
+---
+layout: default
+title: F4-Mall-Food-Court Mall-README
+---
+
 # Mall Module
 
 > Multi-tenant food court / mall session management.

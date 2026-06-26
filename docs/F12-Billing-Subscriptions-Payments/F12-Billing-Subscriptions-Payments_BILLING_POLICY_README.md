@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments BILLING POLICY README
+---
+
 # ✅ KitchnTabs Billing Policy - Implementation Complete
 
 ## Quick Start

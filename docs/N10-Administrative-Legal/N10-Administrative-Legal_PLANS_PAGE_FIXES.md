@@ -1,3 +1,8 @@
+---
+layout: default
+title: N10-Administrative-Legal PLANS PAGE FIXES
+---
+
 # Plans Page Fixes - Currency Selector & Translations
 
 ## Summary of Changes

@@ -1,3 +1,8 @@
+---
+layout: default
+title: F5-Customer-Self-Service SELFSERVICE USER GUIDE
+---
+
 # Self-Service Kiosk - User Guide
 
 > A comprehensive guide for restaurant staff and managers on how to set up and use the Self-Service Kiosk feature.

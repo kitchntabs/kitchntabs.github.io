@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments FLOW PAYMENT GATEWAY
+---
+
 # Flow.cl Payment Gateway Integration
 
 Flow.cl is Chile's leading payment gateway, supporting Chile, Peru, and Mexico with card payments, bank transfers, and local payment methods.

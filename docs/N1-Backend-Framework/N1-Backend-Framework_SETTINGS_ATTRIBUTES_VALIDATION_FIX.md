@@ -1,3 +1,8 @@
+---
+layout: default
+title: N1-Backend-Framework SETTINGS ATTRIBUTES VALIDATION FIX
+---
+
 # Settings & Attributes Validation Fix
 
 ## Problem

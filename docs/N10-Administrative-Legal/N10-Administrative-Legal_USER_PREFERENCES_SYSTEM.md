@@ -1,3 +1,8 @@
+---
+layout: default
+title: N10-Administrative-Legal USER PREFERENCES SYSTEM
+---
+
 # User Preferences System - Technical Documentation
 
 ## Table of Contents

@@ -1,3 +1,8 @@
+---
+layout: default
+title: F2-Products-Catalog DISCOUNT FEATURE
+---
+
 # Discount Feature - Technical Documentation
 
 ## Overview

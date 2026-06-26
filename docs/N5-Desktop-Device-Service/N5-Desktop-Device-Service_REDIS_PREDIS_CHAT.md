@@ -1,3 +1,8 @@
+---
+layout: default
+title: N5-Desktop-Device-Service REDIS PREDIS CHAT
+---
+
 Let me check the current Dockerfile and Laravel Redis configuration to understand the setup and then enable TLS support for phpredis. 
 
 Read [](file:///Users/farandal/DASH-PW-PROJECT/dash-backend/Dockerfile#70-70), lines 70 to 120

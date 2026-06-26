@@ -1,3 +1,8 @@
+---
+layout: default
+title: F20-Media-Images GALLERY IMAGE ORDERING
+---
+
 # Gallery Image Ordering Feature
 
 ## Overview

@@ -1,3 +1,8 @@
+---
+layout: default
+title: F15-Notifications-Messaging WS MESSAGING
+---
+
 NOTIFICATIONS DOCUMENTATION
 
 Sending an event: Example @ dash-backend/app/Http/Controllers/API/Messaging/WebSocketTestController.php

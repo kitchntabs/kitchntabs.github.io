@@ -1,3 +1,8 @@
+---
+layout: default
+title: F15-Notifications-Messaging DASH NOTIFICATIONS CATALOG
+---
+
 # Dash Notifications Catalog
 
 This document lists all notifications sent by the KitchnTabs system, including their purpose, when they occur, who receives them, and through which channels they are delivered.

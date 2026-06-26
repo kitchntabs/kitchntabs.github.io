@@ -1,3 +1,8 @@
+---
+layout: default
+title: F7-System-Admin-Application REACT-ADMIN-LIST
+---
+
 <List>
 The <List> component is the root component for list pages. It fetches a list of records from the data provider, puts it in a ListContext, renders the default list page layout (title, buttons, filters, pagination), and renders its children. Usual children of <List>, like <DataTable>, are responsible for displaying the list of records.
 

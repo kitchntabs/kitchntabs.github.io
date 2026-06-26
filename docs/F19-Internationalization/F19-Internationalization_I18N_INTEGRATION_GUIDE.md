@@ -1,3 +1,8 @@
+---
+layout: default
+title: F19-Internationalization I18N INTEGRATION GUIDE
+---
+
 # i18n Integration Guide - KitchnTabs Application
 
 ## Overview

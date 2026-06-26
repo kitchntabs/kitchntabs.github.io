@@ -1,3 +1,8 @@
+---
+layout: default
+title: F18-Campaigns CampaignPublishingSystemTD
+---
+
 # Campaign Publishing System - Technical Documentation
 
 ## Overview

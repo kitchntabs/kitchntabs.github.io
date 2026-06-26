@@ -1,3 +1,8 @@
+---
+layout: default
+title: F15-Notifications-Messaging DEPLOY SES BOUNCE HANDLING
+---
+
 # Quick Deployment Guide: SES Bounce & Complaint Handling
 
 ## Prerequisites

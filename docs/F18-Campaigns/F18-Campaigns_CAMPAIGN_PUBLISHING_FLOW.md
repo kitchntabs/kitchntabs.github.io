@@ -1,3 +1,8 @@
+---
+layout: default
+title: F18-Campaigns CAMPAIGN PUBLISHING FLOW
+---
+
 # Campaign Publishing Flow Documentation
 
 ## Table of Contents

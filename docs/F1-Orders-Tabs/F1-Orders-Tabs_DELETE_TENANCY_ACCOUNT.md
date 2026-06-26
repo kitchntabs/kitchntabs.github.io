@@ -1,3 +1,8 @@
+---
+layout: default
+title: F1-Orders-Tabs DELETE TENANCY ACCOUNT
+---
+
 # Delete Tenancy Account Command
 
 ## Overview

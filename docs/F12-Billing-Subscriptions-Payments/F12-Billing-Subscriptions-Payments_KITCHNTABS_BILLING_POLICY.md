@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments KITCHNTABS BILLING POLICY
+---
+
 # KitchnTabs Billing Policy
 
 > **Version:** 1.0  

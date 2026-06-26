@@ -1,3 +1,8 @@
+---
+layout: default
+title: F11-Checkout-Gateways ML-CHECKOUT-PRO-DOCS
+---
+
 # MD for: https://www.mercadopago.cl/developers/en/docs/checkout-pro/create-application.md
 
 

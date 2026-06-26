@@ -1,3 +1,8 @@
+---
+layout: default
+title: N10-Administrative-Legal JUMPSELLER INTEGRATION
+---
+
 # Jumpseller Integration - Technical Documentation
 
 ## Table of Contents

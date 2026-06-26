@@ -1,3 +1,8 @@
+---
+layout: default
+title: F14-Auth-Access-Control COMPLETE PERMISSION SYSTEM
+---
+
 # Complete Permission System - Route-Based Implementation
 
 > **Last Updated:** June 2025 — Updated for 4-role hierarchy and current permission counts.

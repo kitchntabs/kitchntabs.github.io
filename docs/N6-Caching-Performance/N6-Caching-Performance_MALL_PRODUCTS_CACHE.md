@@ -1,3 +1,8 @@
+---
+layout: default
+title: N6-Caching-Performance MALL PRODUCTS CACHE
+---
+
 # Mall Products Server-Side Caching
 
 This document explains the server-side caching implementation for Mall Products API to handle multiple requests efficiently.

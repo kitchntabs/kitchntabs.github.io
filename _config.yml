@@ -60,3 +60,11 @@ exclude:
   - README.md
   - LICENSE
   - node_modules/
+
+# Defaults
+defaults:
+  - scope:
+      path: "docs/**/*.md"
+    values:
+      layout: default
+      permalink: /:path/

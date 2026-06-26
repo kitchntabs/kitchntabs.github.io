@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments LARAVEL CASHIER INTEGRATION
+---
+
 # Laravel Cashier (Stripe) Integration Strategy
 
 > **Purpose:** Integrate Laravel Cashier with our existing Tenancy & Billing system for seamless Stripe compatibility.

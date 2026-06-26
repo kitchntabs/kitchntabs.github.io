@@ -1,3 +1,8 @@
+---
+layout: default
+title: F20-Media-Images how-to-add-image-resource-to-model
+---
+
 # How to Add an Image Resource to a Model Using HandlesImageUploads
 
 This guide describes the requirements and process to add an image (or icon) upload and serving capability to a Laravel Eloquent model using the `HandlesImageUploads` trait.

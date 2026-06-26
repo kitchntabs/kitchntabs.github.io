@@ -1,3 +1,8 @@
+---
+layout: default
+title: F14-Auth-Access-Control ROLE PERMISSION VISUAL GUIDE
+---
+
 # Role Permission System - Visual Overview
 
 > **Last Updated:** June 2025 — Updated for 4-role hierarchy and current permission counts.

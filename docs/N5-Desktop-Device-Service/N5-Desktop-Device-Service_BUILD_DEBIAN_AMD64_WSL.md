@@ -1,3 +1,8 @@
+---
+layout: default
+title: N5-Desktop-Device-Service BUILD DEBIAN AMD64 WSL
+---
+
 # Building Electron App for Debian AMD64
 
 This guide walks through building and packaging the KitchenTabs Electron application for Debian AMD64 architecture.

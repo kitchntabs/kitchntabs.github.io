@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments PAYMENT-GATEWAY-TESTS
+---
+
 
 # Test gateway connectivity
 php artisan gateways:test

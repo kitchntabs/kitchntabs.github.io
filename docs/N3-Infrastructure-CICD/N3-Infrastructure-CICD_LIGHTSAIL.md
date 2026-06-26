@@ -1,3 +1,8 @@
+---
+layout: default
+title: N3-Infrastructure-CICD LIGHTSAIL
+---
+
 # MINIMAL COST PREVIEW ENV SETUP ON LIGHTSAIL.
 
 A minimal preview setup that can be scaled in staging and production environments later. 

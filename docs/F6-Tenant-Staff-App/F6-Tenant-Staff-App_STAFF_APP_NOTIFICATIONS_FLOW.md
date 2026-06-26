@@ -1,3 +1,8 @@
+---
+layout: default
+title: F6-Tenant-Staff-App STAFF APP NOTIFICATIONS FLOW
+---
+
 # Staff App Notifications Flow
 
 ## Overview

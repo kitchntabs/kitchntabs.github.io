@@ -1,3 +1,8 @@
+---
+layout: default
+title: N5-Desktop-Device-Service dev-notes
+---
+
 # Migraciones necesarias:
     -   Agregar columna 'expires_at' (not) a la tabla de personal_access_tokens
         ALTER TABLE public.personal_access_tokens ADD expires_at timestamptz NULL;

@@ -1,3 +1,8 @@
+---
+layout: default
+title: N10-Administrative-Legal JUMPSELLER WEBHOOKS
+---
+
 JUMPSELLER WEBHOOKS:
 
 WEBHOOK TOKEN: 9d60ae2b2f34d97f4911091cb870bf64

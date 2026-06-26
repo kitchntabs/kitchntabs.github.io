@@ -1,3 +1,8 @@
+---
+layout: default
+title: F4-Mall-Food-Court KITCHNTABS MALL AUTHENTICATION FLOW
+---
+
 # KitchnTabs Mall - Authentication Flow Technical Documentation
 
 ## Overview

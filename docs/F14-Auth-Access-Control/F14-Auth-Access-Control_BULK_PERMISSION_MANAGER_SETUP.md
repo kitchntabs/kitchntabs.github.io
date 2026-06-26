@@ -1,3 +1,8 @@
+---
+layout: default
+title: F14-Auth-Access-Control BULK PERMISSION MANAGER SETUP
+---
+
 # Bulk Permission Manager - Quick Setup Guide
 
 ## Overview

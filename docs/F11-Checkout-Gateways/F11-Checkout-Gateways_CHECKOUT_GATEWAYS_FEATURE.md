@@ -1,3 +1,8 @@
+---
+layout: default
+title: F11-Checkout-Gateways CHECKOUT GATEWAYS FEATURE
+---
+
 # KitchnTabs Checkout Gateways — Full Technical Documentation
 
 > **Scope:** the Checkout Gateway Providers (CGP) feature — the three-tier provider model, the

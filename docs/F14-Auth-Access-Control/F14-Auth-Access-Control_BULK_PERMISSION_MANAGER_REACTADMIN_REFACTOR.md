@@ -1,3 +1,8 @@
+---
+layout: default
+title: F14-Auth-Access-Control BULK PERMISSION MANAGER REACTADMIN REFACTOR
+---
+
 # Bulk Permission Manager - ReactAdminBaseController Refactoring & Super Admin Fix
 
 ## Issue Resolved

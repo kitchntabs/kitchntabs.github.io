@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments PAYMENT GATEWAYS
+---
+
 # Payment Gateway Integration Guide
 
 This document covers the integration of external payment gateways for tenancy billing in the DASH platform.

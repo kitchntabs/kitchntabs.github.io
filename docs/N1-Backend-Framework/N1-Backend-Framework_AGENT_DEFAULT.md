@@ -1,3 +1,8 @@
+---
+layout: default
+title: N1-Backend-Framework AGENT DEFAULT
+---
+
 -Use sail if needed.
 -Dont use 2>&1 in outputs.
 -Always read the files in the context and analyze them before evaluating the solution in the current context window. 

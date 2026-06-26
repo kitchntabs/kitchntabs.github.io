@@ -1,3 +1,8 @@
+---
+layout: default
+title: F1-Orders-Tabs Tab-README
+---
+
 # Tab Module
 
 > Restaurant order/tab management for the DASH platform.

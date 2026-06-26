@@ -1,3 +1,8 @@
+---
+layout: default
+title: F3-Product-Import-Export PRODUCT IMPORT EXPORT USER GUIDE
+---
+
 # Product Import & Export — User Guide
 
 This guide explains how to export your product catalog to Excel, edit it, and import it back into the system. No technical knowledge is required.

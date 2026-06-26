@@ -1,3 +1,8 @@
+---
+layout: default
+title: F13-Platform-Multi-Tenancy TENANT SWITCHING FEATURE
+---
+
 # Tenancy–Tenant Switching Feature
 
 ## Overview

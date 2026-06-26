@@ -1,3 +1,8 @@
+---
+layout: default
+title: F14-Auth-Access-Control PERMISSION FRONTEND BACKEND FIX
+---
+
 # Permission System Frontend-Backend Integration Fix
 
 ## Problem Identified

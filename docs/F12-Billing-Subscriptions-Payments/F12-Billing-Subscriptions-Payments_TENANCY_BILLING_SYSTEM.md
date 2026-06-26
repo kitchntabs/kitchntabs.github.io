@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments TENANCY BILLING SYSTEM
+---
+
 # DASH Tenancy & Billing System - Technical Documentation
 
 > **Version:** 1.0  

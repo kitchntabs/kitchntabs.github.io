@@ -1,3 +1,8 @@
+---
+layout: default
+title: F12-Billing-Subscriptions-Payments FEATURE-PAYMENTS
+---
+
 DASH-PW-PROJECTWe will implement today the PointOfSales feature in the backend. 
 
 When a tab is created, its also created an order, but the order has not a associated payment yet, until it is marked as paid.

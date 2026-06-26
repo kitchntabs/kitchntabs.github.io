@@ -1,3 +1,8 @@
+---
+layout: default
+title: F18-Campaigns Cloudwatch.success.uber-campaign.publishing
+---
+
 **CloudWatch Logs Live tail**              
 Region: us-east-2              
 Log group name(s): arn:aws:logs:us-east-2:635862864028:log-group:kitchntabs-bk-production-loggroup:*             

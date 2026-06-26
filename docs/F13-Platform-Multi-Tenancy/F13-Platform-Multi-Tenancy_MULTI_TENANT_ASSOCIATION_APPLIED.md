@@ -1,3 +1,8 @@
+---
+layout: default
+title: F13-Platform-Multi-Tenancy MULTI TENANT ASSOCIATION APPLIED
+---
+
 # Multi-Tenant Association Pattern Applied
 
 ## Date

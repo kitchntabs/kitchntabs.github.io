@@ -1,3 +1,8 @@
+---
+layout: default
+title: N10-Administrative-Legal TYPESCRIPT INTERFACE GENERATION
+---
+
 # TypeScript Interface Generation Feature
 
 ## Overview

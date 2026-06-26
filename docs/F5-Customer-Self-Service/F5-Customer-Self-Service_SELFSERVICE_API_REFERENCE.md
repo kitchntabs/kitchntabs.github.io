@@ -1,3 +1,8 @@
+---
+layout: default
+title: F5-Customer-Self-Service SELFSERVICE API REFERENCE
+---
+
 # Self-Service Kiosk - API Reference
 
 > Complete API documentation for the Self-Service Kiosk feature.

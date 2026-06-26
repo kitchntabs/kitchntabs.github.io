@@ -1,3 +1,8 @@
+---
+layout: default
+title: F4-Mall-Food-Court KITCHNTABS MALL APPLICATION FLOW
+---
+
 # KitchnTabs Mall Application Flow
 
 ## Overview

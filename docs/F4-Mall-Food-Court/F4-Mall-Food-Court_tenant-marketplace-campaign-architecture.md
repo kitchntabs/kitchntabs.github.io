@@ -1,3 +1,8 @@
+---
+layout: default
+title: F4-Mall-Food-Court tenant-marketplace-campaign-architecture
+---
+
 # Tenant, SystemMarketplace, Marketplace & Campaign Models - Architecture Diagram
 
 ## Overview
