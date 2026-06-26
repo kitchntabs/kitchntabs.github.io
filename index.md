@@ -11,178 +11,206 @@ layout: default
 
 ## Welcome
 
-KitchnTabs is a full-stack solution that combines specialized components for restaurant and food court management, built with Laravel and React for enterprise-grade performance and scalability.
-
-### Platform Components
-
-- **Dash Backend** — Laravel-based REST API with multi-tenant architecture
-- **Dash Admin** — React-Admin dashboard for restaurant management
-- **Mall App** — QR code-based ordering system for food courts
-- **Customer App** — Mobile-first ordering experience
-- **Staff App** — Real-time order management for restaurant staff
+KitchnTabs is a full-stack solution for restaurant and food court management. Our documentation is organized by **Epic** to match our product roadmap in ClickUp.
 
 ---
 
-## 📚 Documentation Index
+## 📚 Documentation by Epic
 
-### 🏢 Mall Application
-Complete documentation for the food court ordering system.
+### 🎯 Functional Epics (F1–F25)
 
-- [Overview & Architecture](docs/mall-app/01-OVERVIEW.html)
-- [System Architecture](docs/mall-app/02-ARCHITECTURE.html)
-- [Backend Models](docs/mall-app/03-BACKEND-MODELS.html)
-- [Backend Controllers](docs/mall-app/04-BACKEND-CONTROLLERS.html)
-- [Backend Services](docs/mall-app/05-BACKEND-SERVICES.html)
-- [Notification System](docs/mall-app/06-NOTIFICATIONS.html)
-- [Frontend Architecture](docs/mall-app/07-FRONTEND-ARCHITECTURE.html)
-- [Frontend Components](docs/mall-app/08-FRONTEND-COMPONENTS.html)
-- [User Stories & Workflows](docs/mall-app/09-USER-STORIES.html)
-- [Flow Diagrams](docs/mall-app/10-FLOW-DIAGRAMS.html)
+**Product features and user-facing functionality**
 
-### 📱 Customer Application
-Mobile ordering experience documentation.
+#### [F1: Orders & Tabs](docs/F1-Orders-Tabs/)
+Restaurant order management and tab lifecycle
+- [Tab Domain Model](docs/F1-Orders-Tabs/F1-Orders-Tabs_Tab-README.md)
+- [Order Processing](docs/F1-Orders-Tabs/F1-Orders-Tabs_Order-README.md)
+- [Hash ID Security](docs/F1-Orders-Tabs/F1-Orders-Tabs_HASH_ID_IMPLEMENTATION.md)
+- [Delivery System](docs/F1-Orders-Tabs/F1-Orders-Tabs_DELIVERY.md)
+- [Tenant Lifecycle](docs/F1-Orders-Tabs/F1-Orders-Tabs_DELETE_TENANCY_ACCOUNT.md)
+- [MallTabs Architecture](docs/F1-Orders-Tabs/F1-Orders-Tabs_TABS_MALLTABS_ARCHITECTURE.md)
 
-- [Complete Customer App Flow](docs/customer-app/CUSTOMER_APP_COMPLETE_FLOW.html)
-- [Mall Session Notifications](docs/customer-app/MALL_SESSION_NOTIFICATIONS_FLOW.html)
-- [Order Update Flow](docs/customer-app/MALL_SESSION_ORDER_UPDATE_FLOW.html)
+#### [F2: Products & Catalog](docs/F2-Products-Catalog/)
+Product information management with pricing and customization
+- Browse all product documentation
 
-### 👨‍🍳 Staff Application
-Real-time order management for restaurant staff.
+#### [F3: Product Import / Export](docs/F3-Product-Import-Export/)
+Bulk product data ingestion and export functionality
+- Browse all import/export documentation
 
-- [Complete Staff App Flow](docs/staff-app/STAFF_APP_COMPLETE_FLOW.html)
-- [Staff Notifications Flow](docs/staff-app/STAFF_APP_NOTIFICATIONS_FLOW.html)
+#### [F4: Mall / Food Court](docs/F4-Mall-Food-Court/)
+Multi-store food court management and shared marketplace
+- Browse all mall application documentation
 
-### 🔐 Access Control & Security
-Role-based permission system documentation.
+#### [F5: Customer & Self-Service](docs/F5-Customer-Self-Service/)
+Customer-facing application and self-service ordering
+- Browse all customer app documentation
 
-- [Role & Permission Overview](docs/tech/features/acl/dash-role-permission-overview.html)
-- [Permission Tests](docs/tech/features/acl/permission-tests.html)
-- [Role Permission Tests](docs/tech/features/acl/role-permission-tests.html)
-- [Role Tests](docs/tech/features/acl/role-tests.html)
+#### [F6: Tenant / Staff App](docs/F6-Tenant-Staff-App/)
+Staff and vendor management with real-time order tracking
+- Browse all staff app documentation
 
-#### Bulk Permission Manager
-- [Architecture](docs/tech/features/acl/bulk-permission-manager/BULK_PERMISSION_MANAGER_ARCHITECTURE.html)
-- [Setup Guide](docs/tech/features/acl/bulk-permission-manager/BULK_PERMISSION_MANAGER_SETUP.html)
-- [Summary](docs/tech/features/acl/bulk-permission-manager/BULK_PERMISSION_MANAGER_SUMMARY.html)
+#### [F7: System Admin Application](docs/F7-System-Admin-Application/)
+Administrative dashboard for platform management
+- Browse all admin documentation
 
-### 🔔 Notification System
-Real-time and push notification documentation.
+#### [F8: Public Web](docs/F8-Public-Web/)
+Public-facing website and brand presence
+- Browse all web documentation
 
-- [Email Notification System](docs/tech/features/notifications/DASH_EMAIL_NOTIFICATION_SYSTEM.html)
-- [Notifications Catalog](docs/tech/features/notifications/DASH_NOTIFICATIONS_CATALOG.html)
-- [System Documentation](docs/tech/features/notifications/NOTIFICATION_SYSTEM_DOCUMENTATION.html)
+#### [F9: Marketplaces](docs/F9-Marketplaces/)
+Third-party marketplace integrations (Jumpseller, Uber Eats)
+- Browse all marketplace documentation
 
-### 🛒 Marketplace Integrations
-Third-party platform integration guides.
+#### [F10: Point of Sale](docs/F10-Point-of-Sale/)
+Physical POS system integration
+- Browse all POS documentation
 
-#### Jumpseller
-- [Webhook Integration](docs/tech/features/marketplaces/jumpseller/JUMPSELLER_WEBHOOKS.html)
-- [Unsubscribe Implementation](docs/tech/features/marketplaces/jumpseller/JUMPSELLER_UNSUBSCRIBE_IMPLEMENTATION.html)
+#### [F11: Checkout Gateways](docs/F11-Checkout-Gateways/)
+Payment processor integrations
+- Browse all payment gateway documentation
 
-#### Uber Eats
-- [Integration Guide](docs/tech/features/marketplaces/ubereats/UBER_INTEGRATION.html)
+#### [F12: Billing, Subscriptions & Payments](docs/F12-Billing-Subscriptions-Payments/)
+Subscription management, invoicing, and revenue operations
+- Browse all billing documentation
 
-### 🏗️ System Architecture
-Technical architecture and design patterns.
+#### [F13: Platform & Multi-Tenancy](docs/F13-Platform-Multi-Tenancy/)
+Core multi-tenancy architecture and tenant isolation
+- Browse all multi-tenancy documentation
 
-- [System Architecture Overview](docs/tech/architecture/ARCHITECTURE.html)
-- [Tabs & Mall Tabs Architecture](docs/tech/features/tabs/TABS_MALLTABS_ARCHITECTURE.html)
+#### [F14: Auth & Access Control](docs/F14-Auth-Access-Control/)
+Role-based permissions and granular access control
+- Browse all access control documentation
 
-### ⚙️ Build & Deployment
-Production build system and toolchain documentation.
+#### [F15: Notifications & Messaging](docs/F15-Notifications-Messaging/)
+Multi-channel notification delivery system
+- Browse all notification documentation
 
-- [Production Build Documentation](docs/tech/toolchain/PRODUCTION_BUILD_TECHNICAL_DOCUMENTATION.html)
-- [Electron Build Process](docs/tech/toolchain/ELECTRON_BUILD_PROCESS.html)
-- [Electron Build & Config System](docs/tech/toolchain/ELECTRON_BUILD_AND_CONFIG_SYSTEM.html)
-- [Multi-Architecture Build System](docs/tech/toolchain/MULTI_ARCHITECTURE_BUILD_SYSTEM.html)
+#### [F16: AI Agents](docs/F16-AI-Agents/)
+Artificial intelligence and machine learning capabilities
+- Browse all AI documentation
 
-### 🎨 Design System
-UI/UX design guidelines and theme system.
+#### [F17: Inventory](docs/F17-Inventory/)
+Inventory management and stock tracking system
+- Browse all inventory documentation
 
-- [Dash Design System](docs/tech/features/design/DASH_DESIGN_SYSTEM.html)
+#### [F18: Campaigns](docs/F18-Campaigns/)
+Marketing campaigns and promotional management
+- Browse all campaign documentation
 
-### 📦 Features
+#### [F19: Internationalization](docs/F19-Internationalization/)
+Multi-language and localization support
+- Browse all i18n documentation
 
-#### Product Management
-- [Product Import System](docs/tech/features/products/PRODUCT_IMPORT_SYSTEM_DOCUMENTATION.html)
+#### [F20: Media & Images](docs/F20-Media-Images/)
+Image management and media handling
+- Browse all media documentation
 
-#### Campaign Management
-- [Campaign Publishing System](docs/tech/features/campaigns/Campaign Publishing System - TD.html)
-- [Campaign Manager](docs/tech/features/campaigns/CAMPAIGN_MANAGER_TECHNICAL_DOCUMENTATION.html)
+#### [F21: Tenancy Management](docs/F21-Tenancy-Management/)
+Tenant lifecycle and account management
+- Browse all tenancy management documentation
 
-#### Media Management
-- [Image Resource Guide](docs/tech/features/images/how-to-add-image-resource-to-model.html)
+#### [F22: MiddlewareService](docs/F22-MiddlewareService/)
+Service middleware and cross-cutting concerns
+- Browse all middleware documentation
 
-#### Caching
-- [React Query Caching System](docs/tech/features/cache/MALL_REACT_QUERY_CACHING_SYSTEM.html)
+#### [F23: DeliveryModule](docs/F23-DeliveryModule/)
+Delivery logistics and fulfillment management
+- Browse all delivery documentation
 
-#### AI Integration
-- [AI Agents Documentation](docs/tech/features/ai/AI_AGENTS_DOCUMENTATION.html)
+#### [F24: InventoryModule](docs/F24-InventoryModule/)
+Advanced inventory management and optimization
+- Browse all inventory module documentation
+
+#### [F25: CashcountModule](docs/F25-CashcountModule/)
+Cash handling and reconciliation system
+- Browse all cashcount documentation
 
 ---
 
-## 🔒 Privacy & Legal
+### 🏗️ Non-Functional Epics (N1–N10)
 
-- [Privacy Policy (English)](privacy/en/)
-- [Política de Privacidad (Español)](privacy/es/)
+**Technical infrastructure and system architecture**
+
+#### [N1: Backend Framework](docs/N1-Backend-Framework/)
+Core Laravel infrastructure and domain-driven design
+- [Full Architecture](docs/N1-Backend-Framework/N1-Backend-Framework_ARCHITECTURE.md)
+- [Implementation Summary](docs/N1-Backend-Framework/N1-Backend-Framework_IMPLEMENTATION_SUMMARY.md)
+- Browse all backend documentation
+
+#### [N2: Frontend Framework](docs/N2-Frontend-Framework/)
+React-based component system and admin UI
+- Browse all frontend documentation
+
+#### [N3: Infrastructure & CI/CD](docs/N3-Infrastructure-CICD/)
+Deployment infrastructure and continuous integration
+- Browse all infrastructure documentation
+
+#### [N4: Build Toolchain](docs/N4-Build-Toolchain/)
+Build processes and application compilation
+- Browse all build documentation
+
+#### [N5: Desktop & Device Service](docs/N5-Desktop-Device-Service/)
+Electron-based desktop application and Python service integration
+- Browse all desktop documentation
+
+#### [N6: Caching & Performance](docs/N6-Caching-Performance/)
+Performance optimization and caching strategies
+- Browse all caching documentation
+
+#### [N7: Security](docs/N7-Security/)
+Security practices and threat protection
+- Browse all security documentation
+
+#### [N8: Observability](docs/N8-Observability/)
+Logging, monitoring, and operational visibility
+- Browse all observability documentation
+
+#### [N9: App Publishing](docs/N9-App-Publishing/)
+Mobile and desktop application distribution
+- Browse all app publishing documentation
+
+#### [N10: Administrative & Legal](docs/N10-Administrative-Legal/)
+Settings, utilities, and compliance documentation
+- Browse all administrative documentation
 
 ---
 
-## 🚀 Quick Start
+## 🔗 Quick Links
 
-### API Endpoint
-All API requests should be made to:
+- **[Full Documentation Index](INDEX.md)** — Complete table of contents with all documents listed
+- **[Site Map](SITEMAP.md)** — Comprehensive site structure
+- **[Contributing Guide](CONTRIBUTING.md)** — How to contribute to documentation
+- **[README](README.md)** — Repository information
+
+---
+
+## 📡 API Endpoint
+
 ```
 https://api.kitchntabs.com
 ```
 
 ### Authentication
-KitchnTabs uses Laravel Sanctum for API authentication. Include your token in the Authorization header:
-```
-Authorization: Bearer {your-token}
+
+Include your Sanctum token in requests:
+
+```bash
+curl https://api.kitchntabs.com/api/orders \
+  -H "Authorization: Bearer {your-token}"
 ```
 
 ---
 
 ## 💬 Support
 
-For technical support or questions:
-- **Documentation Issues**: Open an issue on GitHub
+- **Documentation Issues**: [GitHub Issues](https://github.com/kitchntabs/kitchntabs.github.io/issues)
 - **API Questions**: Contact your account manager
 - **Emergency Support**: Contact support team
-
----
-
-## 📖 Additional Resources
-
-- **[Complete Sitemap](SITEMAP.html)** - Comprehensive list of all documentation
-- **[Contributing Guide](CONTRIBUTING.html)** - How to contribute to documentation
-- **[README](https://github.com/kitchntabs/kitchntabs.github.io)** - Repository information
 
 ---
 
 <div class="footer-section">
   <p>© 2025 KitchnTabs. All rights reserved.</p>
   <p>Built with ❤️ for the restaurant industry</p>
-  <p style="margin-top: 1rem; font-size: 0.9rem;">
-    <a href="SITEMAP.html">Sitemap</a> • 
-    <a href="CONTRIBUTING.html">Contributing</a> • 
-    <a href="https://github.com/kitchntabs">GitHub</a>
-  </p>
 </div>
-
-- **Order Management**: Real-time order processing and tracking
-- **Multi-Tenant Architecture**: Support for multiple restaurants
-- **Marketplace Integration**: Connect with platforms like Jumpseller and Uber Eats
-- **QR Code Ordering**: Contactless ordering for food courts
-- **Analytics & Reporting**: Business intelligence tools
-
-## Support
-
-- **Email**: support@kitchntabs.com
-- **Documentation Issues**: [GitHub Issues](https://github.com/kitchntabs/kitchntabs.github.io/issues)
-- **Website**: [kitchntabs.com](https://kitchntabs.com)
-
----
-
-*Last updated: December 22, 2025*

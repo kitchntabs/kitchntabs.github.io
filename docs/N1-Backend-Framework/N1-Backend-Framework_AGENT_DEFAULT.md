@@ -1,0 +1,5 @@
+-Use sail if needed.
+-Dont use 2>&1 in outputs.
+-Always read the files in the context and analyze them before evaluating the solution in the current context window. 
+-Use MUI components
+-Frontend schema context (refer to the sampleComponent) specially regarding the view modes and the structure for the components. 

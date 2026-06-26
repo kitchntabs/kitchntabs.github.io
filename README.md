@@ -31,14 +31,26 @@ KitchnTabs is a full-stack enterprise solution for restaurant and food court man
 
 Visit our comprehensive documentation at **[kitchntabs.github.io](https://kitchntabs.github.io)**
 
-### Quick Links
+Documentation is organized by **Epic** to match the product roadmap:
 
-- **[Mall Application](https://kitchntabs.github.io/docs/mall-app/01-OVERVIEW.html)** - Food court ordering system
-- **[Customer App](https://kitchntabs.github.io/docs/customer-app/CUSTOMER_APP_COMPLETE_FLOW.html)** - Mobile ordering experience
-- **[Staff App](https://kitchntabs.github.io/docs/staff-app/STAFF_APP_COMPLETE_FLOW.html)** - Real-time order management
-- **[Access Control](https://kitchntabs.github.io/docs/tech/features/acl/dash-role-permission-overview.html)** - Role-based permissions
-- **[Notification System](https://kitchntabs.github.io/docs/tech/features/notifications/NOTIFICATION_SYSTEM_DOCUMENTATION.html)** - Real-time & push notifications
-- **[Build System](https://kitchntabs.github.io/docs/tech/toolchain/PRODUCTION_BUILD_TECHNICAL_DOCUMENTATION.html)** - Production deployment
+### Quick Links by Epic
+
+**Functional Features (F1–F25):**
+- **[F1: Orders & Tabs](https://kitchntabs.github.io/docs/F1-Orders-Tabs/)** - Order management and restaurant tabs
+- **[F4: Mall / Food Court](https://kitchntabs.github.io/docs/F4-Mall-Food-Court/)** - Multi-store ordering system
+- **[F5: Customer App](https://kitchntabs.github.io/docs/F5-Customer-Self-Service/)** - Mobile ordering experience
+- **[F6: Staff App](https://kitchntabs.github.io/docs/F6-Tenant-Staff-App/)** - Real-time order management
+- **[F14: Access Control](https://kitchntabs.github.io/docs/F14-Auth-Access-Control/)** - Role-based permissions
+- **[F15: Notifications](https://kitchntabs.github.io/docs/F15-Notifications-Messaging/)** - Multi-channel notifications
+
+**Infrastructure (N1–N10):**
+- **[N1: Backend Framework](https://kitchntabs.github.io/docs/N1-Backend-Framework/)** - Architecture & DDD patterns
+- **[N3: Infrastructure & CI/CD](https://kitchntabs.github.io/docs/N3-Infrastructure-CICD/)** - Deployment & CI/CD
+- **[N4: Build Toolchain](https://kitchntabs.github.io/docs/N4-Build-Toolchain/)** - Build system
+
+**Full Index:**
+- **[Epic Index](https://kitchntabs.github.io/EPIC_INDEX.html)** - All 35 epics with 195+ documents
+- **[Documentation Index](https://kitchntabs.github.io/INDEX.html)** - Complete table of contents
 
 ## 🏗️ Architecture
 
