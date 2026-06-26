@@ -453,10 +453,15 @@ class MallSessionNotificationStorageService
 
 ### Tab Status Progression
 
-```
-CREATED → CONFIRMED → IN_PREPARATION → PREPARED → DELIVERED → CLOSED
-                                                           ↘
-                                                        CANCELLED (from any state)
+```mermaid
+flowchart LR
+    A["CREATED"] --> B["CONFIRMED"] --> C["IN_PREPARATION"] --> D["PREPARED"] --> E["DELIVERED"] --> F["CLOSED"]
+    A -.->|"CANCELLED from any state"| G["CANCELLED"]
+    B -.-> G
+    C -.-> G
+    D -.-> G
+    E -.-> G
+    F -.-> G
 ```
 
 ### Status Checking Methods
@@ -495,36 +500,10 @@ protected function isNewerStatus(string $newStatus, string $currentStatus): bool
 
 ## Service Dependencies
 
-```
-┌────────────────────────────────┐
-│       TabsNotificationService  │
-│  - handleSlaveTabStatusChange  │
-│  - syncMasterOrderItems        │
-│  - notifyMallSession           │
-└───────────────┬────────────────┘
-                │
-                │ calls
-                ▼
-┌────────────────────────────────┐
-│      MallOrderSyncService      │
-│  - syncTenantTabStatusWithMaster│
-│  - syncMasterOrderProducts     │
-│  - notifyMallSession           │
-└───────────────┬────────────────┘
-                │
-                │ uses
-                ▼
-┌────────────────────────────────┐
-│    AppNotificationBuilder      │
-│  - send()                      │
-└───────────────┬────────────────┘
-                │
-                │ creates
-                ▼
-┌────────────────────────────────┐
-│  MallSessionOrderStatus        │
-│  Notification                  │
-│  - buildNotificationPayload    │
-│  - persistNotification         │
-└────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["TabsNotificationService<br/>- handleSlaveTabStatusChange<br/>- syncMasterOrderItems<br/>- notifyMallSession"] -->|calls| B
+    B["MallOrderSyncService<br/>- syncTenantTabStatusWithMaster<br/>- syncMasterOrderProducts<br/>- notifyMallSession"] -->|uses| C
+    C["AppNotificationBuilder<br/>- send"] -->|creates| D
+    D["MallSessionOrderStatus<br/>Notification<br/>- buildNotificationPayload<br/>- persistNotification"]
 ```

@@ -51,45 +51,37 @@ The **UberService** is a comprehensive integration with the Uber Eats API for ma
 
 ### Component Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              UberService                                     │
-│                     (implements MarketplaceContract)                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                          SERVICE TRAITS                              │   │
-│  ├──────────────┬──────────────┬──────────────┬──────────────┬─────────┤   │
-│  │ BuildBase    │    Api       │    Menu      │  OrderTrait  │  Store  │   │
-│  │ Request      │              │              │              │         │   │
-│  ├──────────────┼──────────────┼──────────────┼──────────────┼─────────┤   │
-│  │ WebhookTrait │ Exceptions   │  Helpers     │ Notifications│Category │   │
-│  └──────────────┴──────────────┴──────────────┴──────────────┴─────────┘   │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                          RESOURCES                                   │   │
-│  ├──────────────┬──────────────┬──────────────┬─────────────────────────┤   │
-│  │ MenuResource │ OrderResource│ StoreResource│    ReportResource       │   │
-│  │              │              │              │                         │   │
-│  │ - getMenu()  │ - getOrder() │ - getStatus()│    - getReports()       │   │
-│  │ - createMenu │ - acceptOrder│ - setStatus()│    - getSales()         │   │
-│  │ - updateMenu │ - denyOrder  │ - updateInfo │                         │   │
-│  └──────────────┴──────────────┴──────────────┴─────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │ HTTP Requests
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           UBER EATS API                                      │
-│                      https://api.uber.com                                    │
-├──────────────────────┬──────────────────────┬───────────────────────────────┤
-│   Menu Endpoints     │   Order Endpoints    │    Store Endpoints            │
-│                      │                      │                               │
-│ /v2/eats/stores/     │ /v1/delivery/order/  │ /v1/eats/stores/{id}/status   │
-│   {id}/menus         │   {id}/accept        │ /v1/delivery/store/{id}       │
-│                      │   {id}/deny          │                               │
-└──────────────────────┴──────────────────────┴───────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph US["UberService (implements MarketplaceContract)"]
+        subgraph ST["SERVICE TRAITS"]
+            T1["BuildBase Request"]
+            T2["Api"]
+            T3["Menu"]
+            T4["OrderTrait"]
+            T5["Store"]
+            T6["WebhookTrait"]
+            T7["Exceptions"]
+            T8["Helpers"]
+            T9["Notifications"]
+            T10["Category"]
+        end
+        
+        subgraph RES["RESOURCES"]
+            R1["MenuResource<br/>- getMenu()<br/>- createMenu<br/>- updateMenu"]
+            R2["OrderResource<br/>- getOrder()<br/>- acceptOrder<br/>- denyOrder"]
+            R3["StoreResource<br/>- getStatus()<br/>- setStatus()<br/>- updateInfo"]
+            R4["ReportResource<br/>- getReports()<br/>- getSales()"]
+        end
+    end
+    
+    US -- "HTTP Requests" --> UE["UBER EATS API<br/>https://api.uber.com"]
+    
+    subgraph UE["UBER EATS API"]
+        M["Menu Endpoints<br/>/v2/eats/stores/{id}/menus"]
+        O["Order Endpoints<br/>/v1/delivery/order/{id}/accept<br/>/v1/delivery/order/{id}/deny"]
+        S["Store Endpoints<br/>/v1/eats/stores/{id}/status<br/>/v1/delivery/store/{id}"]
+    end
 ```
 
 ### Data Flow Diagram
@@ -102,52 +94,35 @@ The **UberService** is a comprehensive integration with the Uber Eats API for ma
 PUBLISHING FLOW:
 ================
 
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  Campaign   │    │   Format    │    │  Prepare    │    │   Upload    │
-│  Products   │───▶│  Products   │───▶│   Menu      │───▶│   Menu      │
-│             │    │  (parse)    │    │   Data      │    │   (API)     │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-      │                  │                  │                  │
-      │                  │                  │                  │
-      ▼                  ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Products grouped  │ Products parsed   │ Menu JSON        │ POST/PUT to     │
-│ by category       │ to Uber format    │ with categories, │ /v2/eats/stores │
-│                   │ with modifiers    │ items, modifiers │ /{id}/menus     │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph MF["MENU FLOW"]
+        CP["Campaign Products"] --> FP["Format Products<br/>(parse)"]
+        FP --> PM["Prepare Menu Data"]
+        PM --> UM["Upload Menu (API)"]
+        CP --> R1["Products grouped by category"]
+        FP --> R2["Products parsed to Uber format with modifiers"]
+        PM --> R3["Menu JSON with categories, items, modifiers"]
+        UM --> R4["POST/PUT to /v2/eats/stores/{id}/menus"]
+    end
 
+    subgraph OF["ORDER FLOW"]
+        WE["Webhook Event (Uber)"] --> PO["Parse Order Data"]
+        PO --> CO["Create Order Record"]
+        CO --> CT["Create Tab Record"]
+        WE --> RO1["orders.notification webhook received"]
+        PO --> RO2["Map items to local products"]
+        CO --> RO3["Order model with products"]
+        CT --> RO4["Tab for POS system"]
+    end
 
-ORDER FLOW:
-===========
-
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Webhook   │    │   Parse     │    │   Create    │    │   Create    │
-│   Event     │───▶│   Order     │───▶│   Order     │───▶│    Tab      │
-│   (Uber)    │    │   Data      │    │   Record    │    │   Record    │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-      │                  │                  │                  │
-      ▼                  ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ orders.notification│ Map items to    │ Order model     │ Tab for POS     │
-│ webhook received   │ local products  │ with products   │ system          │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-
-STATUS UPDATE FLOW:
-===================
-
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Update    │    │    Map      │    │   Update    │
-│   Status    │───▶│   Status    │───▶│   Uber      │
-│   (Local)   │    │   to Uber   │    │   (API)     │
-└─────────────┘    └─────────────┘    └─────────────┘
-      │                  │                  │
-      ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Order status   │ Map to Uber      │ POST to            │
-│ change in UI   │ status enum      │ /v1/delivery/order │
-│                │                  │ /{id}/status       │
-└─────────────────────────────────────────────────────────────────────────────┘
+    subgraph SUF["STATUS UPDATE FLOW"]
+        US["Update Status (Local)"] --> MS["Map Status to Uber"]
+        MS --> UU["Update Uber (API)"]
+        US --> RS1["Order status change in UI"]
+        MS --> RS2["Map to Uber status enum"]
+        UU --> RS3["POST to /v1/delivery/order/{id}/status"]
+    end
 ```
 
 ---
@@ -747,51 +722,13 @@ public function finishProducts(
 
 ### Order Creation Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       ORDER CREATION FLOW                                    │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────┐
-│ Webhook:        │
-│ orders.notific  │
-│ ation           │
-└────────┬────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 1. Fetch full order details from resource_href                               │
-│    └── GET {resource_href}                                                   │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 2. Create Order record                                                       │
-│    └── source_id = Uber order ID                                             │
-│    └── brokerable = Marketplace                                              │
-│    └── status = mapped from Uber status                                      │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 3. Process cart items → OrderProduct records                                 │
-│    └── Match item external_data (SKU) to local products                      │
-│    └── Create OrderProductModifier records for modifiers                     │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 4. Create Tab for order                                                      │
-│    └── Links order to POS system                                             │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 5. Dispatch events                                                           │
-│    └── ItemsSoldEvent (for inventory tracking)                               │
-│    └── GenerateBillingTicket job                                             │
-│    └── GenerateOrderSaleNotePDFJob                                           │
-└──────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Start["Webhook: orders.notification"] --> S1["1. Fetch full order details from resource_href<br/>- GET {resource_href}"]
+    S1 --> S2["2. Create Order record<br/>- source_id = Uber order ID<br/>- brokerable = Marketplace<br/>- status = mapped from Uber status"]
+    S2 --> S3["3. Process cart items → OrderProduct records<br/>- Match item external_data (SKU) to local products<br/>- Create OrderProductModifier records for modifiers"]
+    S3 --> S4["4. Create Tab for order<br/>- Links order to POS system"]
+    S4 --> S5["5. Dispatch events<br/>- ItemsSoldEvent (for inventory tracking)<br/>- GenerateBillingTicket job<br/>- GenerateOrderSaleNotePDFJob"]
 ```
 
 ### Order Status Mapping

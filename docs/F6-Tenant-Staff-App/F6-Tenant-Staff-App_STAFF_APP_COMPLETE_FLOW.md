@@ -9,22 +9,19 @@ This document describes the complete flow of the **Staff/Kitchen App** - from lo
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        STAFF APP SYSTEM ARCHITECTURE                         │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    User["STAFF USER<br/>(Kitchen/Cashier)"]
+    App["STAFF APP<br/>(React)"]
+    API["LARAVEL API<br/>(Backend)"]
+    WS["WebSocket<br/>(Pusher/Soketi)"]
+    DB["Database<br/>(MySQL)"]
 
-  ┌─────────────────┐        ┌─────────────────┐        ┌─────────────────┐
-  │   STAFF USER    │◀──────▶│   STAFF APP     │◀──────▶│  LARAVEL API    │
-  │   (Kitchen/     │        │   (React)       │        │  (Backend)      │
-  │    Cashier)     │        │                 │        │                 │
-  └─────────────────┘        └────────┬────────┘        └────────┬────────┘
-                                      │                          │
-                             ┌────────▼────────┐        ┌────────▼────────┐
-                             │   WebSocket     │        │    Database     │
-                             │   (Pusher/      │◀──────▶│    (MySQL)      │
-                             │    Soketi)      │        │                 │
-                             └─────────────────┘        └─────────────────┘
+    User <--> App
+    App <--> API
+    App --> WS
+    API --> DB
+    WS <--> DB
 ```
 
 ---
@@ -41,51 +38,19 @@ This document describes the complete flow of the **Staff/Kitchen App** - from lo
 
 ## Authentication Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          AUTHENTICATION FLOW                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Open["Staff Opens Application"]
+    Check["CHECK AUTH STATE<br/>1. Check localStorage for existing token<br/>2. Validate token with API (GET /api/user)"]
+    Valid["Valid Token"]
+    Login["LOGIN FLOW<br/>1. Display login form (email/password)<br/>2. POST /api/auth/login<br/>3. Receive token + user data<br/>4. Store in localStorage (AuthPersistenceService)<br/>5. Initialize WebSocket connection"]
+    Init["INITIALIZE APP STATE<br/>1. Load tenant settings (systemValues)<br/>2. Subscribe to WebSocket channel: tenant.{id}.system<br/>3. Load initial tab list<br/>4. Initialize notification handlers"]
 
-  ┌─────────────────┐
-  │  Staff Opens    │
-  │  Application    │
-  └────────┬────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         CHECK AUTH STATE                                 │
-  │                                                                          │
-  │  1. Check localStorage for existing token                               │
-  │  2. Validate token with API (GET /api/user)                            │
-  │                                                                          │
-  └────────────────────────────┬────────────────────────────────────────────┘
-           │
-     ┌─────┴─────┐
-     │           │
-     ▼           ▼
-  ┌───────┐   ┌───────────────────────────────────────────────────────────┐
-  │ Valid │   │                    LOGIN FLOW                             │
-  │ Token │   │                                                           │
-  └───┬───┘   │  1. Display login form (email/password)                  │
-      │       │  2. POST /api/auth/login                                  │
-      │       │  3. Receive token + user data                             │
-      │       │  4. Store in localStorage (AuthPersistenceService)        │
-      │       │  5. Initialize WebSocket connection                       │
-      │       │                                                           │
-      │       └─────────────────────────┬─────────────────────────────────┘
-      │                                 │
-      └─────────────┬───────────────────┘
-                    │
-                    ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    INITIALIZE APP STATE                                  │
-  │                                                                          │
-  │  1. Load tenant settings (systemValues)                                 │
-  │  2. Subscribe to WebSocket channel: tenant.{id}.system                  │
-  │  3. Load initial tab list                                               │
-  │  4. Initialize notification handlers                                    │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+    Open --> Check
+    Check --> Valid
+    Check --> Login
+    Valid --> Init
+    Login --> Init
 ```
 
 ---
@@ -163,291 +128,109 @@ This document describes the complete flow of the **Staff/Kitchen App** - from lo
 
 ## Order Creation Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          ORDER CREATION FLOW                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Click["Staff Clicks [+ Crear Tab]"]
+    Form["TAB CREATE FORM<br/>- Delivery Method: Mesa<br/>- Table/Note input<br/>- Products: search/filter, add to cart (e.g. Bulgogi $13,990, Bibimbap $12,990, Ramen $11,990, Soju $5,990)<br/>- Cart: line items with modifiers and Total (e.g. x2 Bulgogi w/ Cerdo, Arroz; x1 Coca-Cola; Total: $29,970)<br/>- Actions: Cancelar / Crear Orden"]
+    Backend["BACKEND PROCESSING<br/>TabController::store()<br/>- Create Tab record (status: CREATED)<br/>- Create Order record<br/>- Create OrderProduct records<br/>- Calculate totals<br/>- Send WebSocket notification"]
 
-  ┌─────────────────┐
-  │  Staff Clicks   │
-  │  [+ Crear Tab]  │
-  └────────┬────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         TAB CREATE FORM                                  │
-  │                                                                          │
-  │  Delivery Method: [Mesa ▼]                                              │
-  │  Table/Note: [________________]                                          │
-  │                                                                          │
-  │  ─────────────────────────────────────────────────────────────────────  │
-  │                                                                          │
-  │  Products:                                                               │
-  │  ┌────────────────────────────────────────────────────────────────────┐ │
-  │  │ Search: [_______________]  Filter: [Todas las categorías ▼]       │ │
-  │  │                                                                    │ │
-  │  │ ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐          │ │
-  │  │ │ [IMG]    │  │ [IMG]    │  │ [IMG]    │  │ [IMG]    │          │ │
-  │  │ │ Bulgogi  │  │ Bibimbap │  │ Ramen    │  │ Soju     │          │ │
-  │  │ │ $13,990  │  │ $12,990  │  │ $11,990  │  │ $5,990   │          │ │
-  │  │ │  [+]     │  │  [+]     │  │  [+]     │  │  [+]     │          │ │
-  │  │ └──────────┘  └──────────┘  └──────────┘  └──────────┘          │ │
-  │  └────────────────────────────────────────────────────────────────────┘ │
-  │                                                                          │
-  │  Cart:                                                                   │
-  │  ┌────────────────────────────────────────────────────────────────────┐ │
-  │  │ x2 Bulgogi ......................................... $27,980       │ │
-  │  │    └ Modifiers: Cerdo, Arroz                                      │ │
-  │  │ x1 Coca-Cola ....................................... $1,990        │ │
-  │  │ ────────────────────────────────────────────────────────────────  │ │
-  │  │ Total: $29,970                                                     │ │
-  │  └────────────────────────────────────────────────────────────────────┘ │
-  │                                                                          │
-  │  [Cancelar]                                        [Crear Orden]         │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-           │
-           │ Submit
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         BACKEND PROCESSING                               │
-  │                                                                          │
-  │  TabController::store()                                                  │
-  │    │                                                                     │
-  │    ├──▶ Create Tab record (status: CREATED)                             │
-  │    ├──▶ Create Order record                                             │
-  │    ├──▶ Create OrderProduct records                                     │
-  │    ├──▶ Calculate totals                                                │
-  │    └──▶ Send WebSocket notification                                     │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+    Click --> Form
+    Form -->|Submit| Backend
 ```
 
 ---
 
 ## Order Status Management Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      ORDER STATUS MANAGEMENT FLOW                            │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Click["Staff Clicks Status Button"]
+    FE["FRONTEND (useTabActions hook)<br/>1. Validate current status allows transition<br/>2. Show confirmation if needed<br/>3. Call dataProvider.update('tab/tab', { status: newStatus })"]
+    API["API: PUT /api/tab/tab/{id}<br/>TabController::update()"]
+    Validate["Validate status transition"]
+    Handle["TabsNotificationService::handleStatusChange()<br/>- Update Tab.status<br/>- Update date_* field<br/>- Update Order.status (mapped)<br/>- sendNotification() → WebSocket"]
+    Mall["If Mall order: MallTabNotificationService<br/>- Sync master tab status<br/>- Notify customer via MallSession channel"]
+    Broadcast["WebSocket Broadcast"]
+    Clients["ALL CONNECTED CLIENTS<br/>- Other staff apps receive update<br/>- Kitchen displays refresh<br/>- Customer app (if Mall) receives notification"]
 
-  ┌─────────────────┐
-  │  Staff Clicks   │
-  │  Status Button  │
-  └────────┬────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    FRONTEND (useTabActions hook)                         │
-  │                                                                          │
-  │  1. Validate current status allows transition                           │
-  │  2. Show confirmation if needed                                          │
-  │  3. Call dataProvider.update('tab/tab', { status: newStatus })          │
-  │                                                                          │
-  └────────────────────────────┬────────────────────────────────────────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         API: PUT /api/tab/tab/{id}                       │
-  │                                                                          │
-  │  TabController::update()                                                 │
-  │    │                                                                     │
-  │    ├──▶ Validate status transition                                      │
-  │    ├──▶ TabsNotificationService::handleStatusChange()                   │
-  │    │      │                                                              │
-  │    │      ├──▶ Update Tab.status                                        │
-  │    │      ├──▶ Update date_* field                                      │
-  │    │      ├──▶ Update Order.status (mapped)                             │
-  │    │      └──▶ sendNotification() → WebSocket                          │
-  │    │                                                                     │
-  │    └──▶ If Mall order: MallTabNotificationService                       │
-  │           └──▶ Sync master tab status                                   │
-  │           └──▶ Notify customer via MallSession channel                  │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-           │
-           │ WebSocket Broadcast
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         ALL CONNECTED CLIENTS                            │
-  │                                                                          │
-  │  • Other staff apps receive update                                      │
-  │  • Kitchen displays refresh                                             │
-  │  • Customer app (if Mall) receives notification                         │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+    Click --> FE
+    FE --> API
+    API --> Validate
+    Validate --> Handle
+    Validate --> Mall
+    Handle --> Broadcast
+    Mall --> Broadcast
+    Broadcast --> Clients
 ```
 
 ---
 
 ## Payment Processing Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        PAYMENT PROCESSING FLOW                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Click["Staff Clicks Payment Button"]
+    Dialog["PAYMENT DIALOG<br/>Tab #125 - Total: $29,970<br/>Payment Method: Efectivo / Tarjeta Débito / Tarjeta Crédito / Transferencia<br/>Service Fee: 10% = $2,997<br/>Grand Total: $32,967<br/>Status after payment: DELIVERED / CLOSED / Keep Current<br/>Actions: Cancelar / Procesar Pago"]
+    API["API: PUT /api/tab/tab/{id}/payment<br/>TabController::payment()<br/>- Validate payment method exists<br/>- Calculate service fee<br/>- Create Payment record<br/>- Update Order.is_paid = true<br/>- Update Order.total_amount (with service fee)<br/>- Update Tab.status if requested"]
 
-  ┌─────────────────┐
-  │  Staff Clicks   │
-  │  Payment Button │
-  └────────┬────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                        PAYMENT DIALOG                                    │
-  │                                                                          │
-  │  Tab #125 - Total: $29,970                                              │
-  │                                                                          │
-  │  Payment Method:                                                         │
-  │  ○ Efectivo    ● Tarjeta Débito    ○ Tarjeta Crédito    ○ Transferencia │
-  │                                                                          │
-  │  Service Fee: [10%] = $2,997                                            │
-  │                                                                          │
-  │  Grand Total: $32,967                                                    │
-  │                                                                          │
-  │  Status after payment:                                                   │
-  │  ○ DELIVERED    ● CLOSED    ○ Keep Current                              │
-  │                                                                          │
-  │  [Cancelar]                                     [Procesar Pago]          │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-           │
-           │ Process Payment
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    API: PUT /api/tab/tab/{id}/payment                    │
-  │                                                                          │
-  │  TabController::payment()                                                │
-  │    │                                                                     │
-  │    ├──▶ Validate payment method exists                                  │
-  │    ├──▶ Calculate service fee                                           │
-  │    ├──▶ Create Payment record                                           │
-  │    ├──▶ Update Order.is_paid = true                                     │
-  │    ├──▶ Update Order.total_amount (with service fee)                    │
-  │    └──▶ Update Tab.status if requested                                  │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+    Click --> Dialog
+    Dialog -->|Process Payment| API
 ```
 
 ---
 
 ## Print/Download Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        PRINT / DOWNLOAD FLOW                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    PrintBtn["Print Button [🖨️]"]
+    DownloadBtn["Download Button [⬇️]"]
+    PrintAPI["GET /tab/{id}/print"]
+    DownloadAPI["GET /tab/{id}/download"]
+    Controller["TabController<br/>printSaleNote() / downloadSaleNote()<br/>- Generate PDF from template<br/>- Include: products, totals, payments, customer info<br/>- Return PDF file"]
+    OpenPrint["Open print dialog"]
+    SaveFile["Save file locally"]
 
-  ┌─────────────────┐           ┌─────────────────┐
-  │  Print Button   │           │ Download Button │
-  │  [🖨️]           │           │ [⬇️]            │
-  └────────┬────────┘           └────────┬────────┘
-           │                             │
-           ▼                             ▼
-  ┌─────────────────────┐     ┌─────────────────────┐
-  │ GET /tab/{id}/print │     │GET /tab/{id}/download│
-  └────────┬────────────┘     └────────┬────────────┘
-           │                           │
-           │                           │
-           ▼                           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         TabController                                    │
-  │                                                                          │
-  │  printSaleNote() / downloadSaleNote()                                   │
-  │    │                                                                     │
-  │    ├──▶ Generate PDF from template                                      │
-  │    ├──▶ Include: products, totals, payments, customer info             │
-  │    └──▶ Return PDF file                                                 │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-           │                           │
-           ▼                           ▼
-  ┌─────────────────────┐     ┌─────────────────────┐
-  │  Open print dialog  │     │  Save file locally  │
-  └─────────────────────┘     └─────────────────────┘
+    PrintBtn --> PrintAPI --> Controller
+    DownloadBtn --> DownloadAPI --> Controller
+    Controller -->|print| OpenPrint
+    Controller -->|download| SaveFile
 ```
 
 ---
 
 ## Bulk Operations Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        BULK STATUS UPDATE FLOW                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    ListView["TAB LIST VIEW<br/>[☑] Tab #125  [☑] Tab #124  [☐] Tab #123  [☑] Tab #122<br/>Selected: 3<br/>Bulk Actions: [Update Status ▼]"]
+    Select["Select 'CONFIRMED'"]
+    API["API: POST /api/tab/tab/bulk-update-status<br/>{ tab_ids: [125, 124, 122], status: 'CONFIRMED' }<br/>TabController::bulkUpdateStatus()"]
+    Loop["For each tab:<br/>- Validate permission<br/>- handleStatusChange()<br/>- handleSlaveTabStatusChange() (if mall)"]
 
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         TAB LIST VIEW                                    │
-  │                                                                          │
-  │  [☑] Tab #125    [☑] Tab #124    [☐] Tab #123    [☑] Tab #122          │
-  │                                                                          │
-  │  Selected: 3                                                             │
-  │                                                                          │
-  │  Bulk Actions: [Update Status ▼]                                        │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-           │
-           │ Select "CONFIRMED"
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                API: POST /api/tab/tab/bulk-update-status                 │
-  │                                                                          │
-  │  {                                                                       │
-  │    "tab_ids": [125, 124, 122],                                          │
-  │    "status": "CONFIRMED"                                                 │
-  │  }                                                                       │
-  │                                                                          │
-  │  TabController::bulkUpdateStatus()                                       │
-  │    │                                                                     │
-  │    └──▶ For each tab:                                                   │
-  │           ├──▶ Validate permission                                      │
-  │           ├──▶ handleStatusChange()                                     │
-  │           └──▶ handleSlaveTabStatusChange() (if mall)                   │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+    ListView --> Select --> API --> Loop
 ```
 
 ---
 
 ## Real-Time Updates Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        REAL-TIME UPDATE FLOW                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    SA["Staff A (Cashier)"]
+    SB["Staff B (Waiter)"]
+    KD["Kitchen Display"]
+    WS["WebSocket Server<br/>Channel: tenant.{id}.system"]
 
-  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐
-  │   Staff A     │    │   Staff B     │    │   Kitchen     │
-  │   (Cashier)   │    │   (Waiter)    │    │   Display     │
-  └───────┬───────┘    └───────┬───────┘    └───────┬───────┘
-          │                    │                    │
-          │    ┌───────────────────────────────────────┐
-          │    │          WebSocket Server              │
-          │    │   Channel: tenant.{id}.system          │
-          │    └───────────────────────────────────────┘
-          │                    │                    │
-          │                    │                    │
-  ┌───────▼───────┐            │                    │
-  │ Staff A       │            │                    │
-  │ changes tab   │            │                    │
-  │ status        │            │                    │
-  └───────┬───────┘            │                    │
-          │                    │                    │
-          │ API call           │                    │
-          ▼                    │                    │
-  ┌─────────────────┐          │                    │
-  │ Laravel Backend │          │                    │
-  │ broadcasts      │          │                    │
-  │ notification    │──────────┼────────────────────┤
-  └─────────────────┘          │                    │
-                               │                    │
-                               ▼                    ▼
-                    ┌───────────────┐    ┌───────────────┐
-                    │ Staff B sees  │    │ Kitchen sees  │
-                    │ toast + list  │    │ toast + list  │
-                    │ refreshes     │    │ refreshes     │
-                    └───────────────┘    └───────────────┘
+    SA --> SAChange["Staff A changes tab status"]
+    SAChange --> API["API call"]
+    API --> Backend["Laravel Backend broadcasts notification"]
+    Backend --> SBSees["Staff B sees toast + list refreshes"]
+    Backend --> KDSees["Kitchen sees toast + list refreshes"]
+
+    SA -.-> WS
+    SB -.-> WS
+    KD -.-> WS
 ```
 
 ---
@@ -519,25 +302,42 @@ return ResponseHandler::error(
 
 ## Component Hierarchy
 
-```
-App
-├── AuthProvider
-│   └── DashAdmin
-│       ├── LaravelEchoContext (WebSocket)
-│       └── Resources
-│           ├── TabResource (tab/tab)
-│           │   ├── TabsList
-│           │   │   ├── TabListItem
-│           │   │   ├── PaymentDialog
-│           │   │   └── CloseDialog
-│           │   ├── TabCreate
-│           │   │   ├── ProductSelector
-│           │   │   └── OrderSummary
-│           │   └── TabEdit
-│           │
-│           └── KitchenResource (tab/kitchen)
-│               └── KitchenTabsList
-│                   └── OrderProductsView
+```mermaid
+graph TD
+    App["App"]
+    AuthProvider["AuthProvider"]
+    DashAdmin["DashAdmin"]
+    LaravelEcho["LaravelEchoContext<br/>(WebSocket)"]
+    Resources["Resources"]
+    TabResource["TabResource<br/>(tab/tab)"]
+    TabsList["TabsList"]
+    TabListItem["TabListItem"]
+    PaymentDialog["PaymentDialog"]
+    CloseDialog["CloseDialog"]
+    TabCreate["TabCreate"]
+    ProductSelector["ProductSelector"]
+    OrderSummary["OrderSummary"]
+    TabEdit["TabEdit"]
+    KitchenResource["KitchenResource<br/>(tab/kitchen)"]
+    KitchenTabsList["KitchenTabsList"]
+    OrderProductsView["OrderProductsView"]
+
+    App --> AuthProvider
+    AuthProvider --> DashAdmin
+    DashAdmin --> LaravelEcho
+    DashAdmin --> Resources
+    Resources --> TabResource
+    Resources --> KitchenResource
+    TabResource --> TabsList
+    TabResource --> TabCreate
+    TabResource --> TabEdit
+    TabsList --> TabListItem
+    TabsList --> PaymentDialog
+    TabsList --> CloseDialog
+    TabCreate --> ProductSelector
+    TabCreate --> OrderSummary
+    KitchenResource --> KitchenTabsList
+    KitchenTabsList --> OrderProductsView
 ```
 
 ---

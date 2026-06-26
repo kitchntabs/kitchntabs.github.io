@@ -57,32 +57,20 @@ KitchnTabs is a comprehensive restaurant management platform consisting of:
 
 ### 2.2 Business Model
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         KITCHNTABS ECOSYSTEM                             │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐  │
-│  │  RESTAURANT A   │      │  RESTAURANT B   │      │  RESTAURANT C   │  │
-│  │   (Tenant)      │      │   (Tenant)      │      │   (Tenant)      │  │
-│  └────────┬────────┘      └────────┬────────┘      └────────┬────────┘  │
-│           │                        │                        │           │
-│           └────────────────────────┼────────────────────────┘           │
-│                                    │                                     │
-│                                    ▼                                     │
-│                        ┌───────────────────────┐                        │
-│                        │   KITCHNTABS PLATFORM  │                        │
-│                        │   (Multi-Tenant SaaS)  │                        │
-│                        └───────────────────────┘                        │
-│                                    │                                     │
-│              ┌─────────────────────┼─────────────────────┐              │
-│              ▼                     ▼                     ▼              │
-│     ┌─────────────┐       ┌─────────────┐       ┌─────────────┐        │
-│     │ Dashboard   │       │ Marketplace │       │ Food Court  │        │
-│     │ (Business)  │       │ Integration │       │ (Customer)  │        │
-│     └─────────────┘       └─────────────┘       └─────────────┘        │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph ECO["KITCHNTABS ECOSYSTEM"]
+        A["RESTAURANT A (Tenant)"]
+        B["RESTAURANT B (Tenant)"]
+        C["RESTAURANT C (Tenant)"]
+        A --> P
+        B --> P
+        C --> P
+        P["KITCHNTABS PLATFORM (Multi-Tenant SaaS)"]
+        P --> D["Dashboard (Business)"]
+        P --> M["Marketplace Integration"]
+        P --> F["Food Court (Customer)"]
+    end
 ```
 
 ### 2.3 User Types
@@ -142,78 +130,38 @@ Emails│                    ████
 
 #### Business Users (Tenant Staff/Admins)
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    BUSINESS USER REGISTRATION FLOW                       │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────┐                                                    │
-│  │ Tenant Admin    │                                                    │
-│  │ Creates Account │                                                    │
-│  └────────┬────────┘                                                    │
-│           │                                                              │
-│           ▼                                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  REGISTRATION FORM                                               │    │
-│  │  ✓ Email address (required)                                      │    │
-│  │  ✓ Terms of Service acceptance (required)                        │    │
-│  │  ✓ Email notification preferences (configurable)                 │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│           │                                                              │
-│           ▼                                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  📧 VERIFICATION EMAIL SENT                                      │    │
-│  │  Subject: "Verificar cuenta"                                     │    │
-│  │  Action: User clicks verification link                           │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│           │                                                              │
-│           ▼                                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  ✅ EMAIL VERIFIED                                               │    │
-│  │  User is now able to receive operational emails                  │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph FLOW["BUSINESS USER REGISTRATION FLOW"]
+        A["Tenant Admin Creates Account"] --> B["REGISTRATION FORM
+- Email address (required)
+- Terms of Service acceptance (required)
+- Email notification preferences (configurable)"]
+        B --> C["VERIFICATION EMAIL SENT
+Subject: 'Verificar cuenta'
+Action: User clicks verification link"]
+        C --> D["EMAIL VERIFIED
+User is now able to receive operational emails"]
+    end
 ```
 
 #### End Customers (Marketplace Orders)
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    END CUSTOMER EMAIL CONSENT FLOW                       │
-│                        (Jumpseller Integration)                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌─────────────────┐                                                    │
-│  │ Customer Places │                                                    │
-│  │ Order on        │                                                    │
-│  │ Jumpseller      │                                                    │
-│  └────────┬────────┘                                                    │
-│           │                                                              │
-│           ▼                                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  JUMPSELLER CHECKOUT                                             │    │
-│  │  ✓ Customer provides email                                       │    │
-│  │  ✓ Customer accepts Jumpseller Terms of Service                  │    │
-│  │  ✓ Jumpseller TOS includes consent for order status emails       │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│           │                                                              │
-│           ▼                                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  WEBHOOK TO KITCHNTABS                                           │    │
-│  │  Jumpseller sends order data including:                          │    │
-│  │  - customer.email                                                │    │
-│  │  - customer.notification_preferences                             │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│           │                                                              │
-│           ▼                                                              │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  KITCHNTABS PROCESSES ORDER                                      │    │
-│  │  ✓ Order status emails sent ONLY if customer consented          │    │
-│  │  ✓ Email sent from tenant's configured sending address          │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph FLOW["END CUSTOMER EMAIL CONSENT FLOW (Jumpseller Integration)"]
+        A["Customer Places Order on Jumpseller"] --> B["JUMPSELLER CHECKOUT
+- Customer provides email
+- Customer accepts Jumpseller Terms of Service
+- Jumpseller TOS includes consent for order status emails"]
+        B --> C["WEBHOOK TO KITCHNTABS
+Jumpseller sends order data including:
+- customer.email
+- customer.notification_preferences"]
+        C --> D["KITCHNTABS PROCESSES ORDER
+- Order status emails sent ONLY if customer consented
+- Email sent from tenant's configured sending address"]
+    end
 ```
 
 ### 4.2 Email List Hygiene
@@ -285,167 +233,84 @@ Note: Not all orders go through all stages. Some orders are pickup-only,
 
 ### 6.1 Marketplace Order Email Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                     MARKETPLACE ORDER EMAIL NOTIFICATION FLOW                    │
-└─────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    title MARKETPLACE ORDER EMAIL NOTIFICATION FLOW
+    participant Customer
+    participant Jumpseller
+    participant KitchnTabs
+    participant Tenant
 
-  CUSTOMER                  JUMPSELLER              KITCHNTABS              TENANT
-  ────────                  ──────────              ──────────              ──────
-      │                          │                      │                      │
-      │  1. Place Order          │                      │                      │
-      │  (with email consent)    │                      │                      │
-      ├─────────────────────────>│                      │                      │
-      │                          │                      │                      │
-      │                          │  2. Webhook: order_paid                     │
-      │                          ├─────────────────────>│                      │
-      │                          │                      │                      │
-      │                          │                      │  3. Create Tab/Order │
-      │                          │                      ├─────────────────────>│
-      │                          │                      │                      │
-      │                          │                      │  4. Notify Staff     │
-      │                          │                      │  📧 Email + 📱 Push  │
-      │                          │                      ├─────────────────────>│
-      │                          │                      │                      │
-      │  5. Order Confirmation   │                      │                      │
-      │  📧 Email                │                      │                      │
-      │<───────────────────────────────────────────────┤                      │
-      │                          │                      │                      │
-      │                          │                      │  6. Staff Updates    │
-      │                          │                      │     Status to        │
-      │                          │                      │     IN_PREPARATION   │
-      │                          │                      │<─────────────────────┤
-      │                          │                      │                      │
-      │  7. Status Update        │                      │                      │
-      │  📧 "En preparación"     │                      │                      │
-      │<───────────────────────────────────────────────┤                      │
-      │                          │                      │                      │
-      │                          │  8. Sync back to Jumpseller                 │
-      │                          │<────────────────────┤                      │
-      │                          │                      │                      │
+    Customer->>Jumpseller: 1. Place Order (with email consent)
+    Jumpseller->>KitchnTabs: 2. Webhook: order_paid
+    KitchnTabs->>Tenant: 3. Create Tab/Order
+    KitchnTabs->>Tenant: 4. Notify Staff (Email + Push)
+    KitchnTabs->>Customer: 5. Order Confirmation (Email)
+    Tenant->>KitchnTabs: 6. Staff Updates Status to IN_PREPARATION
+    KitchnTabs->>Customer: 7. Status Update ("En preparación")
+    KitchnTabs->>Jumpseller: 8. Sync back to Jumpseller
 ```
 
 ### 6.2 User Registration Email Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                     USER REGISTRATION EMAIL FLOW                                 │
-└─────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    title USER REGISTRATION EMAIL FLOW
+    participant NewUser as NEW USER
+    participant KitchnTabs as KITCHNTABS
+    participant SES as AWS SES
 
-  NEW USER                    KITCHNTABS                   AWS SES
-  ────────                    ──────────                   ───────
-      │                           │                           │
-      │  1. Register Account      │                           │
-      │  (email, password, TOS)   │                           │
-      ├──────────────────────────>│                           │
-      │                           │                           │
-      │                           │  2. Generate verification │
-      │                           │     token & store user    │
-      │                           │                           │
-      │                           │  3. Send verification     │
-      │                           │     email via SES         │
-      │                           ├──────────────────────────>│
-      │                           │                           │
-      │                           │        4. Email Delivered │
-      │                           │<──────────────────────────┤
-      │                           │                           │
-      │  5. 📧 Verification Email │                           │
-      │  "Verificar cuenta"       │                           │
-      │<──────────────────────────┤                           │
-      │                           │                           │
-      │  6. Click Verification    │                           │
-      │     Link                  │                           │
-      ├──────────────────────────>│                           │
-      │                           │                           │
-      │                           │  7. Mark email verified   │
-      │                           │     in database           │
-      │                           │                           │
-      │                           │  8. Send welcome email    │
-      │                           ├──────────────────────────>│
-      │                           │                           │
-      │  9. 📧 Welcome Email      │                           │
-      │  "Bienvenido!"            │                           │
-      │<──────────────────────────┤                           │
-      │                           │                           │
+    NewUser->>KitchnTabs: 1. Register Account (email, password, TOS)
+    Note over KitchnTabs: 2. Generate verification token & store user
+    KitchnTabs->>SES: 3. Send verification email via SES
+    SES->>KitchnTabs: 4. Email Delivered
+    KitchnTabs->>NewUser: 5. Verification Email "Verificar cuenta"
+    NewUser->>KitchnTabs: 6. Click Verification Link
+    Note over KitchnTabs: 7. Mark email verified in database
+    KitchnTabs->>SES: 8. Send welcome email
+    KitchnTabs->>NewUser: 9. Welcome Email "Bienvenido!"
 ```
 
 ### 6.3 Password Reset Email Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                     PASSWORD RESET EMAIL FLOW                                    │
-└─────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    title PASSWORD RESET EMAIL FLOW
+    participant User as USER
+    participant KitchnTabs as KITCHNTABS
+    participant SES as AWS SES
 
-  USER                        KITCHNTABS                   AWS SES
-  ────                        ──────────                   ───────
-      │                           │                           │
-      │  1. Request Password      │                           │
-      │     Reset                 │                           │
-      ├──────────────────────────>│                           │
-      │                           │                           │
-      │                           │  2. Check email exists    │
-      │                           │  3. Generate reset token  │
-      │                           │     (expires in 60 min)   │
-      │                           │                           │
-      │                           │  4. Send reset email      │
-      │                           ├──────────────────────────>│
-      │                           │                           │
-      │  5. 📧 Reset Email        │                           │
-      │  "Restablecer contraseña" │                           │
-      │<──────────────────────────┤                           │
-      │                           │                           │
-      │  6. Click Reset Link      │                           │
-      ├──────────────────────────>│                           │
-      │                           │                           │
-      │                           │  7. Validate token        │
-      │                           │  8. Show reset form       │
-      │                           │                           │
-      │  9. Submit New Password   │                           │
-      ├──────────────────────────>│                           │
-      │                           │                           │
-      │                           │  10. Update password      │
-      │                           │  11. Invalidate token     │
-      │                           │                           │
+    User->>KitchnTabs: 1. Request Password Reset
+    Note over KitchnTabs: 2. Check email exists
+    Note over KitchnTabs: 3. Generate reset token (expires in 60 min)
+    KitchnTabs->>SES: 4. Send reset email
+    KitchnTabs->>User: 5. Reset Email "Restablecer contraseña"
+    User->>KitchnTabs: 6. Click Reset Link
+    Note over KitchnTabs: 7. Validate token
+    Note over KitchnTabs: 8. Show reset form
+    User->>KitchnTabs: 9. Submit New Password
+    Note over KitchnTabs: 10. Update password
+    Note over KitchnTabs: 11. Invalidate token
 ```
 
 ### 6.4 Bulk Export Email Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                     BULK EXPORT EMAIL NOTIFICATION FLOW                          │
-└─────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    title BULK EXPORT EMAIL NOTIFICATION FLOW
+    participant TenantAdmin as TENANT ADMIN
+    participant KitchnTabs as KITCHNTABS
+    participant SES as AWS SES
 
-  TENANT ADMIN                KITCHNTABS                   AWS SES
-  ────────────                ──────────                   ───────
-      │                           │                           │
-      │  1. Request Product       │                           │
-      │     Export                │                           │
-      ├──────────────────────────>│                           │
-      │                           │                           │
-      │  2. 🔌 WebSocket:         │                           │
-      │  "Export Started"         │                           │
-      │<──────────────────────────┤                           │
-      │                           │                           │
-      │                           │  [Background Job Runs]    │
-      │                           │  Processing 1000s of      │
-      │                           │  products...              │
-      │                           │                           │
-      │  3. 🔌 Progress Updates   │                           │
-      │  "10%... 50%... 90%..."   │                           │
-      │<──────────────────────────┤                           │
-      │                           │                           │
-      │                           │  4. Generate Excel file   │
-      │                           │  5. Upload to S3          │
-      │                           │  6. Generate signed URL   │
-      │                           │                           │
-      │                           │  7. Send completion email │
-      │                           ├──────────────────────────>│
-      │                           │                           │
-      │  8. 📧 Export Email       │                           │
-      │  "Exportación completada" │                           │
-      │  [Download Link]          │                           │
-      │<──────────────────────────┤                           │
-      │                           │                           │
+    TenantAdmin->>KitchnTabs: 1. Request Product Export
+    KitchnTabs->>TenantAdmin: 2. WebSocket: "Export Started"
+    Note over KitchnTabs: [Background Job Runs] Processing 1000s of products...
+    KitchnTabs->>TenantAdmin: 3. Progress Updates "10%... 50%... 90%..."
+    Note over KitchnTabs: 4. Generate Excel file
+    Note over KitchnTabs: 5. Upload to S3
+    Note over KitchnTabs: 6. Generate signed URL
+    KitchnTabs->>SES: 7. Send completion email
+    KitchnTabs->>TenantAdmin: 8. Export Email "Exportación completada" [Download Link]
 ```
 
 ---
@@ -458,58 +323,25 @@ Note: Not all orders go through all stages. Some orders are pickup-only,
 
 ### 7.2 Proposed Bounce Handling Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                     BOUNCE & COMPLAINT HANDLING ARCHITECTURE                     │
-└─────────────────────────────────────────────────────────────────────────────────┘
-
-                          ┌─────────────────┐
-                          │    AWS SES      │
-                          └────────┬────────┘
-                                   │
-           ┌───────────────────────┼───────────────────────┐
-           │                       │                       │
-           ▼                       ▼                       ▼
-    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-    │   Bounce    │         │  Complaint  │         │  Delivery   │
-    │   Event     │         │   Event     │         │   Event     │
-    └──────┬──────┘         └──────┬──────┘         └──────┬──────┘
-           │                       │                       │
-           └───────────────────────┼───────────────────────┘
-                                   │
-                                   ▼
-                          ┌─────────────────┐
-                          │   Amazon SNS    │
-                          │    Topic        │
-                          └────────┬────────┘
-                                   │
-                                   ▼
-                          ┌─────────────────┐
-                          │ KitchnTabs API  │
-                          │  /api/webhooks/ │
-                          │  ses-feedback   │
-                          └────────┬────────┘
-                                   │
-           ┌───────────────────────┼───────────────────────┐
-           │                       │                       │
-           ▼                       ▼                       ▼
-    ┌─────────────┐         ┌─────────────┐         ┌─────────────┐
-    │  Hard Bounce│         │ Soft Bounce │         │  Complaint  │
-    │  → Suppress │         │ → Retry 3x  │         │ → Suppress  │
-    │    Forever  │         │   then      │         │   + Log     │
-    │             │         │   Suppress  │         │             │
-    └─────────────┘         └─────────────┘         └─────────────┘
-                                   │
-                                   ▼
-                          ┌─────────────────┐
-                          │ email_statuses  │
-                          │    table        │
-                          │                 │
-                          │ - email         │
-                          │ - status        │
-                          │ - bounce_type   │
-                          │ - suppressed_at │
-                          └─────────────────┘
+```mermaid
+flowchart TD
+    SES["AWS SES"] --> Bounce["Bounce Event"]
+    SES --> Complaint["Complaint Event"]
+    SES --> Delivery["Delivery Event"]
+    Bounce --> SNS["Amazon SNS Topic"]
+    Complaint --> SNS
+    Delivery --> SNS
+    SNS --> API["KitchnTabs API /api/webhooks/ses-feedback"]
+    API --> HardBounce["Hard Bounce → Suppress Forever"]
+    API --> SoftBounce["Soft Bounce → Retry 3x then Suppress"]
+    API --> ComplaintAction["Complaint → Suppress + Log"]
+    HardBounce --> Table["email_statuses table
+- email
+- status
+- bounce_type
+- suppressed_at"]
+    SoftBounce --> Table
+    ComplaintAction --> Table
 ```
 
 ### 7.3 Bounce Type Handling
@@ -576,30 +408,27 @@ public function shouldSendEmail(string $email): bool
 
 Business users can manage their notification preferences through the platform:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                     USER NOTIFICATION PREFERENCES                                │
-│                         (Dashboard Settings)                                     │
-└─────────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────────────────────────────────────────────────────────────────┐
-  │  NOTIFICATION PREFERENCES                                                    │
-  │                                                                              │
-  │  Order Notifications                                                         │
-  │  ├── ☑ New order alerts                              [Email] [Push] [Socket]│
-  │  ├── ☑ Order status changes                          [Email] [Push] [Socket]│
-  │  └── ☑ Order cancellations                           [Email] [Push] [Socket]│
-  │                                                                              │
-  │  Inventory Notifications                                                     │
-  │  ├── ☑ Low stock alerts                              [Email] [─────] [Socket]│
-  │  └── ☑ Import/Export completion                      [Email] [─────] [Socket]│
-  │                                                                              │
-  │  System Notifications                                                        │
-  │  ├── ☑ Password changes                              [Email] [─────] [─────]│
-  │  └── ☐ Marketing updates                             [Email] [─────] [─────]│
-  │                                                                              │
-  │                                              [Save Preferences]              │
-  └─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph PREFS["USER NOTIFICATION PREFERENCES (Dashboard Settings)"]
+        subgraph ORDER["Order Notifications"]
+            O1["New order alerts (checked): Email, Push, Socket"]
+            O2["Order status changes (checked): Email, Push, Socket"]
+            O3["Order cancellations (checked): Email, Push, Socket"]
+        end
+        subgraph INV["Inventory Notifications"]
+            I1["Low stock alerts (checked): Email, Socket"]
+            I2["Import/Export completion (checked): Email, Socket"]
+        end
+        subgraph SYS["System Notifications"]
+            S1["Password changes (checked): Email"]
+            S2["Marketing updates (unchecked): Email"]
+        end
+        SAVE["Save Preferences"]
+        ORDER --> SAVE
+        INV --> SAVE
+        SYS --> SAVE
+    end
 ```
 
 ### 8.2 Unsubscribe Methods
@@ -623,62 +452,34 @@ For marketplace customers:
 
 ### 9.1 Email Sending Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                     EMAIL SENDING INFRASTRUCTURE                                 │
-└─────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph APP["APPLICATION LAYER"]
+        NC["Notification Classes"] --> ANB["AppNotificationBuilder (Central Router)"]
+        ANB --> MQ["Laravel Mail Queue (Redis)"]
+    end
+    subgraph QUEUE["QUEUE PROCESSING"]
+        subgraph HORIZON["Laravel Horizon"]
+            Q1["default queue"]
+            Q2["emails queue"]
+            Q3["exports queue"]
+            Q4["notifications queue"]
+        end
+    end
+    subgraph TRANSPORT["TRANSPORT LAYER"]
+        SESDRIVER["Laravel Mail with SES Driver
+config/mail.php:
+'default' => env('MAIL_MAILER', 'ses'),
+'from' => ['address' => 'info@kitchntabs.com']"]
+    end
+    subgraph AWS["AWS SERVICES"]
+        SES["AWS SES (Sending)"] --> SNS["AWS SNS (Feedback)"]
+        SNS --> CW["CloudWatch (Metrics)"]
+    end
 
-  ┌─────────────────────────────────────────────────────────────────────────────┐
-  │                          APPLICATION LAYER                                   │
-  │                                                                              │
-  │  ┌──────────────┐     ┌──────────────────────┐     ┌──────────────────────┐ │
-  │  │ Notification │────>│ AppNotificationBuilder│────>│ Laravel Mail Queue  │ │
-  │  │   Classes    │     │   (Central Router)    │     │    (Redis)          │ │
-  │  └──────────────┘     └──────────────────────┘     └──────────┬───────────┘ │
-  │                                                                 │            │
-  └─────────────────────────────────────────────────────────────────┼────────────┘
-                                                                    │
-                                                                    ▼
-  ┌─────────────────────────────────────────────────────────────────────────────┐
-  │                          QUEUE PROCESSING                                    │
-  │                                                                              │
-  │  ┌──────────────────────────────────────────────────────────────────────┐   │
-  │  │                     Laravel Horizon                                  │   │
-  │  │                                                                      │   │
-  │  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐    │   │
-  │  │  │  default   │  │   emails   │  │   exports  │  │ notifications│    │   │
-  │  │  │   queue    │  │   queue    │  │   queue    │  │    queue    │    │   │
-  │  │  └────────────┘  └─────┬──────┘  └────────────┘  └────────────┘    │   │
-  │  │                        │                                            │   │
-  │  └────────────────────────┼────────────────────────────────────────────┘   │
-  │                           │                                                 │
-  └───────────────────────────┼─────────────────────────────────────────────────┘
-                              │
-                              ▼
-  ┌─────────────────────────────────────────────────────────────────────────────┐
-  │                          TRANSPORT LAYER                                     │
-  │                                                                              │
-  │  ┌──────────────────────────────────────────────────────────────────────┐   │
-  │  │                     Laravel Mail with SES Driver                     │   │
-  │  │                                                                      │   │
-  │  │  config/mail.php:                                                   │   │
-  │  │  'default' => env('MAIL_MAILER', 'ses'),                           │   │
-  │  │  'from' => ['address' => 'info@kitchntabs.com']                │   │
-  │  │                                                                      │   │
-  │  └──────────────────────────────────────────────────────────────────────┘   │
-  │                                                                              │
-  └─────────────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-  ┌─────────────────────────────────────────────────────────────────────────────┐
-  │                          AWS SERVICES                                        │
-  │                                                                              │
-  │  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐                │
-  │  │   AWS SES    │────>│   AWS SNS    │────>│  CloudWatch  │                │
-  │  │  (Sending)   │     │  (Feedback)  │     │   (Metrics)  │                │
-  │  └──────────────┘     └──────────────┘     └──────────────┘                │
-  │                                                                              │
-  └─────────────────────────────────────────────────────────────────────────────┘
+    MQ --> Q2
+    Q2 --> SESDRIVER
+    SESDRIVER --> SES
 ```
 
 ### 9.2 Configuration

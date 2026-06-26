@@ -71,42 +71,37 @@ dash-frontend/
 
 ### Component Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        macOS Development Machine                        │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐     │
-│  │  build-python-  │───▶│  build-docker   │───▶│  kt_service_    │     │
-│  │  service.js     │    │  .js            │    │  builds/        │     │
-│  └─────────────────┘    └─────────────────┘    └─────────────────┘     │
-│          │                      │                      │                │
-│          │                      ▼                      │                │
-│          │              ┌───────────────┐              │                │
-│          │              │ Docker buildx │              │                │
-│          │              │ + QEMU        │              │                │
-│          │              └───────────────┘              │                │
-│          │                      │                      │                │
-│          ▼                      ▼                      ▼                │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                    electron-builder                              │   │
-│  │                    afterPack hook                                │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │   │
-│  │  │ armv7l pkg  │  │  arm64 pkg  │  │  darwin pkg │              │   │
-│  │  │ (Docker)    │  │  (Docker)   │  │  (Native)   │              │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘              │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-            ┌───────────────────────────────────────────┐
-            │           Output Packages                  │
-            ├───────────────────────────────────────────┤
-            │  • kitchntabs-1.0.19-armv7l.deb           │
-            │  • kitchntabs-1.0.19-arm64.deb            │
-            │  • kitchntabs-1.0.19-arm64.dmg (macOS)    │
-            └───────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph MacOS["macOS Development Machine"]
+        PyBuild["build-python-service.js"]
+        DockerBuild["build-docker.js"]
+        KtService["kt_service_builds/"]
+        DockerQEMU["Docker buildx + QEMU"]
+        ElectronBuilder["electron-builder<br/>afterPack hook"]
+        Armv7["armv7l pkg (Docker)"]
+        Arm64["arm64 pkg (Docker)"]
+        Darwin["darwin pkg (Native)"]
+
+        PyBuild --> DockerBuild --> KtService
+        PyBuild --> DockerQEMU
+        DockerBuild --> DockerQEMU
+        KtService --> ElectronBuilder
+        DockerQEMU --> ElectronBuilder
+        ElectronBuilder --> Armv7
+        ElectronBuilder --> Arm64
+        ElectronBuilder --> Darwin
+    end
+
+    subgraph Output["Output Packages"]
+        Deb1["kitchntabs-1.0.19-armv7l.deb"]
+        Deb2["kitchntabs-1.0.19-arm64.deb"]
+        DMG["kitchntabs-1.0.19-arm64.dmg macOS"]
+    end
+
+    Armv7 --> Deb1
+    Arm64 --> Deb2
+    Darwin --> DMG
 ```
 
 ---

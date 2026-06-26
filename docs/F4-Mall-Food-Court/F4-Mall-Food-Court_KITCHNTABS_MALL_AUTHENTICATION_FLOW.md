@@ -33,48 +33,19 @@ This document explains how the authentication system works, the interaction betw
 
 ### High-Level Authentication Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         KitchnTabs Mall App                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                    KitchnTabsMallBootstrap                           │    │
-│  │                    (Entry Point & Router)                            │    │
-│  └────────────────────────────┬────────────────────────────────────────┘    │
-│                               │                                              │
-│               ┌───────────────┴───────────────┐                             │
-│               │                               │                             │
-│               ▼                               ▼                             │
-│   ┌─────────────────────┐         ┌─────────────────────────────────────┐  │
-│   │   Admin Flow        │         │        Guest Session Flow            │  │
-│   │   (/login, /admin)  │         │    (/:mallSlug/s/:sessionId/*)      │  │
-│   │                     │         │                                      │  │
-│   │  ┌───────────────┐  │         │  ┌─────────────────────────────┐    │  │
-│   │  │ Redux Auth    │  │         │  │ Pre-set authenticated=true  │    │  │
-│   │  │ isAuthenticated│ │         │  │ in localStorage             │    │  │
-│   │  └───────────────┘  │         │  └─────────────────────────────┘    │  │
-│   │         │           │         │              │                       │  │
-│   │         ▼           │         │              ▼                       │  │
-│   │  ┌───────────────┐  │         │  ┌─────────────────────────────┐    │  │
-│   │  │ DASHMall      │  │         │  │ MallClientWrapper           │    │  │
-│   │  │ AuthProvider  │  │         │  │ (Session Validation HoC)    │    │  │
-│   │  └───────────────┘  │         │  └─────────────────────────────┘    │  │
-│   │         │           │         │              │                       │  │
-│   │         ▼           │         │              ▼                       │  │
-│   │  ┌───────────────┐  │         │  ┌─────────────────────────────┐    │  │
-│   │  │KitchnTabs     │  │         │  │ DASHMallClientAuthProvider  │    │  │
-│   │  │PrivateApp     │  │         │  │ (Guest Auth)                │    │  │
-│   │  └───────────────┘  │         │  └─────────────────────────────┘    │  │
-│   └─────────────────────┘         │              │                       │  │
-│                                   │              ▼                       │  │
-│                                   │  ┌─────────────────────────────┐    │  │
-│                                   │  │ KitchnTabsPrivateApp        │    │  │
-│                                   │  │ (with guest permissions)    │    │  │
-│                                   │  └─────────────────────────────┘    │  │
-│                                   └─────────────────────────────────────┘  │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["KitchnTabsMallBootstrap<br/>(Entry Point & Router)"] --> B["Admin Flow<br/>(/login, /admin)"]
+    A --> C["Guest Session Flow<br/>(/:mallSlug/s/:sessionId/*)"]
+
+    B --> B1["Redux Auth isAuthenticated"]
+    B1 --> B2["DASHMallAuthProvider"]
+    B2 --> B3["KitchnTabsPrivateApp"]
+
+    C --> C1["Pre-set authenticated=true in localStorage"]
+    C1 --> C2["MallClientWrapper<br/>(Session Validation HoC)"]
+    C2 --> C3["DASHMallClientAuthProvider<br/>(Guest Auth)"]
+    C3 --> C4["KitchnTabsPrivateApp<br/>(with guest permissions)"]
 ```
 
 ### Key Concepts
@@ -94,32 +65,14 @@ This document explains how the authentication system works, the interaction betw
 
 The application recognizes different URL patterns to determine the appropriate authentication flow:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           URL Pattern Detection                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Pattern 1: Session URL (Guest Mall Ordering)                               │
-│  ─────────────────────────────────────────────                              │
-│  Format: /:mallSlug/s/:sessionId/*                                          │
-│  Example: /malltest/s/LNXEX                                                 │
-│  Regex: /^\/[^/]+\/s\/[A-Z0-9]{5,}/i                                       │
-│  Result: → MallClientWrapper + Guest Auth                                   │
-│                                                                              │
-│  Pattern 2: Direct Session Hash (Legacy)                                    │
-│  ────────────────────────────────────────                                   │
-│  Format: /:sessionId                                                        │
-│  Example: /LNXEX                                                            │
-│  Regex: /^\/([A-Z0-9]{5,})(?:\/|$)/i                                       │
-│  Result: → MallClientWrapper + Guest Auth                                   │
-│                                                                              │
-│  Pattern 3: Non-Session URL (Admin/Public)                                  │
-│  ──────────────────────────────────────────                                 │
-│  Examples: /, /login, /admin/*                                              │
-│  No regex match                                                              │
-│  Result: → Standard auth flow (login required)                              │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["URL Pattern Detection"] --> B1
+    B1["Pattern 1: Session URL<br/>Guest Mall Ordering<br/>Format: /:mallSlug/s/:sessionId/*<br/>Example: /malltest/s/LNXEX<br/>Regex: /^\/[^/]+\/s\/[A-Z0-9]{5,}/i<br/>Result: MallClientWrapper + Guest Auth"]
+    A --> B2
+    B2["Pattern 2: Direct Session Hash<br/>Legacy<br/>Format: /:sessionId<br/>Example: /LNXEX<br/>Regex: /^\/([A-Z0-9]{5,})(?:\/|$)/i<br/>Result: MallClientWrapper + Guest Auth"]
+    A --> B3
+    B3["Pattern 3: Non-Session URL<br/>Admin/Public<br/>Examples: /, /login, /admin/*<br/>No regex match<br/>Result: Standard auth flow (login required)"]
 ```
 
 ### Detection Code (KitchnTabsMallBootstrap.tsx)
@@ -167,58 +120,14 @@ if (isSessionUrl) {
 
 ### Flow Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     Guest Authentication Timing Flow                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ① User scans QR code → Browser navigates to /malltest/s/LNXEX             │
-│     │                                                                        │
-│     ▼                                                                        │
-│  ② KitchnTabsMallBootstrap RENDER (synchronous)                             │
-│     │                                                                        │
-│     ├──▶ Detect isSessionUrl = true (regex match)                           │
-│     │                                                                        │
-│     ├──▶ ⚡ CRITICAL: Set localStorage 'authenticated' = 'true'             │
-│     │    (Must happen BEFORE AdminContext reads it)                         │
-│     │                                                                        │
-│     └──▶ Render <MallClientWrapper>                                         │
-│            │                                                                 │
-│            ▼                                                                 │
-│  ③ MallClientWrapper RENDER                                                 │
-│     │                                                                        │
-│     ├──▶ Parse URL → extract sessionId                                      │
-│     │                                                                        │
-│     ├──▶ Store session hash in localStorage                                 │
-│     │                                                                        │
-│     ├──▶ Show loading spinner                                               │
-│     │                                                                        │
-│     └──▶ useEffect → Start async validation                                 │
-│            │                                                                 │
-│            ▼                                                                 │
-│  ④ Validation Effect (async)                                                │
-│     │                                                                        │
-│     ├──▶ API: GET /public/mall/{sessionId}/getSessionAuth                   │
-│     │                                                                        │
-│     ├──▶ Success → setValidationState({ isValid: true })                    │
-│     │                                                                        │
-│     └──▶ Failure → Clear 'authenticated', show error                        │
-│            │                                                                 │
-│            ▼                                                                 │
-│  ⑤ KitchnTabsPrivateApp RENDER                                              │
-│     │                                                                        │
-│     ├──▶ Uses DASHMallClientAuthProvider (guest auth)                       │
-│     │                                                                        │
-│     └──▶ AdminContext reads 'authenticated' = 'true' from localStorage      │
-│            │                                                                 │
-│            ▼                                                                 │
-│  ⑥ AsyncResources RENDER                                                    │
-│     │                                                                        │
-│     ├──▶ authenticated = true ✓                                             │
-│     │                                                                        │
-│     └──▶ Renders customAuthRoutes (including MallClientWelcome at /)        │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    S1["① User scans QR code<br/>Browser navigates to /malltest/s/LNXEX"] --> S2
+    S2["② KitchnTabsMallBootstrap RENDER<br/>synchronous<br/>- Detect isSessionUrl = true regex match<br/>- CRITICAL: Set localStorage 'authenticated'='true'<br/>  MUST happen BEFORE AdminContext reads it<br/>- Render MallClientWrapper"] --> S3
+    S3["③ MallClientWrapper RENDER<br/>- Parse URL → extract sessionId<br/>- Store session hash in localStorage<br/>- Show loading spinner<br/>- useEffect → Start async validation"] --> S4
+    S4["④ Validation Effect async<br/>- API: GET /public/mall/{sessionId}/getSessionAuth<br/>- Success → setValidationState isValid: true<br/>- Failure → Clear 'authenticated', show error"] --> S5
+    S5["⑤ KitchnTabsPrivateApp RENDER<br/>- Uses DASHMallClientAuthProvider guest auth<br/>- AdminContext reads 'authenticated'='true' from localStorage"] --> S6
+    S6["⑥ AsyncResources RENDER<br/>- authenticated = true ✓<br/>- Renders customAuthRoutes<br/>  including MallClientWelcome at /"]
 ```
 
 ---
@@ -227,45 +136,41 @@ if (isSessionUrl) {
 
 ### Complete Component Tree
 
-```
-KitchnTabsMallBootstrap
-│
-├── [isAuthenticated = true] ──────────────────────────────────────┐
-│   │                                                               │
-│   └── KitchnTabsPrivateApp                                       │
-│       ├── BrowserRouter (basename="/")                           │
-│       ├── DASHMallAuthProvider (real auth)                       │
-│       ├── DASHMallDataProvider                                   │
-│       └── DASHAdmin                                              │
-│           └── AsyncResources                                     │
-│               └── AdminUI                                        │
-│                   ├── dashPrivateRoutes                          │
-│                   └── KitchnTabsMallResources                    │
-│                                                                   │
-├── [isSessionUrl = true] ─────────────────────────────────────────┐
-│   │                                                               │
-│   └── MallClientWrapper                                          │
-│       ├── URL Parsing (sessionId, mallSlug)                      │
-│       ├── Session Validation (API call)                          │
-│       ├── MallSessionEchoProvider (WebSocket)                    │
-│       │                                                           │
-│       └── KitchnTabsPrivateApp                                   │
-│           ├── BrowserRouter (basename="/malltest/s/LNXEX")       │
-│           ├── DASHMallClientAuthProvider (guest auth)            │
-│           ├── DASHMallClientDataProvider                         │
-│           └── DASHAdmin                                          │
-│               └── AsyncResources                                 │
-│                   └── AdminUI                                    │
-│                       ├── dashPrivateRoutes                      │
-│                       │   └── MallClientWelcome (at /)           │
-│                       └── KitchnTabsMallResources                │
-│                                                                   │
-└── [neither] ─────────────────────────────────────────────────────┐
-    │                                                               │
-    └── KitchnTabsPublicApp                                        │
-        ├── dashPublicRoutes                                       │
-        │   └── DASHLightWeightLogin (at /)                        │
-        └── Standard public routes                                 │
+```mermaid
+flowchart TD
+    A["KitchnTabsMallBootstrap"]
+    A --> B1["isAuthenticated = true"]
+    B1 --> B["KitchnTabsPrivateApp"]
+    B --> B2["BrowserRouter<br/>basename='/'"]
+    B --> B3["DASHMallAuthProvider<br/>real auth"]
+    B --> B4["DASHMallDataProvider"]
+    B --> B5["DASHAdmin"]
+    B5 --> B6["AsyncResources"]
+    B6 --> B7["AdminUI"]
+    B7 --> B8["dashPrivateRoutes"]
+    B7 --> B9["KitchnTabsMallResources"]
+
+    A --> C1["isSessionUrl = true"]
+    C1 --> C["MallClientWrapper"]
+    C --> C2["URL Parsing<br/>sessionId, mallSlug"]
+    C --> C3["Session Validation<br/>API call"]
+    C --> C4["MallSessionEchoProvider<br/>WebSocket"]
+    C --> C5["KitchnTabsPrivateApp"]
+    C5 --> C6["BrowserRouter<br/>basename='/malltest/s/LNXEX'"]
+    C5 --> C7["DASHMallClientAuthProvider<br/>guest auth"]
+    C5 --> C8["DASHMallClientDataProvider"]
+    C5 --> C9["DASHAdmin"]
+    C9 --> C10["AsyncResources"]
+    C10 --> C11["AdminUI"]
+    C11 --> C12["dashPrivateRoutes"]
+    C12 --> C12a["MallClientWelcome at /"]
+    C11 --> C13["KitchnTabsMallResources"]
+
+    A --> D1["neither"]
+    D1 --> D["KitchnTabsPublicApp"]
+    D --> D2["dashPublicRoutes"]
+    D2 --> D2a["DASHLightWeightLogin at /"]
+    D --> D3["Standard public routes"]
 ```
 
 ---
@@ -320,46 +225,28 @@ const authProvider = {
 
 ### Validation State Machine
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        Session Validation States                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────┐                                                           │
-│  │   INITIAL    │  isValidating: true                                       │
-│  │   STATE      │  isValid: false                                           │
-│  └──────┬───────┘                                                           │
-│         │                                                                    │
-│         │ useEffect triggers                                                 │
-│         ▼                                                                    │
-│  ┌──────────────┐                                                           │
-│  │  VALIDATING  │  API: GET /public/mall/{sessionId}/getSessionAuth        │
-│  │              │  Shows: <CircularProgress />                              │
-│  └──────┬───────┘                                                           │
-│         │                                                                    │
-│    ┌────┴────┐                                                              │
-│    │         │                                                              │
-│    ▼         ▼                                                              │
-│ ┌──────┐  ┌──────────┐                                                      │
-│ │SUCCESS│  │  ERROR   │                                                      │
-│ │      │  │          │                                                      │
-│ │isValid│  │isValid:  │                                                      │
-│ │: true │  │false     │                                                      │
-│ └──┬───┘  └────┬─────┘                                                      │
-│    │           │                                                             │
-│    │           │ Clear 'authenticated' from localStorage                    │
-│    │           │ Show error message                                         │
-│    │           │                                                             │
-│    ▼           ▼                                                             │
-│ ┌──────────┐  ┌──────────────────────────────────────┐                      │
-│ │ Render   │  │ Error States:                        │                      │
-│ │ Children │  │ - 404: Session not found             │                      │
-│ │          │  │ - 410: Session expired               │                      │
-│ │          │  │ - 403: Access denied                 │                      │
-│ └──────────┘  │ - 500: Server error                  │                      │
-│               └──────────────────────────────────────┘                      │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> INITIAL_STATE
+    note right of INITIAL_STATE
+        isValidating: true
+        isValid: false
+    end note
+    INITIAL_STATE --> VALIDATING: useEffect triggers
+    note right of VALIDATING
+        API: GET /public/mall/{sessionId}/getSessionAuth
+        Shows: CircularProgress
+    end note
+    VALIDATING --> SUCCESS: success
+    VALIDATING --> ERROR: error
+    SUCCESS --> RENDER_CHILDREN: isValid = true
+    ERROR --> ERROR_STATES: Clear 'authenticated' from localStorage<br/>Show error message
+    note right of ERROR_STATES
+        404: Session not found
+        410: Session expired
+        403: Access denied
+        500: Server error
+    end note
 ```
 
 ### Backend API Response
@@ -555,168 +442,45 @@ Events:
 
 ### Complete Authentication Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    Complete Mall Session Authentication Flow                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 1. USER ACTION: Scan QR Code                                         │   │
-│  │    QR contains: https://domain.com/malltest/s/LNXEX                 │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                               │                                              │
-│                               ▼                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 2. BROWSER: Navigate to URL                                          │   │
-│  │    pathname = "/malltest/s/LNXEX"                                    │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                               │                                              │
-│                               ▼                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 3. KitchnTabsMallBootstrap: URL PATTERN CHECK                        │   │
-│  │                                                                       │   │
-│  │    isSessionUrl = /^\/[^/]+\/s\/[A-Z0-9]{5,}/i.test(pathname)       │   │
-│  │    isSessionUrl = true ✓                                             │   │
-│  │                                                                       │   │
-│  │    ⚡ CRITICAL: dashStorage.setItem('authenticated', 'true')        │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                               │                                              │
-│                               ▼                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 4. RENDER DECISION                                                    │   │
-│  │                                                                       │   │
-│  │    if (isAuthenticated) → Admin App                                  │   │
-│  │    else if (isSessionUrl) → MallClientWrapper + Guest App  ←─────────│   │
-│  │    else → Public App (Login)                                         │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                               │                                              │
-│                               ▼                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 5. MallClientWrapper: MOUNT                                          │   │
-│  │                                                                       │   │
-│  │    a. Parse URL → sessionId="LNXEX", mallSlug="malltest"            │   │
-│  │    b. Calculate sessionBasePath="/malltest/s/LNXEX"                  │   │
-│  │    c. Store in localStorage:                                         │   │
-│  │       - mall-session-hash = "LNXEX"                                  │   │
-│  │       - authenticated = "true" (reinforced)                          │   │
-│  │    d. Initial state: isValidating=true → Show spinner               │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                               │                                              │
-│                               ▼                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 6. MallClientWrapper: useEffect VALIDATION                           │   │
-│  │                                                                       │   │
-│  │    API Request: GET /public/mall/LNXEX/getSessionAuth               │   │
-│  │                                                                       │   │
-│  │    ┌─────────────────┐    ┌─────────────────┐                        │   │
-│  │    │    SUCCESS      │    │     ERROR       │                        │   │
-│  │    │    (200)        │    │ (404/410/403)   │                        │   │
-│  │    └────────┬────────┘    └────────┬────────┘                        │   │
-│  │             │                       │                                 │   │
-│  │             ▼                       ▼                                 │   │
-│  │    isValid = true          isValid = false                           │   │
-│  │    Store tenant data       Clear 'authenticated'                     │   │
-│  │                            Show error message                        │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                               │                                              │
-│                               ▼ (on success)                                 │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 7. RENDER CHILDREN (KitchnTabsPrivateApp)                            │   │
-│  │                                                                       │   │
-│  │    Props:                                                            │   │
-│  │    - appPath = "/malltest/s/LNXEX" (used as BrowserRouter basename) │   │
-│  │    - customAuthProvider = DASHMallClientAuthProvider                 │   │
-│  │    - customDataProvider = DASHMallClientDataProvider                 │   │
-│  │                                                                       │   │
-│  │    Wrapped in: <MallSessionEchoProvider sessionId="LNXEX">           │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                               │                                              │
-│                               ▼                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 8. KitchnTabsPrivateApp: MOUNT                                       │   │
-│  │                                                                       │   │
-│  │    <BrowserRouter basename="/malltest/s/LNXEX">                      │   │
-│  │      <DASHAdmin                                                      │   │
-│  │        authProvider={DASHMallClientAuthProvider}                     │   │
-│  │        dataProvider={DASHMallClientDataProvider}                     │   │
-│  │        basename="/malltest/s/LNXEX"                                  │   │
-│  │      >                                                               │   │
-│  │        <AsyncResources ... />                                        │   │
-│  │      </DASHAdmin>                                                    │   │
-│  │    </BrowserRouter>                                                  │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                               │                                              │
-│                               ▼                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 9. DASHAdmin/AsyncResources: AUTH CHECK                              │   │
-│  │                                                                       │   │
-│  │    const { authenticated } = useAuthContext();                       │   │
-│  │    // Reads from localStorage: authenticated = "true" ✓             │   │
-│  │                                                                       │   │
-│  │    authenticated = true                                              │   │
-│  │    → Renders customAuthRoutes (dashPrivateRoutes)                   │   │
-│  │    → Shows MallClientWelcome at /                                    │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                               │                                              │
-│                               ▼                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ 10. FINAL STATE: User sees MallClientWelcome                         │   │
-│  │                                                                       │   │
-│  │    URL: https://domain.com/malltest/s/LNXEX                         │   │
-│  │    Component: <MallClientWelcome />                                  │   │
-│  │    WebSocket: Connected to session.LNXEX channel                    │   │
-│  │    Auth: Guest (no login required)                                   │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    S1["1. USER ACTION: Scan QR Code<br/>QR contains: https://domain.com/malltest/s/LNXEX"] --> S2
+    S2["2. BROWSER: Navigate to URL<br/>pathname = '/malltest/s/LNXEX'"] --> S3
+    S3["3. KitchnTabsMallBootstrap: URL PATTERN CHECK<br/>isSessionUrl = /^\/[^/]+\/s\/[A-Z0-9]{5,}/i.test pathname<br/>isSessionUrl = true ✓<br/>CRITICAL: dashStorage.setItem('authenticated', 'true')"] --> S4
+    S4["4. RENDER DECISION<br/>if isAuthenticated → Admin App<br/>else if isSessionUrl → MallClientWrapper + Guest App<br/>else → Public App Login"] --> S5
+    S5["5. MallClientWrapper: MOUNT<br/>a. Parse URL → sessionId='LNXEX', mallSlug='malltest'<br/>b. Calculate sessionBasePath='/malltest/s/LNXEX'<br/>c. Store in localStorage:<br/>   - mall-session-hash = 'LNXEX'<br/>   - authenticated = 'true' reinforced<br/>d. Initial state: isValidating=true → Show spinner"] --> S6
+    S6["6. MallClientWrapper: useEffect VALIDATION<br/>API Request: GET /public/mall/LNXEX/getSessionAuth"] --> S6D{Status?}
+    S6D -->|SUCCESS 200| S6S["isValid = true<br/>Store tenant data"]
+    S6D -->|ERROR 404/410/403| S6E["isValid = false<br/>Clear 'authenticated'<br/>Show error message"]
+    S6S --> S7
+    S7["7. RENDER CHILDREN KitchnTabsPrivateApp<br/>Props:<br/>- appPath = '/malltest/s/LNXEX' used as BrowserRouter basename<br/>- customAuthProvider = DASHMallClientAuthProvider<br/>- customDataProvider = DASHMallClientDataProvider<br/>Wrapped in: MallSessionEchoProvider sessionId='LNXEX'"] --> S8
+    S8["8. KitchnTabsPrivateApp: MOUNT<br/>BrowserRouter basename='/malltest/s/LNXEX'<br/>DASHAdmin<br/>  authProvider=DASHMallClientAuthProvider<br/>  dataProvider=DASHMallClientDataProvider<br/>  basename='/malltest/s/LNXEX'<br/>AsyncResources"] --> S9
+    S9["9. DASHAdmin/AsyncResources: AUTH CHECK<br/>const authenticated = useAuthContext<br/>Reads from localStorage: authenticated = 'true' ✓<br/>authenticated = true<br/>→ Renders customAuthRoutes dashPrivateRoutes<br/>→ Shows MallClientWelcome at /"] --> S10
+    S10["10. FINAL STATE: User sees MallClientWelcome<br/>URL: https://domain.com/malltest/s/LNXEX<br/>Component: MallClientWelcome<br/>WebSocket: Connected to session.LNXEX channel<br/>Auth: Guest no login required"]
 ```
 
 ### Sequence Diagram
 
-```
-┌─────────┐ ┌───────────────────┐ ┌───────────────────┐ ┌─────────────────┐ ┌───────────┐
-│ Browser │ │ Bootstrap         │ │ MallClientWrapper │ │ Backend API     │ │ React     │
-│         │ │                   │ │                   │ │                 │ │ Admin     │
-└────┬────┘ └─────────┬─────────┘ └─────────┬─────────┘ └────────┬────────┘ └─────┬─────┘
-     │                │                     │                    │                │
-     │ Navigate to    │                     │                    │                │
-     │ /malltest/s/X  │                     │                    │                │
-     │───────────────▶│                     │                    │                │
-     │                │                     │                    │                │
-     │                │ Detect isSessionUrl │                    │                │
-     │                │ = true              │                    │                │
-     │                │─────────────────────│                    │                │
-     │                │                     │                    │                │
-     │                │ Set localStorage    │                    │                │
-     │                │ authenticated=true  │                    │                │
-     │                │─────────────────────│                    │                │
-     │                │                     │                    │                │
-     │                │ Render              │                    │                │
-     │                │─────────────────────▶                    │                │
-     │                │                     │                    │                │
-     │                │                     │ Parse URL          │                │
-     │                │                     │ Store session hash │                │
-     │                │                     │───────────────────▶│                │
-     │                │                     │                    │                │
-     │                │                     │ GET /getSessionAuth│                │
-     │                │                     │───────────────────▶│                │
-     │                │                     │                    │                │
-     │                │                     │◀───────────────────│                │
-     │                │                     │ 200 OK             │                │
-     │                │                     │ { tenant, auth }   │                │
-     │                │                     │                    │                │
-     │                │                     │ Render children    │                │
-     │                │                     │ with appPath       │                │
-     │                │                     │────────────────────────────────────▶│
-     │                │                     │                    │                │
-     │                │                     │                    │    Read        │
-     │                │                     │                    │    authenticated
-     │                │                     │                    │    = true      │
-     │                │                     │                    │                │
-     │                │                     │                    │    Render      │
-     │◀──────────────────────────────────────────────────────────────────────────│
-     │ Show MallClientWelcome              │                    │                │
-     │                │                     │                    │                │
+```mermaid
+sequenceDiagram
+    actor User as Browser/User
+    participant Bootstrap
+    participant MCW as MallClientWrapper
+    participant API as Backend API
+    participant Admin as React Admin
+
+    User->>Bootstrap: Navigate to /malltest/s/X
+    Bootstrap->>Bootstrap: Detect isSessionUrl = true
+    Bootstrap->>Bootstrap: Set localStorage authenticated=true
+    Bootstrap->>MCW: Render
+    MCW->>MCW: Parse URL
+    MCW->>MCW: Store session hash
+    MCW->>API: GET /getSessionAuth
+    API-->>MCW: 200 OK { tenant, auth }
+    MCW->>Admin: Render children with appPath
+    Admin->>Admin: Read authenticated = true
+    Admin->>Admin: Render
+    Admin-->>User: Show MallClientWelcome
 ```
 
 ---

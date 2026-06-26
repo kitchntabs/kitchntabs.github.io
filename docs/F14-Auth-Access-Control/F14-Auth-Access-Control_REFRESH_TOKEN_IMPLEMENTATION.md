@@ -157,43 +157,20 @@ RefreshToken::cleanupExpired(): int
 
 ### Token Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         REFRESH TOKEN FLOW                               │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   User Login                                                             │
-│       │                                                                  │
-│       ▼                                                                  │
-│   Store access_token + refresh_token in localStorage                     │
-│       │                                                                  │
-│       ▼                                                                  │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                    Normal API Requests                           │   │
-│   │   Authorization: Bearer {access_token}                           │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-│       │                                                                  │
-│       │ 401 Unauthorized                                                 │
-│       ▼                                                                  │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                    Axios Interceptor                             │   │
-│   │   1. Pause all pending requests                                  │   │
-│   │   2. Call POST /auth/refresh with refresh_token                  │   │
-│   │   3. Store new tokens                                            │   │
-│   │   4. Retry original request with new access_token                │   │
-│   │   5. Resume queued requests                                      │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-│       │                                                                  │
-│       │ Refresh fails (401)                                              │
-│       ▼                                                                  │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                    Logout User                                   │   │
-│   │   1. Clear localStorage                                          │   │
-│   │   2. Dispatch auth:logout event                                  │   │
-│   │   3. Redirect to login                                           │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Title["REFRESH TOKEN FLOW"]
+    Login["User Login"]
+    Store["Store access_token + refresh_token in localStorage"]
+    API["Normal API Requests<br/>Authorization: Bearer {access_token}"]
+    Unauth["401 Unauthorized"]
+    Interceptor["Axios Interceptor<br/>1. Pause all pending requests<br/>2. Call POST /auth/refresh with refresh_token<br/>3. Store new tokens<br/>4. Retry original request with new access_token<br/>5. Resume queued requests"]
+    RefreshFail["Refresh fails 401"]
+    Logout["Logout User<br/>1. Clear localStorage<br/>2. Dispatch auth:logout event<br/>3. Redirect to login"]
+    
+    Title --> Login --> Store --> API
+    API --> Unauth --> Interceptor
+    Interceptor --> RefreshFail --> Logout
 ```
 
 ### Axios Interceptor Logic

@@ -24,30 +24,13 @@ plain HTTP against the Laravel API; message fan‑out and background work go
 through **Redis** (queues, cache, the Reverb app registry, and optional Reverb
 horizontal scaling). **Horizon** supervises the Redis queue workers.
 
-```
-                         ┌──────────────────────────────────────────────┐
-                         │                  Browser (SPA)                │
-                         │   Laravel Echo  +  pusher-js                  │
-                         └───────┬──────────────────────────┬───────────┘
-              (1) HTTP  POST     │                          │  (2) WebSocket
-              private-channel    │                          │  ws(s)://host:port/app/<key>
-              auth (Bearer)      │                          │
-                                 ▼                          ▼
-                  ┌───────────────────────┐     ┌─────────────────────────┐
-                  │  Laravel API (HTTP)   │     │   Laravel Reverb         │
-                  │  php artisan serve    │     │   php artisan reverb:start│
-                  │  POST /api/ws/auth    │     │   :25001 (dev) / :443 prod │
-                  │  Broadcast::auth()    │     └───────────┬─────────────┘
-                  │  channels.php rules   │                 │ (4) broadcast
-                  └───────────┬───────────┘                 │     event payloads
-                              │ (3) event dispatched        │
-                              │     ShouldBroadcast         │
-                              ▼                             │
-                  ┌───────────────────────┐                │
-                  │   Redis               │◄───────────────┘
-                  │  • queues (Horizon)   │   • Reverb app registry (reverb:apps)
-                  │  • cache              │   • Reverb scaling pub/sub (optional)
-                  └───────────────────────┘
+```mermaid
+graph TD
+    A["WebSocket Connection"] --> B["Subscribe to channel"]
+    B --> C["Listen for events"]
+    C --> D["Receive message"]
+    D --> E["Process locally"]
+    E --> F["Update UI"]
 ```
 
 **Signaling flow:**
@@ -109,25 +92,21 @@ what the **backend uses to publish** events to the Reverb server:
 
 The **server bind** and the **app registry**:
 
-```php
-'servers' => [
-  'reverb' => [
-    'host' => env('REVERB_SERVER_HOST', '0.0.0.0'),
-    'port' => env('REVERB_SERVER_PORT', 8080),   // dev: 25001
-    'hostname' => env('REVERB_HOST'),
-    'scaling' => [ 'enabled' => env('REVERB_SCALING_ENABLED', false), 'channel' => 'reverb', 'server' => [ /* redis */ ] ],
-    ...
-  ],
-],
-'apps' => [
-  'provider' => 'config',          // NOTE: hardcoded 'config' (REVERB_APPS_DRIVER is ignored here)
-  'apps' => [[
-     'key'    => env('REVERB_APP_KEY'),     // <-- the `/app/<key>` the client connects to
-     'secret' => env('REVERB_APP_SECRET'),
-     'app_id' => env('REVERB_APP_ID'),
-     'allowed_origins' => ['*', 'ws.kitchntabs.com', 'api.kitchntabs.com', 'localhost', ...],
-  ]],
-],
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Database
+    
+    Client->>Server: WebSocket connect
+    Server->>Server: Create connection
+    Server-->>Client: Connected
+    Client->>Server: Subscribe to channel
+    Server-->>Client: Subscribed
+    Database->>Server: Data changed
+    Server->>Server: Notify subscribers
+    Server-->>Client: Broadcast event
+    Client->>Client: Update state
 ```
 
 > ⚠️ **App‑key contract:** the client connects to `/app/<key>`. `<key>` **must equal**

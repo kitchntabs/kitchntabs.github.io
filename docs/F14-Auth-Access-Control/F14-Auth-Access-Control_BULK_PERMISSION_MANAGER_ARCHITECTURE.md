@@ -3,362 +3,166 @@
 
 ## High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         BULK PERMISSION MANAGER                         │
-│                    Full-Stack MVC Implementation                        │
-└─────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND (React)                           │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌───────────────────────────────────────────────────────────────┐    │
-│  │         RolePermissionBulkManager.tsx (810 lines)             │    │
-│  │                                                               │    │
-│  │  Components:                                                  │    │
-│  │  ├─ Material UI Table (DataGrid)                             │    │
-│  │  ├─ Pagination Controls                                      │    │
-│  │  ├─ Filter Toolbar (Search, Group, Level, Status)            │    │
-│  │  ├─ Sort Headers (6 sortable columns)                        │    │
-│  │  ├─ Bulk Action Buttons                                      │    │
-│  │  ├─ Statistics Dashboard                                     │    │
-│  │  └─ Floating Save Button                                     │    │
-│  │                                                               │    │
-│  │  State Management:                                            │    │
-│  │  ├─ useState (permissions, filters, selected, etc.)          │    │
-│  │  ├─ useEffect (data fetching, sync)                          │    │
-│  │  └─ useCallback (memoized handlers)                          │    │
-│  └───────────────────────────────────────────────────────────────┘    │
-│                              ↓ ↑                                        │
-│                        HTTP Requests (Axios)                            │
-│                              ↓ ↑                                        │
-└─────────────────────────────────────────────────────────────────────────┘
-                               ↓ ↑
-                          REST API Calls
-                               ↓ ↑
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            BACKEND (Laravel)                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌───────────────────────────────────────────────────────────────┐    │
-│  │                    API Routes (system.php)                    │    │
-│  │                                                               │    │
-│  │  GET  /role/{id}/permissions-bulk          → getPermissions  │    │
-│  │  POST /role/{id}/permissions-bulk/update   → bulkUpdate      │    │
-│  │  GET  /role/{id}/permissions-bulk/stats    → getStats        │    │
-│  └───────────────────────────────────────────────────────────────┘    │
-│                              ↓                                          │
-│  ┌───────────────────────────────────────────────────────────────┐    │
-│  │      RolePermissionBulkController.php (398 lines)            │    │
-│  │                                                               │    │
-│  │  Methods:                                                     │    │
-│  │  ├─ getPermissions($roleId)                                  │    │
-│  │  │   ├─ Pagination                                           │    │
-│  │  │   ├─ Filtering (search, group, level, checked)           │    │
-│  │  │   ├─ Sorting                                              │    │
-│  │  │   └─ Authorization check                                  │    │
-│  │  │                                                            │    │
-│  │  ├─ bulkUpdate($roleId)                                      │    │
-│  │  │   ├─ Validation (RolePermissionBulkRequest)              │    │
-│  │  │   ├─ Authorization check                                  │    │
-│  │  │   ├─ Database transaction                                 │    │
-│  │  │   ├─ Bulk operations (add/remove/set)                    │    │
-│  │  │   └─ Cache clearing                                       │    │
-│  │  │                                                            │    │
-│  │  └─ getStats($roleId)                                        │    │
-│  │      ├─ Aggregate queries                                    │    │
-│  │      ├─ Per-group statistics                                 │    │
-│  │      └─ Percentage calculations                              │    │
-│  └───────────────────────────────────────────────────────────────┘    │
-│                              ↓                                          │
-│  ┌───────────────────────────────────────────────────────────────┐    │
-│  │        RolePermissionBulkRequest.php (53 lines)              │    │
-│  │                                                               │    │
-│  │  Validates:                                                   │    │
-│  │  ├─ permission_ids (array, required, exists)                 │    │
-│  │  └─ action (required, in:add,remove,set)                     │    │
-│  └───────────────────────────────────────────────────────────────┘    │
-│                              ↓                                          │
-│  ┌───────────────────────────────────────────────────────────────┐    │
-│  │              Database Layer (Eloquent ORM)                    │    │
-│  │                                                               │    │
-│  │  Models Used:                                                 │    │
-│  │  ├─ Role (Spatie)                                            │    │
-│  │  ├─ Permission (Spatie)                                      │    │
-│  │  └─ RolePolicy (Authorization)                               │    │
-│  └───────────────────────────────────────────────────────────────┘    │
-│                              ↓                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-                               ↓
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          DATABASE (MySQL/PostgreSQL)                    │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─────────────────────┐  ┌─────────────────────┐  ┌──────────────┐  │
-│  │   permissions       │  │ role_has_permissions│  │    roles     │  │
-│  ├─────────────────────┤  ├─────────────────────┤  ├──────────────┤  │
-│  │ id (PK)             │  │ role_id (FK)        │  │ id (PK)      │  │
-│  │ name                │  │ permission_id (FK)  │  │ name         │  │
-│  │ route_name          │  └─────────────────────┘  │ level        │  │
-│  │ group               │           (Pivot)         │ guard_name   │  │
-│  │ level               │                            └──────────────┘  │
-│  │ guard_name          │                                              │
-│  │ is_active           │                                              │
-│  │ description         │                                              │
-│  └─────────────────────┘                                              │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Title["<b>BULK PERMISSION MANAGER</b><br/>Full-Stack MVC Implementation"]
+    
+    subgraph Frontend["FRONTEND (React)"]
+        RolePermissionBulkManager["RolePermissionBulkManager.tsx<br/>(810 lines)<br/><br/>Components:<br/>- Material UI Table DataGrid<br/>- Pagination Controls<br/>- Filter Toolbar Search Group Level Status<br/>- Sort Headers 6 sortable columns<br/>- Bulk Action Buttons<br/>- Statistics Dashboard<br/>- Floating Save Button<br/><br/>State Management:<br/>- useState permissions filters selected etc<br/>- useEffect data fetching sync<br/>- useCallback memoized handlers"]
+        HTTPReq["HTTP Requests Axios"]
+    end
+    
+    subgraph Backend["BACKEND Laravel"]
+        APIRoutes["API Routes system.php<br/><br/>GET /role/{id}/permissions-bulk → getPermissions<br/>POST /role/{id}/permissions-bulk/update → bulkUpdate<br/>GET /role/{id}/permissions-bulk/stats → getStats"]
+        BulkController["RolePermissionBulkController.php<br/>(398 lines)<br/><br/>Methods:<br/>- getPermissions: Pagination Filtering Sorting Auth<br/>- bulkUpdate: Validation Auth Transaction Bulk ops Cache<br/>- getStats: Aggregate Queries Per-group Percentages"]
+        BulkRequest["RolePermissionBulkRequest.php<br/>(53 lines)<br/><br/>Validates:<br/>- permission_ids array required exists<br/>- action required in add,remove,set"]
+        DBLayer["Database Layer Eloquent ORM<br/><br/>Models Used:<br/>- Role Spatie<br/>- Permission Spatie<br/>- RolePolicy Authorization"]
+    end
+    
+    subgraph Database["DATABASE MySQL/PostgreSQL"]
+        PermissionsTable["permissions<br/>---<br/>id PK<br/>name<br/>route_name<br/>group<br/>level<br/>guard_name<br/>is_active<br/>description"]
+        PivotTable["role_has_permissions<br/>---<br/>role_id FK<br/>permission_id FK<br/>Pivot"]
+        RolesTable["roles<br/>---<br/>id PK<br/>name<br/>level<br/>guard_name"]
+    end
+    
+    Title --> Frontend
+    RolePermissionBulkManager --> HTTPReq
+    HTTPReq --> APIRoutes
+    APIRoutes --> BulkController
+    BulkController --> BulkRequest
+    BulkRequest --> DBLayer
+    DBLayer --> PermissionsTable
+    DBLayer --> PivotTable
+    DBLayer --> RolesTable
 ```
 
 ## Request Flow Diagram
 
-```
-User Action: "Enable Selected Permissions"
-│
-├─ 1. FRONTEND: User selects permissions (checkboxes)
-│   └─ State: selected = [1, 2, 3, 4, 5]
-│
-├─ 2. FRONTEND: User clicks "Enable Selected"
-│   └─ handleBulkToggle(true) called
-│   └─ Updates local state (visual feedback)
-│   └─ setHasChanges(true)
-│
-├─ 3. FRONTEND: User clicks "Save Changes"
-│   └─ handleSave() called
-│   └─ Prepares API request
-│
-├─ 4. HTTP REQUEST
-│   POST /api/system/role/1/permissions-bulk/update
-│   Headers: { Authorization: "Bearer {token}" }
-│   Body: {
-│     permission_ids: [1, 2, 3, 4, 5],
-│     action: "add"
-│   }
-│
-├─ 5. BACKEND: Request hits middleware
-│   ├─ Authentication check (auth:sanctum)
-│   ├─ Access control check
-│   └─ Passes to controller
-│
-├─ 6. BACKEND: RolePermissionBulkController::bulkUpdate()
-│   ├─ Find role (throws 404 if not found)
-│   ├─ Authorize user (policy check)
-│   ├─ Validate request (RolePermissionBulkRequest)
-│   ├─ Verify permission levels
-│   │
-│   ├─ Begin transaction
-│   │   ├─ Query existing role_has_permissions
-│   │   ├─ Calculate new permissions (diff)
-│   │   ├─ INSERT new records
-│   │   └─ Clear permission cache
-│   └─ Commit transaction
-│
-├─ 7. HTTP RESPONSE
-│   Status: 200 OK
-│   Body: {
-│     message: "5 permission(s) added successfully",
-│     data: {
-│       role_id: 1,
-│       action: "add",
-│       affected_count: 5
-│     }
-│   }
-│
-├─ 8. FRONTEND: Handle success
-│   ├─ Show success notification
-│   ├─ Re-fetch permissions (updated state)
-│   ├─ Reset selected array
-│   └─ setHasChanges(false)
-│
-└─ 9. UI UPDATE
-    └─ Table shows updated permission states
-    └─ Green checkmarks appear
-    └─ Stats update (if visible)
+```mermaid
+flowchart TD
+    Start["User Action: Enable Selected Permissions"]
+    Step1["1. FRONTEND: User selects permissions<br/>State: selected = [1, 2, 3, 4, 5]"]
+    Step2["2. FRONTEND: User clicks Enable Selected<br/>handleBulkToggle called<br/>Updates local state visual feedback<br/>setHasChanges true"]
+    Step3["3. FRONTEND: User clicks Save Changes<br/>handleSave called<br/>Prepares API request"]
+    Step4["4. HTTP REQUEST<br/>POST /api/system/role/1/permissions-bulk/update<br/>Headers: Authorization Bearer token<br/>Body: permission_ids [1,2,3,4,5] action add"]
+    Step5["5. BACKEND: Request hits middleware<br/>Authentication check auth:sanctum<br/>Access control check<br/>Passes to controller"]
+    Step6["6. BACKEND: RolePermissionBulkController::bulkUpdate<br/>Find role throws 404 if not found<br/>Authorize user policy check<br/>Validate request<br/>Verify permission levels<br/>Begin transaction<br/>- Query existing role_has_permissions<br/>- Calculate new permissions diff<br/>- INSERT new records<br/>- Clear permission cache<br/>Commit transaction"]
+    Step7["7. HTTP RESPONSE<br/>Status: 200 OK<br/>Body: message action role_id affected_count"]
+    Step8["8. FRONTEND: Handle success<br/>Show success notification<br/>Re-fetch permissions updated state<br/>Reset selected array<br/>setHasChanges false"]
+    Step9["9. UI UPDATE<br/>Table shows updated permission states<br/>Green checkmarks appear<br/>Stats update if visible"]
+    
+    Start --> Step1 --> Step2 --> Step3 --> Step4 --> Step5 --> Step6 --> Step7 --> Step8 --> Step9
 ```
 
 ## Component Interaction Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              RolePermissionBulkManager Component                │
-└─────────────────────────────────────────────────────────────────┘
-                          │
-         ┌────────────────┼────────────────┐
-         │                │                │
-         ▼                ▼                ▼
-┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│   Filters   │  │   Table     │  │  Statistics │
-│   Toolbar   │  │   Grid      │  │  Dashboard  │
-└─────────────┘  └─────────────┘  └─────────────┘
-    │                   │                 │
-    │ ┌─────────────────┤                 │
-    │ │                 │                 │
-    ▼ ▼                 ▼                 ▼
-┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│   Search    │  │  Checkbox   │  │  Progress   │
-│   Field     │  │  Column     │  │   Bars      │
-├─────────────┤  ├─────────────┤  ├─────────────┤
-│   Group     │  │  Enabled    │  │  Metrics    │
-│   Select    │  │  Column     │  │   Cards     │
-├─────────────┤  ├─────────────┤  └─────────────┘
-│   Level     │  │  Data       │
-│   Select    │  │  Columns    │
-├─────────────┤  ├─────────────┤
-│   Status    │  │  Pagination │
-│   Select    │  │  Controls   │
-└─────────────┘  └─────────────┘
-         │                │
-         └────────┬───────┘
-                  ▼
-         ┌─────────────────┐
-         │  Bulk Actions   │
-         │    Toolbar      │
-         ├─────────────────┤
-         │ - Enable All    │
-         │ - Disable All   │
-         │ - Enable Sel    │
-         │ - Disable Sel   │
-         └─────────────────┘
-                  │
-                  ▼
-         ┌─────────────────┐
-         │  Save Button    │
-         │   (Floating)    │
-         └─────────────────┘
+```mermaid
+flowchart TD
+    Root["RolePermissionBulkManager Component"]
+    
+    Root --> Filters["Filters Toolbar"]
+    Root --> Table["Table Grid"]
+    Root --> Stats["Statistics Dashboard"]
+    
+    Filters --> SearchField["Search Field"]
+    Filters --> GroupSelect["Group Select"]
+    Filters --> LevelSelect["Level Select"]
+    Filters --> StatusSelect["Status Select"]
+    
+    Table --> Checkbox["Checkbox Column"]
+    Table --> Enabled["Enabled Column"]
+    Table --> Data["Data Columns"]
+    Table --> Pagination["Pagination Controls"]
+    
+    Stats --> ProgressBars["Progress Bars"]
+    Stats --> Metrics["Metrics Cards"]
+    
+    SearchField --> BulkActions["Bulk Actions Toolbar<br/>- Enable All<br/>- Disable All<br/>- Enable Sel<br/>- Disable Sel"]
+    Checkbox --> BulkActions
+    Pagination --> BulkActions
+    
+    BulkActions --> SaveBtn["Save Button Floating"]
 ```
 
 ## Data Flow Diagram
 
-```
-Frontend State Management
-┌──────────────────────────────────────────────────────────────┐
-│                                                              │
-│  Initial Load                                                │
-│  ├─ roleId (from URL params)                                │
-│  ├─ page = 0                                                 │
-│  ├─ rowsPerPage = 25                                         │
-│  └─ filters = { search: '', group: '', level: '', ... }     │
-│                                                              │
-│  ↓ useEffect triggers fetchPermissions()                     │
-│                                                              │
-│  API Call                                                    │
-│  └─ GET /role/{id}/permissions-bulk?page=1&perPage=25       │
-│                                                              │
-│  ↓ Response received                                         │
-│                                                              │
-│  State Updates                                               │
-│  ├─ permissions = response.data                             │
-│  ├─ total = response.meta.total                             │
-│  ├─ groups = response.filters.groups                        │
-│  ├─ levels = response.filters.levels                        │
-│  ├─ role = response.role                                    │
-│  └─ originalChecked = Set(checked permission IDs)           │
-│                                                              │
-│  ↓ User interactions                                         │
-│                                                              │
-│  User Actions                                                │
-│  ├─ Search → updates searchTerm → triggers re-fetch         │
-│  ├─ Filter → updates filter state → triggers re-fetch       │
-│  ├─ Sort → updates sort state → triggers re-fetch           │
-│  ├─ Select → updates selected array → no fetch              │
-│  ├─ Toggle → updates permission.checked → no fetch          │
-│  └─ Page change → updates page → triggers re-fetch          │
-│                                                              │
-│  ↓ Changes detected                                          │
-│                                                              │
-│  Change Tracking                                             │
-│  └─ hasChanges = (current checked ≠ originalChecked)        │
-│                                                              │
-│  ↓ Save button clicked                                       │
-│                                                              │
-│  Save Operation                                              │
-│  ├─ Calculate diff (added, removed)                         │
-│  ├─ POST /role/{id}/permissions-bulk/update                 │
-│  └─ Re-fetch permissions after success                      │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Title["Frontend State Management"]
+    
+    Init["Initial Load<br/>- roleId from URL params<br/>- page = 0<br/>- rowsPerPage = 25<br/>- filters = {search: '' group: '' level: '' ...}"]
+    
+    UseEffect["useEffect triggers fetchPermissions"]
+    
+    APICall["API Call<br/>GET /role/{id}/permissions-bulk?page=1&perPage=25"]
+    
+    Response["Response received"]
+    
+    StateUpdate["State Updates<br/>- permissions = response.data<br/>- total = response.meta.total<br/>- groups = response.filters.groups<br/>- levels = response.filters.levels<br/>- role = response.role<br/>- originalChecked = Set checked permission IDs"]
+    
+    UserInteract["User interactions"]
+    
+    UserActions["User Actions<br/>- Search → updates searchTerm → triggers re-fetch<br/>- Filter → updates filter state → triggers re-fetch<br/>- Sort → updates sort state → triggers re-fetch<br/>- Select → updates selected array → no fetch<br/>- Toggle → updates permission.checked → no fetch<br/>- Page change → updates page → triggers re-fetch"]
+    
+    ChangeDetect["Changes detected"]
+    
+    ChangeTrack["Change Tracking<br/>hasChanges = current checked ≠ originalChecked"]
+    
+    SaveClick["Save button clicked"]
+    
+    SaveOp["Save Operation<br/>- Calculate diff added removed<br/>- POST /role/{id}/permissions-bulk/update<br/>- Re-fetch permissions after success"]
+    
+    Title --> Init --> UseEffect --> APICall --> Response --> StateUpdate --> UserInteract --> UserActions --> ChangeDetect --> ChangeTrack --> SaveClick --> SaveOp
 ```
 
 ## Authorization Flow
 
-```
-Request: POST /role/{id}/permissions-bulk/update
-│
-├─ 1. Sanctum Middleware
-│   └─ Verify Bearer token
-│   └─ Load authenticated user
-│
-├─ 2. Access Middleware
-│   └─ Check user has system access
-│
-├─ 3. Controller: bulkUpdate()
-│   │
-│   ├─ 4. Find Role
-│   │   └─ Role::findOrFail($id)
-│   │       └─ Throw 404 if not found
-│   │
-│   ├─ 5. Policy Check
-│   │   └─ $this->authorize('manage', $role)
-│   │       └─ RolePolicy::manage()
-│   │           ├─ Check: user.level <= role.level
-│   │           └─ Deny if user level > role level
-│   │
-│   ├─ 6. Validate Request
-│   │   └─ RolePermissionBulkRequest::validated()
-│   │       ├─ permission_ids: array, required
-│   │       └─ action: in:add,remove,set
-│   │
-│   ├─ 7. Verify Permission Levels
-│   │   └─ Check all permission_ids have level >= user.level
-│   │       └─ Throw 403 if any permission is above user level
-│   │
-│   └─ 8. Proceed with Update
-│       └─ Transaction + bulk operations
-│
-└─ Response: 200 OK or 403 Forbidden or 404 Not Found
+```mermaid
+flowchart TD
+    Request["Request: POST /role/{id}/permissions-bulk/update"]
+    
+    Step1["1. Sanctum Middleware<br/>- Verify Bearer token<br/>- Load authenticated user"]
+    
+    Step2["2. Access Middleware<br/>- Check user has system access"]
+    
+    Step3["3. Controller: bulkUpdate"]
+    
+    Step4["4. Find Role<br/>Role::findOrFail id<br/>Throw 404 if not found"]
+    
+    Step5["5. Policy Check<br/>authorize manage role<br/>RolePolicy::manage<br/>- Check: user.level ≤ role.level<br/>- Deny if user level > role level"]
+    
+    Step6["6. Validate Request<br/>RolePermissionBulkRequest::validated<br/>- permission_ids: array required<br/>- action: in:add,remove,set"]
+    
+    Step7["7. Verify Permission Levels<br/>Check all permission_ids have level ≥ user.level<br/>Throw 403 if any permission above user level"]
+    
+    Step8["8. Proceed with Update<br/>Transaction + bulk operations"]
+    
+    Response["Response: 200 OK or 403 Forbidden or 404 Not Found"]
+    
+    Request --> Step1 --> Step2 --> Step3 --> Step4 --> Step5 --> Step6 --> Step7 --> Step8 --> Response
 ```
 
 ## Performance Optimization Strategies
 
-```
-Backend Optimizations
-├─ Database
-│   ├─ Indexed columns: id, group, level, route_name
-│   ├─ Pagination (LIMIT + OFFSET)
-│   ├─ Eager loading prevented (not needed)
-│   └─ Bulk inserts (single query for multiple records)
-│
-├─ Query Optimization
-│   ├─ Select only needed columns
-│   ├─ Use whereIn for set membership checks
-│   ├─ Aggregate queries for statistics
-│   └─ Avoid N+1 queries
-│
-├─ Caching
-│   ├─ Permission cache cleared after update
-│   ├─ Consider Redis for session/cache
-│   └─ Filter options can be cached
-│
-└─ Transactions
-    └─ Batch operations in single transaction
-
-Frontend Optimizations
-├─ React Performance
-│   ├─ useCallback for memoized functions
-│   ├─ Prevent unnecessary re-renders
-│   ├─ Lazy loading for statistics
-│   └─ Controlled re-fetches
-│
-├─ Data Handling
-│   ├─ Paginated loading (not all data at once)
-│   ├─ Client-side state for quick toggles
-│   ├─ Batch saves (not individual requests)
-│   └─ Optimistic UI updates
-│
-└─ Network
-    ├─ Axios for efficient HTTP
-    ├─ Bearer token auth (no cookies)
-    └─ Compressed responses (if enabled)
+```mermaid
+flowchart TD
+    Title["Performance Optimization Strategies"]
+    
+    subgraph Backend["Backend Optimizations"]
+        DB["Database<br/>- Indexed columns: id group level route_name<br/>- Pagination LIMIT OFFSET<br/>- Eager loading prevented not needed<br/>- Bulk inserts single query multiple records"]
+        Query["Query Optimization<br/>- Select only needed columns<br/>- Use whereIn for set membership checks<br/>- Aggregate queries for statistics<br/>- Avoid N+1 queries"]
+        Cache["Caching<br/>- Permission cache cleared after update<br/>- Consider Redis for session cache<br/>- Filter options can be cached"]
+        Trans["Transactions<br/>- Batch operations in single transaction"]
+    end
+    
+    subgraph Frontend["Frontend Optimizations"]
+        React["React Performance<br/>- useCallback for memoized functions<br/>- Prevent unnecessary re-renders<br/>- Lazy loading for statistics<br/>- Controlled re-fetches"]
+        Data["Data Handling<br/>- Paginated loading not all data at once<br/>- Client-side state for quick toggles<br/>- Batch saves not individual requests<br/>- Optimistic UI updates"]
+        Network["Network<br/>- Axios for efficient HTTP<br/>- Bearer token auth no cookies<br/>- Compressed responses if enabled"]
+    end
+    
+    Title --> Backend
+    Title --> Frontend
 ```
 
 ## Error Handling Flow

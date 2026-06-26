@@ -5,59 +5,37 @@
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     DASH PERMISSION SYSTEM                          │
-│                                                                     │
-│  ┌────────────────────────────────────────────────────────────┐   │
-│  │                    ROLE HIERARCHY (4 Roles)                  │   │
-│  │                                                            │   │
-│  │  Level 0: System Admin  ──────────────────┐               │   │
-│  │         (Full Access + Middleware Bypass) │               │   │
-│  │              │                            │               │   │
-│  │              │ can manage                 │               │   │
-│  │              ▼                            │               │   │
-│  │  Level 1: Tenancy Admin  ───────────────┤               │   │
-│  │         (Multi-Tenant Mgmt)              │               │   │
-│  │              │                            │               │   │
-│  │              │ can manage                 │               │   │
-│  │              ▼                            │               │   │
-│  │  Level 2: Tenant Admin  ────────────────┤               │   │
-│  │         (Business Operations)              │               │   │
-│  │              │                            │               │   │
-│  │              │ can manage                 │               │   │
-│  │              ▼                            │               │   │
-│  │  Level 3: Normal User  ─────────────────┘               │   │
-│  │         (Read Only)                                        │   │
-│  │                                                            │   │
-│  └────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  ┌────────────────────────────────────────────────────────────┐   │
-│  │               PERMISSION GROUPS (53 total)                 │   │
-│  │                                                            │   │
-│  │  System (L0)  Tenant (L1)  Ecommerce (L2)  Tabs (L2)      │   │
-│  │  8 groups     3 groups     28 groups        3 groups       │   │
-│  │                                                            │   │
-│  │  Common (L2)  App (L2)     Other (L2)                      │   │
-│  │  4 groups     2 groups     5 groups                        │   │
-│  │                                                            │   │
-│  └────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph DPS["DASH PERMISSION SYSTEM"]
+        subgraph RH["ROLE HIERARCHY (4 Roles)"]
+            L0["Level 0: System Admin<br/>(Full Access + Middleware Bypass)"] -- "can manage" --> L1["Level 1: Tenancy Admin<br/>(Multi-Tenant Mgmt)"]
+            L1 -- "can manage" --> L2["Level 2: Tenant Admin<br/>(Business Operations)"]
+            L2 -- "can manage" --> L3["Level 3: Normal User<br/>(Read Only)"]
+        end
+        subgraph PG["PERMISSION GROUPS (53 total)"]
+            PG1["System (L0)<br/>8 groups"]
+            PG2["Tenant (L1)<br/>3 groups"]
+            PG3["Ecommerce (L2)<br/>28 groups"]
+            PG4["Tabs (L2)<br/>3 groups"]
+            PG5["Common (L2)<br/>4 groups"]
+            PG6["App (L2)<br/>2 groups"]
+            PG7["Other (L2)<br/>5 groups"]
+        end
+    end
 ```
 
 ## Permission Distribution
 
+```mermaid
+flowchart TD
+    subgraph RPS["ROLE PERMISSION SUMMARY (4 Roles)"]
+        A["System Admin (L0)<br/>775 perms<br/>Full access + AccessMiddleware bypass"]
+        B["Tenancy Admin (L1)<br/>782 perms<br/>Multi-tenant mgmt (shares Tenant cfg)"]
+        C["Tenant Admin (L2)<br/>782 perms<br/>Business operations, no sys admin"]
+        D["Normal User (L3)<br/>255 perms<br/>Read-only across most resources"]
+    end
 ```
-┌───────────────────────────────────────────────────────────────────────────────┐
-│                    ROLE PERMISSION SUMMARY (4 Roles)                          │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  System Admin  (L0)  │ 775 perms  │ Full access + AccessMiddleware bypass   │
-│  Tenancy Admin (L1)  │ 782 perms  │ Multi-tenant mgmt (shares Tenant cfg)  │
-│  Tenant Admin  (L2)  │ 782 perms  │ Business operations, no sys admin       │
-│  Normal User   (L3)  │ 255 perms  │ Read-only across most resources         │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
 
 Note: Tenancy Admin currently uses tenantAdminPermissions.json (same as
 Tenant Admin). A dedicated tenancyAdminPermissions.json is a TODO.
@@ -68,113 +46,37 @@ Legend:
 
 ## Data Flow
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      SEEDING PROCESS                            │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-        ┌──────────────────────────────────────────┐
-        │      1. PermissionSeeder.php             │
-        │                                          │
-        │  • Loads systemPermissions.json          │
-        │  • Loads domain/permissions.json         │
-        │  • Inserts into permissions table        │
-        │                                          │
-        │  Output: 777+ permissions in database    │
-        └──────────────────────────────────────────┘
-                              │
-                              ▼
-        ┌──────────────────────────────────────────┐
-        │       2. RoleSeeder.php                  │
-        │                                          │
-        │  ┌────────────────────────────────────┐ │
-        │  │ System Admin (Level 0)             │ │
-        │  │ • Load: systemAdminPermissions.json│ │
-        │  │ • Assign: 775 permissions          │ │
-        │  └────────────────────────────────────┘ │
-        │                                          │
-        │  ┌────────────────────────────────────┐ │
-        │  │ Tenancy Admin (Level 1)            │ │
-        │  │ • Load: tenantAdminPermissions.json│ │
-        │  │ • Assign: 782 permissions (shared) │ │
-        │  │ • TODO: tenancyAdminPermissions    │ │
-        │  └────────────────────────────────────┘ │
-        │                                          │
-        │  ┌────────────────────────────────────┐ │
-        │  │ Tenant Admin (Level 2)             │ │
-        │  │ • Load: tenantAdminPermissions.json│ │
-        │  │ • Assign: 782 permissions          │ │
-        │  └────────────────────────────────────┘ │
-        │                                          │
-        │  ┌────────────────────────────────────┐ │
-        │  │ Normal User (Level 3)              │ │
-        │  │ • Load: normalUserPermissions.json │ │
-        │  │ • Assign: 255 permissions          │ │
-        │  └────────────────────────────────────┘ │
-        │                                          │
-        │  Output: 4 roles with permissions        │
-        └──────────────────────────────────────────┘
-                              │
-                              ▼
-        ┌──────────────────────────────────────────┐
-        │        3. UserSeeder.php                 │
-        │                                          │
-        │  • Creates initial users                 │
-        │  • Assigns roles to users                │
-        │                                          │
-        └──────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Start["SEEDING PROCESS"] --> A["1. PermissionSeeder.php<br/>- Loads systemPermissions.json<br/>- Loads domain/permissions.json<br/>- Inserts into permissions table<br/><br/>Output: 777+ permissions in database"]
+    A --> B2
+    subgraph B2["2. RoleSeeder.php"]
+        B1["System Admin (Level 0)<br/>- Load: systemAdminPermissions.json<br/>- Assign: 775 permissions"]
+        B3["Tenancy Admin (Level 1)<br/>- Load: tenantAdminPermissions.json<br/>- Assign: 782 permissions (shared)<br/>- TODO: tenancyAdminPermissions"]
+        B4["Tenant Admin (Level 2)<br/>- Load: tenantAdminPermissions.json<br/>- Assign: 782 permissions"]
+        B5["Normal User (Level 3)<br/>- Load: normalUserPermissions.json<br/>- Assign: 255 permissions"]
+        B6["Output: 4 roles with permissions"]
+    end
+    B2 --> C["3. UserSeeder.php<br/>- Creates initial users<br/>- Assigns roles to users"]
 ```
 
 ## Request Authorization Flow
 
+```mermaid
+flowchart TD
+    A["Incoming Request<br/>POST /api/users"] --> B["auth:sanctum<br/>(Authentication)"]
+    B --> C["AccessMiddleware (Layer 1)<br/>1. System Admin?<br/>2. Has permission?<br/>3. Otherwise"]
+    C -- "1. System Admin? Yes" --> P1["PASS (bypass)"]
+    C -- "2. Has permission? Yes" --> P2["PASS"]
+    C -- "3. Otherwise: No" --> E1["403"]
+    P1 --> D["Policy Check (Layer 2, optional)<br/>MultiTenantAuth<br/>Trait ownership"]
+    P2 --> D
+    D -- "Allowed" --> F["Execute Controller Action"]
+    D -- "Denied" --> G["Return 403 Error"]
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                   HTTP REQUEST FLOW                              │
-└──────────────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │  Incoming Request   │
-                │  POST /api/users    │
-                └─────────────────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │  auth:sanctum       │
-                │  (Authentication)   │
-                └─────────────────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │  AccessMiddleware   │
-                │  (Layer 1)          │
-                │                     │
-                │  1. System Admin?   │──── Yes ──▶ PASS (bypass)
-                │  2. Has permission? │──── Yes ──▶ PASS
-                │  3. Otherwise       │──── No  ──▶ 403
-                └─────────────────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │  Policy Check       │
-                │  (Layer 2, optional)│
-                │  MultiTenantAuth    │
-                │  Trait ownership    │
-                └─────────────────────┘
-                      │         │
-                 ✓ Allowed  ✗ Denied
-                      │         │
-                      ▼         ▼
-            ┌──────────────┐  ┌──────────────┐
-            │   Execute    │  │   Return     │
-            │   Controller │  │   403 Error  │
-            │   Action     │  │              │
-            └──────────────┘  └──────────────┘
 
 Note: tenancy.* routes do NOT use AccessMiddleware (only auth:sanctum).
       public.* routes require no authentication at all.
-```
 
 ## File Structure Diagram
 
@@ -258,131 +160,42 @@ dash-backend/
 
 ## Permission Levels Explained
 
-```
-┌────────────────────────────────────────────────────────────┐
-│              PERMISSION LEVEL HIERARCHY                    │
-│                                                            │
-│   Lower Number = Higher Authority                         │
-│                                                            │
-│   Level 0 (Highest) ───┐                                  │
-│     • System Admin     │                                  │
-│     • Can manage       │                                  │
-│       everything       │                                  │
-│     • Bypasses         │                                  │
-│       AccessMiddleware │                                  │
-│                        │                                  │
-│   Level 1 ─────────────┤                                  │
-│     • Tenancy Admin    │                                  │
-│     • Multi-tenant     │                                  │
-│       management       │                                  │
-│                        │                                  │
-│   Level 2 ─────────────┤                                  │
-│     • Tenant Admin     │                                  │
-│     • Can manage       │                                  │
-│       Level 2+         │                                  │
-│                        │                                  │
-│   Level 3 (Lowest) ────┘                                  │
-│     • Normal User                                         │
-│     • Read-only                                           │
-│       access                                              │
-│                                                            │
-│   Level 32767 (MAX)                                       │
-│     • Reserved for                                        │
-│       future use                                          │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Title["PERMISSION LEVEL HIERARCHY<br/>Lower Number = Higher Authority"]
+    L0["Level 0 (Highest)<br/>- System Admin<br/>- Can manage everything<br/>- Bypasses AccessMiddleware"]
+    L1["Level 1<br/>- Tenancy Admin<br/>- Multi-tenant management"]
+    L2["Level 2<br/>- Tenant Admin<br/>- Can manage Level 2+"]
+    L3["Level 3 (Lowest)<br/>- Normal User<br/>- Read-only access"]
+    LMAX["Level 32767 (MAX)<br/>- Reserved for future use"]
+
+    Title --> L0
+    L0 --> L1
+    L1 --> L2
+    L2 --> L3
+    L3 -.-> LMAX
 ```
 
 ## Common Operations
 
-```
-╔════════════════════════════════════════════════════════════╗
-║             PERMISSION CHECK EXAMPLES                      ║
-╚════════════════════════════════════════════════════════════╝
-
-┌──────────────────────────────────────────────────────────┐
-│  User with "System" Role                                 │
-│  Level: 0                                                │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  AccessMiddleware: BYPASSED (System role check)          │
-│  Can perform:                                            │
-│    ✓ Create permissions                                 │
-│    ✓ Manage all roles                                   │
-│    ✓ Full tenant management                             │
-│    ✓ Full user management                               │
-│    ✓ Access trash operations                            │
-│    ✓ All ecommerce, POS, logistics operations           │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────┐
-│  User with "TenancyAdmin" Role                           │
-│  Level: 1                                                │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  AccessMiddleware: Checked (same perms as Tenant)        │
-│  Can perform:                                            │
-│    ✗ Create permissions (Level 0 required)              │
-│    ✗ Manage system roles (Level 0 required)             │
-│    ✓ All business operations (ecommerce, POS, etc.)     │
-│    ✓ Full user management                               │
-│    ~ Multi-tenant management (via Policy layer)         │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────┐
-│  User with "Tenant" Role                                 │
-│  Level: 2                                                │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  AccessMiddleware: Checked (782 permissions)             │
-│  Can perform:                                            │
-│    ✗ Create permissions (Level 0 required)              │
-│    ✗ Manage roles (Level 0 required)                    │
-│    ~ View/Update tenants (limited)                      │
-│    ✓ Full user management                               │
-│    ✓ Full ecommerce, POS, tab operations                │
-│    ✗ Trash operations (Level 0 required)                │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────┐
-│  User with "User" Role                                   │
-│  Level: 3                                                │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  AccessMiddleware: Checked (255 permissions)             │
-│  Can perform:                                            │
-│    ✗ Any permission operations                          │
-│    ✗ Any role operations                                │
-│    ✗ Any tenant operations                              │
-│    ~ View/List most resources (read-only)               │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph PCE["PERMISSION CHECK EXAMPLES"]
+        A["User with 'System' Role (Level: 0)<br/>AccessMiddleware: BYPASSED (System role check)<br/>Can perform:<br/>✓ Create permissions<br/>✓ Manage all roles<br/>✓ Full tenant management<br/>✓ Full user management<br/>✓ Access trash operations<br/>✓ All ecommerce, POS, logistics operations"]
+        B["User with 'TenancyAdmin' Role (Level: 1)<br/>AccessMiddleware: Checked (same perms as Tenant)<br/>Can perform:<br/>✗ Create permissions (Level 0 required)<br/>✗ Manage system roles (Level 0 required)<br/>✓ All business operations (ecommerce, POS, etc.)<br/>✓ Full user management<br/>~ Multi-tenant management (via Policy layer)"]
+        C["User with 'Tenant' Role (Level: 2)<br/>AccessMiddleware: Checked (782 permissions)<br/>Can perform:<br/>✗ Create permissions (Level 0 required)<br/>✗ Manage roles (Level 0 required)<br/>~ View/Update tenants (limited)<br/>✓ Full user management<br/>✓ Full ecommerce, POS, tab operations<br/>✗ Trash operations (Level 0 required)"]
+        D["User with 'User' Role (Level: 3)<br/>AccessMiddleware: Checked (255 permissions)<br/>Can perform:<br/>✗ Any permission operations<br/>✗ Any role operations<br/>✗ Any tenant operations<br/>~ View/List most resources (read-only)"]
+    end
 ```
 
 ## Key Relationships
 
-```
-┌─────────┐         ┌─────────────┐         ┌────────────┐
-│  User   │────────▶│  user_has   │◀────────│    Role    │
-│         │  Many   │   _roles    │  Many   │            │
-└─────────┘         └─────────────┘         └────────────┘
-                                                   │
-                                                   │
-                                                   ▼
-                                            ┌─────────────┐
-                                            │  role_has   │
-                                            │_permissions │
-                                            └─────────────┘
-                                                   │
-                                                   │
-                                                   ▼
-                                            ┌────────────┐
-                                            │ Permission │
-                                            │            │
-                                            └────────────┘
+```mermaid
+flowchart LR
+    User["User"] -- "Many" --> UHR["user_has_roles"]
+    Role["Role"] -- "Many" --> UHR
+    UHR --> RHP["role_has_permissions"]
+    RHP --> Permission["Permission"]
 ```
 
 ## Summary Statistics
@@ -393,32 +206,12 @@ dash-backend/
 ║              (Updated: July 2025)                        ║
 ╠══════════════════════════════════════════════════════════╣
 ║                                                          ║
-║  Total Roles:              4                             ║
-║  Total Permissions:        777 (in systemPermissions)    ║
-║  Total Permission Groups:  53                            ║
-║                                                          ║
-║  ┌────────────────────────────────────────────────────┐ ║
-║  │ Role Distribution:                                 │ ║
-║  │  • System Admin:    775 perms (bypasses middleware)│ ║
-║  │  • TenancyAdmin:    782 perms (= Tenant, + TODO)  │ ║
-║  │  • Tenant Admin:    782 perms (full business ops)  │ ║
-║  │  • Normal User:     255 perms (read-mostly)       │ ║
-║  └────────────────────────────────────────────────────┘ ║
-║                                                          ║
-║  ┌────────────────────────────────────────────────────┐ ║
-║  │ Permission Groups (53 total):                      │ ║
-║  │  Examples: permissions, roles, tenants, users,    │ ║
-║  │  products, categories, orders, tabs, campaigns,   │ ║
-║  │  logistics, media, malls, coupons, attributes...  │ ║
-║  │  (See systemPermissions.json for full list)       │ ║
-║  └────────────────────────────────────────────────────┘ ║
-║                                                          ║
-║  ┌────────────────────────────────────────────────────┐ ║
-║  │ Authorization Layers:                              │ ║
-║  │  Layer 1: AccessMiddleware (route permissions)    │ ║
-║  │  Layer 2: Policies (model-level ownership)        │ ║
-║  │  Both layers are additive and compatible.         │ ║
-║  └────────────────────────────────────────────────────┘ ║
-║                                                          ║
-╚══════════════════════════════════════════════════════════╝
+```mermaid
+flowchart TD
+    subgraph SS["SYSTEM SUMMARY (Updated: July 2025)"]
+        INFO1["Total Roles: 4<br/>Total Permissions: 777 (in systemPermissions)<br/>Total Permission Groups: 53"]
+        RD["Role Distribution:<br/>- System Admin: 775 perms (bypasses middleware)<br/>- TenancyAdmin: 782 perms (= Tenant, + TODO)<br/>- Tenant Admin: 782 perms (full business ops)<br/>- Normal User: 255 perms (read-mostly)"]
+        PG["Permission Groups (53 total):<br/>Examples: permissions, roles, tenants, users,<br/>products, categories, orders, tabs, campaigns,<br/>logistics, media, malls, coupons, attributes...<br/>(See systemPermissions.json for full list)"]
+        AL["Authorization Layers:<br/>Layer 1: AccessMiddleware (route permissions)<br/>Layer 2: Policies (model-level ownership)<br/>Both layers are additive and compatible."]
+    end
 ```

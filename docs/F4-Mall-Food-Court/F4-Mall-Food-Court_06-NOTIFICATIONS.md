@@ -7,52 +7,18 @@ The Mall App uses a multi-channel notification system supporting WebSocket (real
 
 ## Notification Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                   NOTIFICATION FLOW                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌──────────────┐                                              │
-│   │ Tab Status   │                                              │
-│   │ Change       │                                              │
-│   └──────┬───────┘                                              │
-│          │                                                       │
-│          ▼                                                       │
-│   ┌──────────────────────────────────────┐                      │
-│   │ TabsNotificationService /            │                      │
-│   │ MallOrderSyncService                 │                      │
-│   │ - Build notification data            │                      │
-│   │ - Determine channel                  │                      │
-│   └──────────────┬───────────────────────┘                      │
-│                  │                                               │
-│                  ▼                                               │
-│   ┌──────────────────────────────────────┐                      │
-│   │ AppNotificationBuilder::send()       │                      │
-│   │ - Process notification config        │                      │
-│   │ - Route to enabled channels          │                      │
-│   └──────────────┬───────────────────────┘                      │
-│                  │                                               │
-│       ┌──────────┼──────────┬──────────┐                        │
-│       ▼          ▼          ▼          ▼                        │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐               │
-│  │ Socket  │ │  Push   │ │Database │ │  Email  │               │
-│  │(WebSocket)│ │  (FCM)  │ │         │ │         │               │
-│  └────┬────┘ └────┬────┘ └────┬────┘ └─────────┘               │
-│       │           │           │                                  │
-│       ▼           ▼           ▼                                  │
-│  ┌─────────┐ ┌─────────┐ ┌────────────────────┐                 │
-│  │ Pusher/ │ │Firebase │ │mall_session_       │                 │
-│  │ Soketi  │ │Cloud Msg│ │notifications table │                 │
-│  └────┬────┘ └────┬────┘ └────────────────────┘                 │
-│       │           │                                              │
-│       ▼           ▼                                              │
-│  ┌───────────────────────────────────────────┐                  │
-│  │              CLIENT DEVICES               │                  │
-│  │  - Browser (WebSocket)                    │                  │
-│  │  - Mobile App (Push)                      │                  │
-│  └───────────────────────────────────────────┘                  │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Tab Status Change"] --> B["TabsNotificationService / MallOrderSyncService<br/>- Build notification data<br/>- Determine channel"] --> C["AppNotificationBuilder::send()<br/>- Process notification config<br/>- Route to enabled channels"]
+    C --> D["Socket<br/>WebSocket"]
+    C --> E["Push<br/>FCM"]
+    C --> F["Database"]
+    C --> G["Email"]
+    D --> D1["Pusher/<br/>Soketi"]
+    E --> E1["Firebase<br/>Cloud Msg"]
+    F --> F1["mall_session_notifications<br/>table"]
+    D1 --> H["CLIENT DEVICES<br/>- Browser WebSocket<br/>- Mobile App Push"]
+    E1 --> H
 ```
 
 ## Notification Classes

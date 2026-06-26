@@ -37,30 +37,11 @@ The KitchnTabs Subscription System is an event-driven, multi-gateway billing sol
 
 ### 1. Separation of Concerns
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   BILLING AUTHORITY                          │
-│                 (Payment Gateway)                            │
-│                                                              │
-│  - Payment success/failure                                  │
-│  - Card registration                                        │
-│  - Subscription renewals                                    │
-│  - Invoice generation                                       │
-│  - Prorated billing (if supported)                          │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           │ Webhooks
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  ENTITLEMENT AUTHORITY                       │
-│                    (Application)                             │
-│                                                              │
-│  - Feature access control                                   │
-│  - Plan change timing (immediate vs deferred)               │
-│  - Subscription state management                            │
-│  - Business rule enforcement                                │
-│  - Activity logging                                         │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["BILLING AUTHORITY (Payment Gateway)<br/>- Payment success/failure<br/>- Card registration<br/>- Subscription renewals<br/>- Invoice generation<br/>- Prorated billing (if supported)"]
+    B["ENTITLEMENT AUTHORITY (Application)<br/>- Feature access control<br/>- Plan change timing (immediate vs deferred)<br/>- Subscription state management<br/>- Business rule enforcement<br/>- Activity logging"]
+    A -->|Webhooks| B
 ```
 
 ### 2. Event-Driven Flow
@@ -83,114 +64,94 @@ Action → Domain Event → Event Listener → State Machine → Model Update
 
 ## Entity-Relationship Diagram
 
+```mermaid
+erDiagram
+    Tenancy ||--o{ TenancySubscription : "1:N"
+    TenancySubscription ||--o{ TenancyPayment : "1:N"
+    TenancySubscription }o--|| SubscriptionPlan : "subscription_plan_id"
+    TenancySubscription }o--o| SubscriptionPlan : "effective_plan_id"
+    TenancySubscription }o--o| SubscriptionPlan : "pending_plan_id"
+    Tenancy ||--o{ TenancyPaymentMethod : "1:N"
+
+    Tenancy {
+        UUID id PK
+        string public_name
+        string email
+        string status
+        enum billing_state "star: new event-driven field; values NONE/CARD_PENDING/CARD_ACTIVE/SUBSCRIBED"
+        string gateway_type
+        string gateway_customer_id
+        string card_registration_token "star: new event-driven field"
+        string pm_type
+        string pm_last_four
+        timestamp trial_ends_at
+        timestamp suspended_at
+    }
+
+    TenancySubscription {
+        bigint id PK
+        UUID tenancy_id FK
+        bigint subscription_plan_id FK
+        string status_legacy "legacy status"
+        enum subscription_state "star: new event-driven field; values TRIAL/ACTIVE/PAST_DUE/SUSPENDED/CANCELED"
+        bigint effective_plan_id "star: new event-driven field, FK to SubscriptionPlan"
+        bigint pending_plan_id "star: new event-driven field, FK to SubscriptionPlan"
+        timestamp pending_plan_effective_at "star: new event-driven field"
+        string pending_plan_change_type "star: new event-driven field"
+        timestamp trial_ends_at
+        timestamp current_period_start
+        timestamp current_period_end
+        timestamp cancelled_at
+        timestamp cancels_at "star: new event-driven field"
+        string cancellation_reason "star: new event-driven field"
+        string external_subscription_id
+        int failed_payment_attempts
+        json metadata
+    }
+
+    TenancyPayment {
+        bigint id PK
+        UUID tenancy_id FK
+        bigint subscription_id FK
+        decimal amount
+        string currency
+        string status
+        string gateway_payment_id
+        string payment_method
+        timestamp paid_at
+    }
+
+    SubscriptionPlan {
+        bigint id PK
+        string name
+        string slug
+        string description
+        decimal price
+        string currency
+        string billing_period
+        int trial_days
+        json features
+        bool is_active
+        int sort_order
+        json metadata
+    }
+
+    TenancyPaymentMethod {
+        bigint id PK
+        UUID tenancy_id FK
+        string gateway_type
+        string gateway_method_id
+        string type "card, bank"
+        string last_four
+        string brand
+        int expiry_month
+        int expiry_year
+        bool is_default
+        bool is_active
+    }
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     SUBSCRIPTION SYSTEM ER DIAGRAM                   │
-└─────────────────────────────────────────────────────────────────────┘
 
-┌──────────────────────────┐
-│       Tenancy            │
-│──────────────────────────│
-│ PK: id (UUID)            │
-│     public_name          │
-│     email                │
-│     status               │
-│ ★   billing_state (enum) │ ◄──────────┐
-│     gateway_type         │            │ Enum Values:
-│     gateway_customer_id  │            │ - NONE
-│ ★   card_registration... │            │ - CARD_PENDING
-│     pm_type              │            │ - CARD_ACTIVE
-│     pm_last_four         │            │ - SUBSCRIBED
-│     trial_ends_at        │            │
-│     suspended_at         │            │
-└──────────┬───────────────┘            │
-           │                            │
-           │ 1:N                        │
-           │                            │
-           ▼                            │
-┌──────────────────────────┐            │
-│  TenancySubscription     │            │
-│──────────────────────────│            │
-│ PK: id                   │            │
-│ FK: tenancy_id           │            │
-│ FK: subscription_plan_id │────────┐   │
-│     status (legacy)      │        │   │
-│ ★   subscription_state   │◄───────┼───┘
-│                          │        │ Enum Values:
-│ ★   effective_plan_id    │────┐   │ - TRIAL
-│ ★   pending_plan_id      │─┐  │   │ - ACTIVE
-│ ★   pending_plan_eff...  │ │  │   │ - PAST_DUE
-│ ★   pending_plan_chg_... │ │  │   │ - SUSPENDED
-│                          │ │  │   │ - CANCELED
-│     trial_ends_at        │ │  │   │
-│     current_period_start │ │  │   │
-│     current_period_end   │ │  │   │
-│     cancelled_at         │ │  │   │
-│ ★   cancels_at           │ │  │   │
-│ ★   cancellation_reason  │ │  │   │
-│     external_subscr...   │ │  │   │
-│     failed_payment_att...│ │  │   │
-│     metadata             │ │  │   │
-└──────────┬───────────────┘ │  │   │
-           │                 │  │   │
-           │ 1:N             │  │   │
-           │                 │  │   │
-           ▼                 │  │   │
-┌──────────────────────────┐ │  │   │
-│   TenancyPayment         │ │  │   │
-│──────────────────────────│ │  │   │
-│ PK: id                   │ │  │   │
-│ FK: tenancy_id           │ │  │   │
-│ FK: subscription_id      │ │  │   │
-│     amount               │ │  │   │
-│     currency             │ │  │   │
-│     status               │ │  │   │
-│     gateway_payment_id   │ │  │   │
-│     payment_method       │ │  │   │
-│     paid_at              │ │  │   │
-└──────────────────────────┘ │  │   │
-                             │  │   │
-           ┌─────────────────┘  │   │
-           │                    │   │
-           ▼                    │   │
-┌──────────────────────────┐   │   │
-│   SubscriptionPlan       │   │   │
-│──────────────────────────│   │   │
-│ PK: id                   │◄──┘   │
-│     name                 │◄──────┘
-│     slug                 │
-│     description          │
-│     price                │
-│     currency             │
-│     billing_period       │
-│     trial_days           │
-│     features (json)      │
-│     is_active            │
-│     sort_order           │
-│     metadata             │
-└──────────────────────────┘
-
-┌──────────────────────────┐
-│  TenancyPaymentMethod    │
-│──────────────────────────│
-│ PK: id                   │
-│ FK: tenancy_id           │
-│     gateway_type         │
-│     gateway_method_id    │
-│     type (card, bank)    │
-│     last_four            │
-│     brand                │
-│     expiry_month         │
-│     expiry_year          │
-│     is_default           │
-│     is_active            │
-└──────────────────────────┘
-
-Legend:
-★ = New event-driven billing fields
-PK = Primary Key
-FK = Foreign Key
-```
+Legend: fields marked "star" in the notes above are new event-driven billing fields. PK = Primary Key, FK = Foreign Key.
 
 ### Key Relationships
 
@@ -214,183 +175,87 @@ FK = Foreign Key
 
 ### Billing State Machine (Tenancy Level)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    BILLING STATE LIFECYCLE                       │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> NONE
+    NONE : Initial state - No billing relationship
+    CARD_PENDING : Async card registration in progress
+    CARD_ACTIVE : Card ready, no subscription
+    SUBSCRIBED : Active subscription exists
 
-    ┌──────────┐
-    │   NONE   │  Initial state: No billing relationship
-    └────┬─────┘
-         │
-         │ Event: CardRegistrationInitiated
-         │ Trigger: User clicks "Add Card"
-         │
-         ▼
-    ┌──────────────┐
-    │ CARD_PENDING │  Async card registration in progress
-    └────┬────┬────┘
-         │    │
-         │    │ Event: CardRegistrationFailed
-         │    │ Trigger: Gateway rejects card
-         │    └──────────────────────────────────┐
-         │                                       │
-         │ Event: CardRegistrationCompleted     │
-         │ Trigger: Gateway confirms card       │
-         │                                       │
-         ▼                                       ▼
-    ┌──────────────┐                       ┌──────────┐
-    │ CARD_ACTIVE  │                       │   NONE   │
-    └────┬─────────┘                       └──────────┘
-         │
-         │ Event: Subscription created
-         │ Trigger: User subscribes to a plan
-         │
-         ▼
-    ┌──────────────┐
-    │  SUBSCRIBED  │  Active subscription exists
-    └────┬────┬────┘
-         │    │
-         │    │ Subscription cancelled + card removed
-         │    └──────────────────────────────────┐
-         │                                       │
-         │ Subscription cancelled + card kept   │
-         │                                       │
-         ▼                                       ▼
-    ┌──────────────┐                       ┌──────────┐
-    │ CARD_ACTIVE  │                       │   NONE   │
-    └──────────────┘                       └──────────┘
+    NONE --> CARD_PENDING : Event CardRegistrationInitiated\nTrigger User clicks "Add Card"
+    CARD_PENDING --> CARD_ACTIVE : Event CardRegistrationCompleted\nTrigger Gateway confirms card
+    CARD_PENDING --> NONE : Event CardRegistrationFailed\nTrigger Gateway rejects card
+    CARD_ACTIVE --> SUBSCRIBED : Event Subscription created\nTrigger User subscribes to a plan
+    SUBSCRIBED --> CARD_ACTIVE : Subscription cancelled + card kept
+    SUBSCRIBED --> NONE : Subscription cancelled + card removed
+```
 
 State Properties:
-┌───────────────┬─────────────────┬──────────────────────────────┐
-│ State         │ Has Payment?    │ Description                  │
-├───────────────┼─────────────────┼──────────────────────────────┤
-│ NONE          │ ❌ No           │ No billing setup             │
-│ CARD_PENDING  │ ⏳ In Progress  │ Card registration pending    │
-│ CARD_ACTIVE   │ ✅ Yes          │ Card ready, no subscription  │
-│ SUBSCRIBED    │ ✅ Yes          │ Active subscription          │
-└───────────────┴─────────────────┴──────────────────────────────┘
-```
+
+| State | Has Payment? | Description |
+|---|---|---|
+| NONE | No | No billing setup |
+| CARD_PENDING | In Progress | Card registration pending |
+| CARD_ACTIVE | Yes | Card ready, no subscription |
+| SUBSCRIBED | Yes | Active subscription |
 
 ### Subscription State Machine (Subscription Level)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                 SUBSCRIPTION STATE LIFECYCLE                     │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> TRIAL
+    TRIAL : Trial period active
+    ACTIVE : Paid subscription
+    PAST_DUE : Payment failed, retrying
+    SUSPENDED : No feature access
+    CANCELED : Subscription terminated
 
-    ┌──────────┐
-    │  TRIAL   │  Trial period active
-    └────┬─────┘
-         │
-         │ Trial ends + Payment succeeds
-         │
-         ▼
-    ┌──────────┐
-    │  ACTIVE  │  Paid subscription
-    └────┬─────┘
-         │
-         ├──────────────────────────────────────────────┐
-         │                                              │
-         │ Payment fails                                │ Payment succeeds
-         │ (1st attempt)                                │ (renewal)
-         │                                              │
-         ▼                                              │
-    ┌──────────────┐                                    │
-    │  PAST_DUE    │  Payment failed, retrying          │
-    └────┬────┬────┘                                    │
-         │    │                                         │
-         │    │ Payment succeeds (retry)                │
-         │    └─────────────────────────────────────────┘
-         │
-         │ Max retries exhausted (3 attempts)
-         │
-         ▼
-    ┌──────────────┐
-    │  SUSPENDED   │  No feature access
-    └────┬─────────┘
-         │
-         │ Payment succeeds (manual retry)
-         │
-         ├─────────────────────────────────────────────┐
-         │                                             │
-         ▼                                             │
-    ┌──────────┐                                       │
-    │  ACTIVE  │◄──────────────────────────────────────┘
-    └──────────┘
-         │
-         │ User/Admin cancels subscription
-         │
-         ▼
-    ┌──────────────┐
-    │  CANCELED    │  Subscription terminated
-    └──────────────┘
+    TRIAL --> ACTIVE : Trial ends + Payment succeeds
+    ACTIVE --> ACTIVE : Payment succeeds (renewal)
+    ACTIVE --> PAST_DUE : Payment fails (1st attempt)
+    PAST_DUE --> ACTIVE : Payment succeeds (retry)
+    PAST_DUE --> SUSPENDED : Max retries exhausted (3 attempts)
+    SUSPENDED --> ACTIVE : Payment succeeds (manual retry)
+    ACTIVE --> CANCELED : User/Admin cancels subscription
+```
 
 State Properties:
-┌───────────────┬────────────────┬─────────────────┬──────────────────────┐
-│ State         │ Feature Access │ In Good Stand.  │ Description          │
-├───────────────┼────────────────┼─────────────────┼──────────────────────┤
-│ TRIAL         │ ✅ Yes         │ ✅ Yes          │ Trial period         │
-│ ACTIVE        │ ✅ Yes         │ ✅ Yes          │ Paid & current       │
-│ PAST_DUE      │ ✅ Yes (grace) │ ❌ No           │ Retrying payment     │
-│ SUSPENDED     │ ❌ No          │ ❌ No           │ Payment exhausted    │
-│ CANCELED      │ ❌ No          │ ❌ No           │ Terminated           │
-└───────────────┴────────────────┴─────────────────┴──────────────────────┘
-```
+
+| State | Feature Access | In Good Standing | Description |
+|---|---|---|---|
+| TRIAL | Yes | Yes | Trial period |
+| ACTIVE | Yes | Yes | Paid & current |
+| PAST_DUE | Yes (grace) | No | Retrying payment |
+| SUSPENDED | No | No | Payment exhausted |
+| CANCELED | No | No | Terminated |
 
 ### Plan Change Type Decision Tree
 
+```mermaid
+flowchart TD
+    A["Current Plan vs New Plan"] --> B["Compare Price"]
+    B --> C["New > Old"]
+    B --> D["New < Old"]
+    B --> E["New = Old"]
+    C --> F["UPGRADE"]
+    D --> G["DOWNGRADE"]
+    E --> H["LATERAL"]
+    F --> I["Application of Change"]
+    G --> I
+    H --> I
+    I --> J["IMMEDIATE<br/>- Update now<br/>- New plan effective instantly"]
+    I --> K["DEFERRED<br/>- Schedule for period end<br/>- Keep current features"]
+    I --> L["IMMEDIATE<br/>- Update now<br/>- Same price tier<br/>- Different features"]
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                  PLAN CHANGE TYPE DETERMINATION                  │
-└─────────────────────────────────────────────────────────────────┘
-
-                    Current Plan vs New Plan
-                            │
-                            ▼
-                    ┌───────────────────┐
-                    │ Compare Price     │
-                    └────────┬──────────┘
-                             │
-                ┌────────────┼────────────┐
-                │            │            │
-                ▼            ▼            ▼
-         ┌──────────┐ ┌──────────┐ ┌──────────┐
-         │ New > Old│ │ New < Old│ │ New = Old│
-         └────┬─────┘ └────┬─────┘ └────┬─────┘
-              │            │            │
-              ▼            ▼            ▼
-         ┌──────────┐ ┌──────────┐ ┌──────────┐
-         │ UPGRADE  │ │DOWNGRADE │ │ LATERAL  │
-         └────┬─────┘ └────┬─────┘ └────┬─────┘
-              │            │            │
-              │            │            │
-         ┌────▼────────────▼────────────▼────┐
-         │                                   │
-         │   Application of Change           │
-         │                                   │
-         └────┬────────────┬────────────┬────┘
-              │            │            │
-              ▼            ▼            ▼
-    ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-    │  IMMEDIATE   │ │   DEFERRED   │ │  IMMEDIATE   │
-    │              │ │              │ │              │
-    │ • Update now │ │ • Schedule   │ │ • Update now │
-    │ • New plan   │ │   for period │ │ • Same price │
-    │   effective  │ │   end        │ │   tier       │
-    │   instantly  │ │ • Keep curr. │ │ • Different  │
-    │              │ │   features   │ │   features   │
-    └──────────────┘ └──────────────┘ └──────────────┘
 
 Policy Rules:
-┌──────────────┬─────────────┬────────────────────────────────┐
-│ Change Type  │ Timing      │ Reason                         │
-├──────────────┼─────────────┼────────────────────────────────┤
-│ UPGRADE      │ Immediate   │ Customer wants features now    │
-│ DOWNGRADE    │ Deferred    │ Keep paid features till end    │
-│ LATERAL      │ Immediate   │ No billing impact              │
-└──────────────┴─────────────┴────────────────────────────────┘
-```
+
+| Change Type | Timing | Reason |
+|---|---|---|
+| UPGRADE | Immediate | Customer wants features now |
+| DOWNGRADE | Deferred | Keep paid features till end |
+| LATERAL | Immediate | No billing impact |
 
 ---
 
@@ -655,45 +520,12 @@ abstract class BaseBillingEvent
 
 Central orchestrator for all state transitions.
 
-```
-┌──────────────────────────────────────────────────────────┐
-│           BillingStateMachine Service                     │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  transitionBillingState(                                │
-│      Tenancy $tenancy,                                  │
-│      BillingState $newState,                            │
-│      string $source,                                    │
-│      ?string $reason,                                   │
-│      array $metadata                                    │
-│  ): bool                                                 │
-│                                                          │
-│  transitionSubscriptionState(                           │
-│      TenancySubscription $subscription,                 │
-│      SubscriptionState $newState,                       │
-│      string $source,                                    │
-│      ?string $reason,                                   │
-│      array $metadata                                    │
-│  ): bool                                                 │
-│                                                          │
-│  determinePlanChangeType(                               │
-│      SubscriptionPlan $fromPlan,                        │
-│      SubscriptionPlan $toPlan                           │
-│  ): PlanChangeType                                       │
-│                                                          │
-│  hasFeatureAccess(                                       │
-│      TenancySubscription $subscription                  │
-│  ): bool                                                 │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
-         │                    │                    │
-         │ Validates         │ Dispatches         │ Logs
-         ▼                    ▼                    ▼
-┌─────────────┐      ┌─────────────┐      ┌─────────────┐
-│  Enum       │      │  Domain     │      │  Activity   │
-│  Allowed    │      │  Events     │      │  Log        │
-│  Transitions│      │             │      │             │
-└─────────────┘      └─────────────┘      └─────────────┘
+```mermaid
+flowchart TD
+    A["BillingStateMachine Service<br/>transitionBillingState(Tenancy, BillingState newState, source, reason, metadata): bool<br/>transitionSubscriptionState(TenancySubscription, SubscriptionState newState, source, reason, metadata): bool<br/>determinePlanChangeType(SubscriptionPlan fromPlan, SubscriptionPlan toPlan): PlanChangeType<br/>hasFeatureAccess(TenancySubscription): bool"]
+    A -->|Validates| B["Enum Allowed Transitions"]
+    A -->|Dispatches| C["Domain Events"]
+    A -->|Logs| D["Activity Log"]
 ```
 
 ### Key Responsibilities
@@ -709,369 +541,165 @@ Central orchestrator for all state transitions.
 
 ### Flow 1: New Subscription Creation
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                  NEW SUBSCRIPTION FLOW                                │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant App
+    participant Gateway
+    participant Database
 
-    Customer                App                 Gateway              Database
-       │                     │                     │                    │
-       │   Choose Plan       │                     │                    │
-       ├────────────────────►│                     │                    │
-       │                     │                     │                    │
-       │                     │ Check billing_state │                    │
-       │                     ├────────────────────────────────────────►│
-       │                     │                     │  billing_state=none│
-       │                     │◄────────────────────────────────────────┤
-       │                     │                     │                    │
-       │◄────────────────────┤                     │                    │
-       │ "Please add card"   │                     │                    │
-       │                     │                     │                    │
-       │   Add Card          │                     │                    │
-       ├────────────────────►│                     │                    │
-       │                     │                     │                    │
-       │                     │ Fire: CardRegInit   │                    │
-       │                     │                     │                    │
-       │                     │ Update: billing_state=CARD_PENDING       │
-       │                     ├────────────────────────────────────────►│
-       │                     │                     │                    │
-       │                     │ Create Gateway Token│                    │
-       │                     ├────────────────────►│                    │
-       │                     │                     │                    │
-       │◄────────────────────┤  Return Token       │                    │
-       │ Card Registration   │◄────────────────────┤                    │
-       │ Form (Gateway)      │                     │                    │
-       │                     │                     │                    │
-       │   Submit Card       │                     │                    │
-       │─────────────────────────────────────────►│                    │
-       │                     │                     │                    │
-       │                     │  Webhook: Card OK   │                    │
-       │                     │◄────────────────────┤                    │
-       │                     │                     │                    │
-       │                     │ Fire: CardRegCompleted                   │
-       │                     │                     │                    │
-       │                     │ Update: billing_state=CARD_ACTIVE        │
-       │                     ├────────────────────────────────────────►│
-       │                     │                     │                    │
-       │◄────────────────────┤                     │                    │
-       │ "Card Added!"       │                     │                    │
-       │                     │                     │                    │
-       │ Now Choose Plan     │                     │                    │
-       ├────────────────────►│                     │                    │
-       │                     │                     │                    │
-       │                     │ Create Subscription │                    │
-       │                     ├────────────────────►│                    │
-       │                     │                     │                    │
-       │                     │  Subscription ID    │                    │
-       │                     │◄────────────────────┤                    │
-       │                     │                     │                    │
-       │                     │ Create TenancySubscription               │
-       │                     ├────────────────────────────────────────►│
-       │                     │  subscription_state=TRIAL               │
-       │                     │                     │                    │
-       │                     │ Update: billing_state=SUBSCRIBED         │
-       │                     ├────────────────────────────────────────►│
-       │                     │                     │                    │
-       │◄────────────────────┤                     │                    │
-       │ "Subscription Active"│                    │                    │
-       │                     │                     │                    │
+    Customer->>App: Choose Plan
+    App->>Database: Check billing_state
+    Database-->>App: billing_state=none
+    App-->>Customer: "Please add card"
+
+    Customer->>App: Add Card
+    App->>App: Fire CardRegInit
+    App->>Database: Update billing_state=CARD_PENDING
+    App->>Gateway: Create Gateway Token
+    Gateway-->>App: Return Token
+    App-->>Customer: Card Registration Form (Gateway)
+
+    Customer->>Gateway: Submit Card
+    Gateway-->>App: Webhook Card OK
+    App->>App: Fire CardRegCompleted
+    App->>Database: Update billing_state=CARD_ACTIVE
+    App-->>Customer: "Card Added!"
+
+    Customer->>App: Now Choose Plan
+    App->>Gateway: Create Subscription
+    Gateway-->>App: Subscription ID
+    App->>Database: Create TenancySubscription (subscription_state=TRIAL)
+    App->>Database: Update billing_state=SUBSCRIBED
+    App-->>Customer: "Subscription Active"
 ```
 
 ### Flow 2: Payment Success (Renewal)
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                     PAYMENT SUCCESS FLOW                              │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Gateway
+    participant WebhookHandler as Webhook Handler
+    participant StateMachine as State Machine
+    participant Database
 
-   Gateway              Webhook Handler       State Machine        Database
-      │                        │                      │                 │
-      │  Payment Successful    │                      │                 │
-      ├───────────────────────►│                      │                 │
-      │                        │                      │                 │
-      │                        │ Get Subscription     │                 │
-      │                        ├─────────────────────────────────────►│
-      │                        │                      │                 │
-      │                        │◄─────────────────────────────────────┤
-      │                        │                      │                 │
-      │                        │ Fire: InvoicePaid    │                 │
-      │                        ├─────────────────────►│                 │
-      │                        │                      │                 │
-      │                        │                      │ Validate State  │
-      │                        │                      │ TRIAL/PAST_DUE  │
-      │                        │                      │      ▼ ACTIVE   │
-      │                        │                      │                 │
-      │                        │                      │ Update State    │
-      │                        │                      ├────────────────►│
-      │                        │                      │ subscription_   │
-      │                        │                      │ state=ACTIVE    │
-      │                        │                      │                 │
-      │                        │                      │ Reset Failures  │
-      │                        │                      ├────────────────►│
-      │                        │                      │ failed_payment_ │
-      │                        │                      │ attempts=0      │
-      │                        │                      │                 │
-      │                        │                      │ Extend Period   │
-      │                        │                      ├────────────────►│
-      │                        │                      │ current_period_ │
-      │                        │                      │ end+=1 month    │
-      │                        │                      │                 │
-      │                        │                      │ Activity Log    │
-      │                        │                      ├────────────────►│
-      │                        │                      │                 │
-      │                        │◄─────────────────────┤                 │
-      │                        │                      │                 │
-      │◄───────────────────────┤                      │                 │
-      │  200 OK                │                      │                 │
-      │                        │                      │                 │
+    Gateway->>WebhookHandler: Payment Successful
+    WebhookHandler->>Database: Get Subscription
+    Database-->>WebhookHandler: (subscription data)
+    WebhookHandler->>StateMachine: Fire InvoicePaid
+    StateMachine->>StateMachine: Validate State TRIAL/PAST_DUE -> ACTIVE
+    StateMachine->>Database: Update State (subscription_state=ACTIVE)
+    StateMachine->>Database: Reset Failures (failed_payment_attempts=0)
+    StateMachine->>Database: Extend Period (current_period_end += 1 month)
+    StateMachine->>Database: Activity Log
+    StateMachine-->>WebhookHandler: done
+    WebhookHandler-->>Gateway: 200 OK
 ```
 
 ### Flow 3: Payment Failure & Retry
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                   PAYMENT FAILURE & RETRY FLOW                        │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Gateway
+    participant WebhookHandler as Webhook Handler
+    participant StateMachine as State Machine
+    participant Database
 
-   Gateway              Webhook Handler       State Machine        Database
-      │                        │                      │                 │
-      │  Payment Failed        │                      │                 │
-      ├───────────────────────►│                      │                 │
-      │                        │                      │                 │
-      │                        │ Fire: InvoicePaymentFailed             │
-      │                        ├─────────────────────►│                 │
-      │                        │ (attempt=1)          │                 │
-      │                        │                      │                 │
-      │                        │                      │ Update State    │
-      │                        │                      ├────────────────►│
-      │                        │                      │ subscription_   │
-      │                        │                      │ state=PAST_DUE  │
-      │                        │                      │                 │
-      │                        │                      │ Track Attempt   │
-      │                        │                      ├────────────────►│
-      │                        │                      │ failed_payment_ │
-      │                        │                      │ attempts=1      │
-      │                        │                      │ next_retry_at   │
-      │                        │                      │                 │
-      │◄───────────────────────┤◄─────────────────────┤                 │
-      │  200 OK                │                      │                 │
-      │                        │                      │                 │
-      ├─ Wait 3 days ─────────┤                      │                 │
-      │                        │                      │                 │
-      │  Retry Payment (2nd)   │                      │                 │
-      ├───────────────────────►│                      │                 │
-      │  Failed Again          │                      │                 │
-      │                        │                      │                 │
-      │                        │ Fire: InvoicePaymentFailed             │
-      │                        ├─────────────────────►│                 │
-      │                        │ (attempt=2)          │                 │
-      │                        │                      │                 │
-      │                        │                      │ Update Attempt  │
-      │                        │                      ├────────────────►│
-      │                        │                      │ failed_payment_ │
-      │                        │                      │ attempts=2      │
-      │                        │                      │                 │
-      ├─ Wait 3 days ─────────┤                      │                 │
-      │                        │                      │                 │
-      │  Retry Payment (3rd)   │                      │                 │
-      ├───────────────────────►│                      │                 │
-      │  Failed Again          │                      │                 │
-      │                        │                      │                 │
-      │                        │ Fire: InvoicePaymentFailed             │
-      │                        ├─────────────────────►│                 │
-      │                        │ (attempt=3, no retry)│                 │
-      │                        │                      │                 │
-      │                        │                      │ SUSPEND         │
-      │                        │                      ├────────────────►│
-      │                        │                      │ subscription_   │
-      │                        │                      │ state=SUSPENDED │
-      │                        │                      │ status=suspended│
-      │                        │                      │                 │
-      │                        │                      │ Suspend Tenancy │
-      │                        │                      ├────────────────►│
-      │                        │                      │ tenancy.        │
-      │                        │                      │ suspended_at    │
-      │                        │                      │                 │
+    Gateway->>WebhookHandler: Payment Failed
+    WebhookHandler->>StateMachine: Fire InvoicePaymentFailed (attempt=1)
+    StateMachine->>Database: Update State (subscription_state=PAST_DUE)
+    StateMachine->>Database: Track Attempt (failed_payment_attempts=1, next_retry_at)
+    StateMachine-->>WebhookHandler: done
+    WebhookHandler-->>Gateway: 200 OK
+
+    note over Gateway,Database: Wait 3 days
+
+    Gateway->>WebhookHandler: Retry Payment (2nd) - Failed Again
+    WebhookHandler->>StateMachine: Fire InvoicePaymentFailed (attempt=2)
+    StateMachine->>Database: Update Attempt (failed_payment_attempts=2)
+
+    note over Gateway,Database: Wait 3 days
+
+    Gateway->>WebhookHandler: Retry Payment (3rd) - Failed Again
+    WebhookHandler->>StateMachine: Fire InvoicePaymentFailed (attempt=3, no retry)
+    StateMachine->>Database: SUSPEND (subscription_state=SUSPENDED, status=suspended)
+    StateMachine->>Database: Suspend Tenancy (tenancy.suspended_at)
 ```
 
 ### Flow 4: Plan Upgrade (Immediate)
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    PLAN UPGRADE FLOW (IMMEDIATE)                      │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant Service
+    participant StateMachine as StateMachine
+    participant Gateway
+    participant Database
 
-   Customer            Service            StateMachine         Database
-      │                   │                     │                  │
-      │ Select Higher     │                     │                  │
-      │ Tier Plan         │                     │                  │
-      ├──────────────────►│                     │                  │
-      │                   │                     │                  │
-      │                   │ Determine Type      │                  │
-      │                   ├────────────────────►│                  │
-      │                   │                     │                  │
-      │                   │ newPrice > oldPrice │                  │
-      │                   │ → UPGRADE           │                  │
-      │                   │                     │                  │
-      │                   │◄────────────────────┤                  │
-      │                   │ PlanChangeType::UPGRADE                │
-      │                   │ isImmediate() = true│                  │
-      │                   │                     │                  │
-      │                   │ Fire: PlanChangeRequested              │
-      │                   │                     │                  │
-      │                   │ Update Gateway      │                  │
-      │                   │ Subscription        │                  │
-      │                   ├────────────►        │                  │
-      │                   │             Gateway │                  │
-      │                   │◄────────────┘       │                  │
-      │                   │                     │                  │
-      │                   │ Apply Immediately   │                  │
-      │                   ├────────────────────►│                  │
-      │                   │                     │                  │
-      │                   │                     │ Update Plan      │
-      │                   │                     ├─────────────────►│
-      │                   │                     │ subscription_    │
-      │                   │                     │ plan_id=NEW      │
-      │                   │                     │ effective_plan_  │
-      │                   │                     │ id=NEW           │
-      │                   │                     │                  │
-      │                   │                     │ Fire: PlanChangeApplied
-      │                   │                     │                  │
-      │◄──────────────────┤                     │                  │
-      │ "Upgraded! New    │                     │                  │
-      │  features active" │                     │                  │
-      │                   │                     │                  │
+    Customer->>Service: Select Higher Tier Plan
+    Service->>StateMachine: Determine Type
+    StateMachine->>StateMachine: newPrice > oldPrice -> UPGRADE
+    StateMachine-->>Service: PlanChangeType::UPGRADE, isImmediate() = true
+    Service->>Service: Fire PlanChangeRequested
+    Service->>Gateway: Update Gateway Subscription
+    Gateway-->>Service: ack
+    Service->>StateMachine: Apply Immediately
+    StateMachine->>Database: Update Plan (subscription_plan_id=NEW, effective_plan_id=NEW)
+    StateMachine->>StateMachine: Fire PlanChangeApplied
+    Service-->>Customer: "Upgraded! New features active"
 ```
 
 ### Flow 5: Plan Downgrade (Deferred)
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                  PLAN DOWNGRADE FLOW (DEFERRED)                       │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant Service
+    participant StateMachine as StateMachine
+    participant Database
 
-   Customer            Service            StateMachine         Database
-      │                   │                     │                  │
-      │ Select Lower      │                     │                  │
-      │ Tier Plan         │                     │                  │
-      ├──────────────────►│                     │                  │
-      │                   │                     │                  │
-      │                   │ Determine Type      │                  │
-      │                   ├────────────────────►│                  │
-      │                   │                     │                  │
-      │                   │ newPrice < oldPrice │                  │
-      │                   │ → DOWNGRADE         │                  │
-      │                   │                     │                  │
-      │                   │◄────────────────────┤                  │
-      │                   │ PlanChangeType::DOWNGRADE              │
-      │                   │ isDeferred() = true │                  │
-      │                   │                     │                  │
-      │                   │ Fire: PlanChangeRequested              │
-      │                   │                     │                  │
-      │                   │ Schedule Change     │                  │
-      │                   ├────────────────────►│                  │
-      │                   │                     │                  │
-      │                   │                     │ Set Pending      │
-      │                   │                     ├─────────────────►│
-      │                   │                     │ pending_plan_id  │
-      │                   │                     │ =NEW             │
-      │                   │                     │ pending_plan_    │
-      │                   │                     │ effective_at=    │
-      │                   │                     │ period_end       │
-      │                   │                     │ pending_plan_    │
-      │                   │                     │ change_type=     │
-      │                   │                     │ DOWNGRADE        │
-      │                   │                     │                  │
-      │◄──────────────────┤                     │                  │
-      │ "Downgrade        │                     │                  │
-      │  scheduled for    │                     │                  │
-      │  [period end]"    │                     │                  │
-      │                   │                     │                  │
-      ├─ Days Pass... ────┤                     │                  │
-      │                   │                     │                  │
-      │                   │  Cron Job: Apply    │                  │
-      │                   │  Pending Changes    │                  │
-      │                   ├────────────────────►│                  │
-      │                   │                     │                  │
-      │                   │                     │ Check Effective  │
-      │                   │                     │ Date <= Now      │
-      │                   │                     │                  │
-      │                   │                     │ Apply Change     │
-      │                   │                     ├─────────────────►│
-      │                   │                     │ subscription_    │
-      │                   │                     │ plan_id=NEW      │
-      │                   │                     │ effective_plan_  │
-      │                   │                     │ id=NEW           │
-      │                   │                     │ pending_*=NULL   │
-      │                   │                     │                  │
-      │                   │                     │ Fire: PlanChangeApplied
-      │                   │                     │                  │
+    Customer->>Service: Select Lower Tier Plan
+    Service->>StateMachine: Determine Type
+    StateMachine->>StateMachine: newPrice < oldPrice -> DOWNGRADE
+    StateMachine-->>Service: PlanChangeType::DOWNGRADE, isDeferred() = true
+    Service->>Service: Fire PlanChangeRequested
+    Service->>StateMachine: Schedule Change
+    StateMachine->>Database: Set Pending (pending_plan_id=NEW, pending_plan_effective_at=period_end, pending_plan_change_type=DOWNGRADE)
+    Service-->>Customer: "Downgrade scheduled for [period end]"
+
+    note over Customer,Database: Days Pass...
+
+    Service->>StateMachine: Cron Job - Apply Pending Changes
+    StateMachine->>StateMachine: Check Effective Date <= Now
+    StateMachine->>Database: Apply Change (subscription_plan_id=NEW, effective_plan_id=NEW, pending_*=NULL)
+    StateMachine->>StateMachine: Fire PlanChangeApplied
 ```
 
 ### Flow 6: Subscription Cancellation
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                   SUBSCRIPTION CANCELLATION FLOW                      │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant Service
+    participant StateMachine as StateMachine
+    participant Gateway
+    participant Database
 
-   Customer            Service            StateMachine         Database
-      │                   │                     │                  │
-      │ Cancel           │                     │                  │
-      │ Subscription     │                     │                  │
-      ├─────────────────►│                     │                  │
-      │                  │                     │                  │
-      │   ┌──────────────┴───────────────┐    │                  │
-      │   │ Choice:                      │    │                  │
-      │   │ - Immediate                  │    │                  │
-      │   │ - End of Period              │    │                  │
-      │   └──────────────┬───────────────┘    │                  │
-      │                  │                     │                  │
-      │ Immediate ───────┤                     │                  │
-      │                  │                     │                  │
-      │                  │ Fire: SubscriptionCancelled            │
-      │                  ├────────────────────►│                  │
-      │                  │ (immediate=true)    │                  │
-      │                  │                     │                  │
-      │                  │                     │ Cancel Now       │
-      │                  │                     ├─────────────────►│
-      │                  │                     │ subscription_    │
-      │                  │                     │ state=CANCELED   │
-      │                  │                     │ status=cancelled │
-      │                  │                     │ cancelled_at=NOW │
-      │                  │                     │                  │
-      │                  │                     │ Update Billing   │
-      │                  │                     ├─────────────────►│
-      │                  │                     │ billing_state=   │
-      │                  │                     │ CARD_ACTIVE      │
-      │                  │                     │                  │
-      │                  │                     │ Cancel at Gateway│
-      │                  ├─────────────►       │                  │
-      │                  │            Gateway  │                  │
-      │                  │◄─────────────       │                  │
-      │                  │                     │                  │
-      │◄─────────────────┤                     │                  │
-      │ "Cancelled"      │                     │                  │
-      │                  │                     │                  │
-      │                  │                     │                  │
-      │ End of Period ───┤                     │                  │
-      │                  │                     │                  │
-      │                  │ Fire: SubscriptionCancelled            │
-      │                  ├────────────────────►│                  │
-      │                  │ (immediate=false,   │                  │
-      │                  │  effectiveAt=period_end)               │
-      │                  │                     │                  │
-      │                  │                     │ Schedule Cancel  │
-      │                  │                     ├─────────────────►│
-      │                  │                     │ cancels_at=      │
-      │                  │                     │ period_end       │
-      │                  │                     │ cancellation_    │
-      │                  │                     │ reason="..."     │
-      │                  │                     │                  │
-      │◄─────────────────┤                     │                  │
-      │ "Will cancel on  │                     │                  │
-      │  [period_end]"   │                     │                  │
-      │                  │                     │                  │
+    Customer->>Service: Cancel Subscription
+    note over Customer,Service: Choice - Immediate or End of Period
+
+    alt Immediate
+        Service->>StateMachine: Fire SubscriptionCancelled (immediate=true)
+        StateMachine->>Database: Cancel Now (subscription_state=CANCELED, status=cancelled, cancelled_at=NOW)
+        StateMachine->>Database: Update Billing (billing_state=CARD_ACTIVE)
+        Service->>Gateway: Cancel at Gateway
+        Gateway-->>Service: ack
+        Service-->>Customer: "Cancelled"
+    else End of Period
+        Service->>StateMachine: Fire SubscriptionCancelled (immediate=false, effectiveAt=period_end)
+        StateMachine->>Database: Schedule Cancel (cancels_at=period_end, cancellation_reason="...")
+        Service-->>Customer: "Will cancel on [period_end]"
+    end
 ```
 
 ---

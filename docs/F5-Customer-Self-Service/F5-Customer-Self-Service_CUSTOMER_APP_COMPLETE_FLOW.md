@@ -9,22 +9,13 @@ This document describes the complete flow of the **Customer App (Mall Client)** 
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    CUSTOMER APP SYSTEM ARCHITECTURE                          │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────┐        ┌─────────────────┐        ┌─────────────────┐
-  │    CUSTOMER     │        │   MALL CLIENT   │        │   PUBLIC API    │
-  │   (Phone/Web)   │◀──────▶│    (React)      │◀──────▶│   (Laravel)     │
-  │                 │        │                 │        │                 │
-  └─────────────────┘        └────────┬────────┘        └────────┬────────┘
-                                      │                          │
-                             ┌────────▼────────┐        ┌────────▼────────┐
-                             │   WebSocket     │        │   MallSession   │
-                             │   Channel:      │◀──────▶│   (Database)    │
-                             │ session.{hash}  │        │                 │
-                             └─────────────────┘        └─────────────────┘
+```mermaid
+flowchart LR
+    A["CUSTOMER<br/>(Phone/Web)"] <--> B["MALL CLIENT<br/>(React)"]
+    B <--> C["PUBLIC API<br/>(Laravel)"]
+    B --> D["WebSocket<br/>Channel:<br/>session.{hash}"]
+    C --> E["MallSession<br/>(Database)"]
+    D <--> E
 ```
 
 ---
@@ -42,325 +33,85 @@ This document describes the complete flow of the **Customer App (Mall Client)** 
 
 ## QR Code & Session Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         QR CODE & SESSION FLOW                               │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────┐
-  │  Customer Scans │
-  │  QR Code at     │
-  │  Table          │
-  └────────┬────────┘
-           │
-           │  QR contains: https://app.domain.com/mall/session/{hash}
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    FRONTEND ROUTING                                      │
-  │                                                                          │
-  │  Route: /mall/session/:sessionId                                        │
-  │  Component: MallClientWrapper                                            │
-  │                                                                          │
-  └────────────────────────────┬────────────────────────────────────────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    SESSION VALIDATION                                    │
-  │                                                                          │
-  │  1. Check localStorage for previous session hash                        │
-  │  2. Compare with URL hash - clear if different                          │
-  │  3. Store current hash: dashStorage.setItem('mall-session-hash', hash)  │
-  │                                                                          │
-  └────────────────────────────┬────────────────────────────────────────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │              API: GET /api/public/mall/{hash}/getSessionAuth             │
-  │                                                                          │
-  │  MallSessionController::getSessionAuth()                                │
-  │    │                                                                     │
-  │    ├──▶ Find MallSession by hash                                        │
-  │    │                                                                     │
-  │    ├──▶ If PENDING → Activate session                                   │
-  │    │      • status = 'active'                                           │
-  │    │      • meta = { activated_at, client_ip, user_agent }              │
-  │    │                                                                     │
-  │    ├──▶ If ACTIVE → Validate client identity                            │
-  │    │      • Check session expiration (6 hours)                          │
-  │    │      • Log suspicious access if IP/UA differs                      │
-  │    │                                                                     │
-  │    └──▶ Return auth response:                                           │
-  │           • tenant (mall manager)                                        │
-  │           • systemValues (mall, tenants, settings)                      │
-  │           • redirectTo                                                   │
-  │                                                                          │
-  └────────────────────────────┬────────────────────────────────────────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    INITIALIZE CLIENT APP                                 │
-  │                                                                          │
-  │  1. Store auth data in AuthPersistenceService                           │
-  │  2. Subscribe to WebSocket: session.{hash} (public channel)             │
-  │  3. Initialize MallSessionEchoContext for real-time updates             │
-  │  4. Load available restaurants (tenants)                                │
-  │  5. Show order creation interface                                       │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Customer Scans QR Code at Table"] -->|"QR contains: https://app.domain.com/mall/session/{hash}"| B
+    B["FRONTEND ROUTING<br/>Route: /mall/session/:sessionId<br/>Component: MallClientWrapper"] --> C
+    C["SESSION VALIDATION<br/>1. Check localStorage for previous session hash<br/>2. Compare with URL hash - clear if different<br/>3. Store current hash: dashStorage.setItem('mall-session-hash', hash)"] --> D
+    D["API: GET /api/public/mall/{hash}/getSessionAuth<br/>MallSessionController::getSessionAuth()"] --> D1["Find MallSession by hash"]
+    D --> D2["If PENDING → Activate session<br/>- status = 'active'<br/>- meta = activated_at, client_ip, user_agent"]
+    D --> D3["If ACTIVE → Validate client identity<br/>- Check session expiration (6 hours)<br/>- Log suspicious access if IP/UA differs"]
+    D --> D4["Return auth response:<br/>- tenant (mall manager)<br/>- systemValues (mall, tenants, settings)<br/>- redirectTo"]
+    D4 --> E
+    E["INITIALIZE CLIENT APP<br/>1. Store auth data in AuthPersistenceService<br/>2. Subscribe to WebSocket: session.{hash} (public channel)<br/>3. Initialize MallSessionEchoContext for real-time updates<br/>4. Load available restaurants (tenants)<br/>5. Show order creation interface"]
 ```
 
 ---
 
 ## Session Lifecycle
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        SESSION LIFECYCLE                                     │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                    ┌───────────────┐
-                    │   PENDING     │ ◀─── Created via QR generation
-                    │               │      (by mall admin)
-                    └───────┬───────┘
-                            │
-                            │ Customer scans QR
-                            │ (validates IP/UserAgent)
-                            ▼
-                    ┌───────────────┐
-                    │    ACTIVE     │ ◀─── Can create orders
-                    │               │      Duration: 6 hours max
-                    └───────┬───────┘
-                            │
-          ┌─────────────────┼─────────────────┐
-          │                 │                 │
-          ▼                 ▼                 ▼
-  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-  │   COMPLETED   │ │   CANCELLED   │ │   EXPIRED     │
-  │               │ │               │ │ (after 6hrs)  │
-  │ (all orders   │ │ (manual       │ │               │
-  │  fulfilled)   │ │  cancellation)│ │               │
-  └───────────────┘ └───────────────┘ └───────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: Created via QR generation (by mall admin)
+    PENDING --> ACTIVE: Customer scans QR (validates IP/UserAgent)
+    ACTIVE --> COMPLETED: all orders fulfilled
+    ACTIVE --> CANCELLED: manual cancellation
+    ACTIVE --> EXPIRED: after 6hrs
+    note right of ACTIVE
+        Can create orders
+        Duration: 6 hours max
+    end note
 ```
 
 ---
 
 ## Order Creation Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         ORDER CREATION FLOW                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────┐
-  │  Customer Opens │
-  │  Order Form     │
-  └────────┬────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         ORDER CREATION UI                                │
-  │                                                                          │
-  │  ┌─────────────────────────────────────────────────────────────────┐    │
-  │  │  🔍 Buscar productos...                                         │    │
-  │  └─────────────────────────────────────────────────────────────────┘    │
-  │                                                                          │
-  │  ┌─────────────────────────────────────────────────────────────────┐    │
-  │  │  Filtrar por tienda: [Todas ▼]  Categoría: [Todas ▼]           │    │
-  │  └─────────────────────────────────────────────────────────────────┘    │
-  │                                                                          │
-  │  ┌─────────────────────────────────────────────────────────────────┐    │
-  │  │                                                                  │    │
-  │  │  🍕 PIZZA PLACE         🍣 SUSHI BAR         🍔 BURGER JOINT    │    │
-  │  │                                                                  │    │
-  │  │  ┌──────────┐         ┌──────────┐         ┌──────────┐        │    │
-  │  │  │ [IMG]    │         │ [IMG]    │         │ [IMG]    │        │    │
-  │  │  │ Margarita│         │ Rolls    │         │ Classic  │        │    │
-  │  │  │ $12,990  │         │ $15,990  │         │ $9,990   │        │    │
-  │  │  │ [+]      │         │ [+]      │         │ [+]      │        │    │
-  │  │  └──────────┘         └──────────┘         └──────────┘        │    │
-  │  │                                                                  │    │
-  │  └─────────────────────────────────────────────────────────────────┘    │
-  │                                                                          │
-  │  ┌─────────────────────────────────────────────────────────────────┐    │
-  │  │  🛒 Carrito (3 items)                              Total: $38,970│    │
-  │  │                                                                  │    │
-  │  │  x1 Margarita (Pizza Place) ...................... $12,990      │    │
-  │  │  x1 California Roll (Sushi Bar) .................. $15,990      │    │
-  │  │  x1 Classic Burger (Burger Joint) ................ $9,990       │    │
-  │  │                                                                  │    │
-  │  │                                        [Realizar Pedido →]      │    │
-  │  └─────────────────────────────────────────────────────────────────┘    │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-           │
-           │ Click "Realizar Pedido"
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    CUSTOMER DATA MODAL (MallAppMediator)                 │
-  │                                                                          │
-  │  ┌─────────────────────────────────────────────────────────────────┐    │
-  │  │                                                                  │    │
-  │  │   Complete tu pedido                                            │    │
-  │  │                                                                  │    │
-  │  │   Tu nombre: [_______________________]                          │    │
-  │  │                                                                  │    │
-  │  │   Número de mesa: [____]                                        │    │
-  │  │                                                                  │    │
-  │  │                                              [Continuar]        │    │
-  │  │                                                                  │    │
-  │  └─────────────────────────────────────────────────────────────────┘    │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-           │
-           │ Submit with customer data
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    DASHMallClientDataProvider.create()                   │
-  │                                                                          │
-  │  Automatically injects:                                                  │
-  │    • mall_id (from systemValues)                                        │
-  │    • mall_session (from localStorage)                                   │
-  │                                                                          │
-  └────────────────────────────┬────────────────────────────────────────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                  API: POST /api/public/mall/tab                          │
-  │                                                                          │
-  │  MallTabsController::_create()                                          │
-  │    │                                                                     │
-  │    ├──▶ Validate request (validateMallOrderRequest)                     │
-  │    │                                                                     │
-  │    ├──▶ Update MallSession with customer info                           │
-  │    │      • customer_name                                                │
-  │    │      • mall_location (table number)                                │
-  │    │                                                                     │
-  │    ├──▶ Group products by tenant (groupProductsByTenant)                │
-  │    │                                                                     │
-  │    ├──▶ Create MASTER TAB (under mall manager)                          │
-  │    │      • is_master_tab = true                                        │
-  │    │      • Contains ALL products                                       │
-  │    │      • Socket notification only (no FCM push)                      │
-  │    │                                                                     │
-  │    ├──▶ For EACH TENANT with products:                                  │
-  │    │      │                                                              │
-  │    │      └──▶ Create TENANT TAB                                        │
-  │    │            • master_tab_id = masterTab.id                          │
-  │    │            • Contains only that tenant's products                  │
-  │    │            • Send notification with:                               │
-  │    │                - WebSocket (socket)                                │
-  │    │                - FCM Push (push)                                   │
-  │    │                - TTS speech                                        │
-  │    │                - Alarm trigger                                     │
-  │    │                - Product summary ("un Bulgogi, dos Bibimbap")      │
-  │    │                                                                     │
-  │    └──▶ Return master tab response                                      │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Customer Opens Order Form"] --> B
+    B["ORDER CREATION UI<br/>- Search bar: 'Buscar productos...'<br/>- Filters: tienda (store), categoría<br/>- Product grid by store (Pizza Place, Sushi Bar, Burger Joint) with image, name, price, add button<br/>- Cart summary (Carrito) with line items and total<br/>- 'Realizar Pedido' button"] -->|"Click 'Realizar Pedido'"| C
+    C["CUSTOMER DATA MODAL (MallAppMediator)<br/>'Complete tu pedido' form:<br/>- Tu nombre (name input)<br/>- Número de mesa (table number input)<br/>- 'Continuar' button"] -->|"Submit with customer data"| D
+    D["DASHMallClientDataProvider.create()<br/>Automatically injects:<br/>- mall_id (from systemValues)<br/>- mall_session (from localStorage)"] --> E
+    E["API: POST /api/public/mall/tab<br/>MallTabsController::_create()"] --> E1["Validate request (validateMallOrderRequest)"]
+    E --> E2["Update MallSession with customer info<br/>- customer_name<br/>- mall_location (table number)"]
+    E --> E3["Group products by tenant (groupProductsByTenant)"]
+    E --> E4["Create MASTER TAB (under mall manager)<br/>- is_master_tab = true<br/>- Contains ALL products<br/>- Socket notification only (no FCM push)"]
+    E --> E5["For EACH TENANT with products:<br/>Create TENANT TAB<br/>- master_tab_id = masterTab.id<br/>- Contains only that tenant's products<br/>- Send notification with:<br/>&nbsp;&nbsp;WebSocket (socket), FCM Push (push), TTS speech,<br/>&nbsp;&nbsp;Alarm trigger, Product summary ('un Bulgogi, dos Bibimbap')"]
+    E --> E6["Return master tab response"]
 ```
 
 ---
 
 ## Multi-Restaurant Order Structure
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    MULTI-RESTAURANT ORDER STRUCTURE                          │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌───────────────────────────────────────────────────────────────────────────┐
-  │                          MALL SESSION                                      │
-  │                                                                            │
-  │  hash: "M5U2W"                                                            │
-  │  customer_name: "Francisco Aranda"                                        │
-  │  mall_location: "8" (table)                                               │
-  │  status: "active"                                                         │
-  │                                                                            │
-  └─────────────────────────────────────┬─────────────────────────────────────┘
-                                        │
-                                        │ brokerable relationship
-                                        ▼
-  ┌───────────────────────────────────────────────────────────────────────────┐
-  │                          MASTER TAB                                        │
-  │                                                                            │
-  │  tenant_id: mall_manager_tenant_id                                        │
-  │  is_master_tab: true                                                      │
-  │  status: CREATED → CONFIRMED → PREPARED → DELIVERED → CLOSED             │
-  │                                                                            │
-  │  ORDER (Master):                                                          │
-  │    • Contains ALL products from ALL tenants                               │
-  │    • is_master_order: true                                                │
-  │    • Product statuses sync from tenant orders                            │
-  │                                                                            │
-  └────────────────────────────┬──────────────────────────────────────────────┘
-                               │
-           ┌───────────────────┼───────────────────┐
-           │                   │                   │
-           ▼                   ▼                   ▼
-  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-  │  TENANT TAB #1  │ │  TENANT TAB #2  │ │  TENANT TAB #3  │
-  │                 │ │                 │ │                 │
-  │  Pizza Place    │ │  Sushi Bar      │ │  Burger Joint   │
-  │  tenant_id: 5   │ │  tenant_id: 6   │ │  tenant_id: 7   │
-  │                 │ │                 │ │                 │
-  │  master_tab_id  │ │  master_tab_id  │ │  master_tab_id  │
-  │  = masterTab.id │ │  = masterTab.id │ │  = masterTab.id │
-  │                 │ │                 │ │                 │
-  │  ORDER:         │ │  ORDER:         │ │  ORDER:         │
-  │  • Margarita x1 │ │  • Rolls x1     │ │  • Burger x1    │
-  │                 │ │                 │ │                 │
-  │  status: PREP   │ │  status: READY  │ │  status: CONF   │
-  └─────────────────┘ └─────────────────┘ └─────────────────┘
+```mermaid
+flowchart TD
+    A["MALL SESSION<br/>hash: 'M5U2W'<br/>customer_name: 'Francisco Aranda'<br/>mall_location: '8' (table)<br/>status: 'active'"] -->|"brokerable relationship"| B
+    B["MASTER TAB<br/>tenant_id: mall_manager_tenant_id<br/>is_master_tab: true<br/>status: CREATED → CONFIRMED → PREPARED → DELIVERED → CLOSED<br/><br/>ORDER (Master):<br/>- Contains ALL products from ALL tenants<br/>- is_master_order: true<br/>- Product statuses sync from tenant orders"]
+    B --> C1["TENANT TAB #1<br/>Pizza Place<br/>tenant_id: 5<br/>master_tab_id = masterTab.id<br/>ORDER: Margarita x1<br/>status: PREP"]
+    B --> C2["TENANT TAB #2<br/>Sushi Bar<br/>tenant_id: 6<br/>master_tab_id = masterTab.id<br/>ORDER: Rolls x1<br/>status: READY"]
+    B --> C3["TENANT TAB #3<br/>Burger Joint<br/>tenant_id: 7<br/>master_tab_id = masterTab.id<br/>ORDER: Burger x1<br/>status: CONF"]
 ```
 
 ---
 
 ## Real-Time Order Tracking
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      REAL-TIME ORDER TRACKING                                │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────┐
-  │ Restaurant Staff│
-  │ Updates Status  │
-  └────────┬────────┘
-           │
-           │ PUT /api/tab/tab/{tenant_tab_id}
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         BACKEND PROCESSING                               │
-  │                                                                          │
-  │  TabsNotificationService::handleStatusChange()                          │
-  │    │                                                                     │
-  │    ├──▶ Update tenant tab status                                        │
-  │    ├──▶ Update tenant order status                                      │
-  │    │                                                                     │
-  │    └──▶ handleSlaveTabStatusChange()                                    │
-  │           │                                                              │
-  │           ├──▶ Sync master order product statuses                       │
-  │           ├──▶ Update master tab status (aggregate)                     │
-  │           └──▶ notifyMallSession()                                      │
-  │                  │                                                       │
-  │                  └──▶ MallSessionOrderStatusNotification                │
-  │                         • Channel: session.{hash}                       │
-  │                         • Includes: tenant_name, status, products       │
-  │                                                                          │
-  └────────────────────────────┬────────────────────────────────────────────┘
-           │
-           │ WebSocket Event
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    CUSTOMER APP (MallClientTabsList)                     │
-  │                                                                          │
-  │  MallClientTabsContext receives event                                   │
-  │    │                                                                     │
-  │    ├──▶ Update tenantStatusesByTab state                                │
-  │    ├──▶ Show toast notification                                         │
-  │    └──▶ Refresh order list                                              │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Restaurant Staff Updates Status"] -->|"PUT /api/tab/tab/{tenant_tab_id}"| B
+    B["BACKEND PROCESSING<br/>TabsNotificationService::handleStatusChange()"] --> B1["Update tenant tab status"]
+    B --> B2["Update tenant order status"]
+    B --> B3["handleSlaveTabStatusChange()"]
+    B3 --> B3a["Sync master order product statuses"]
+    B3 --> B3b["Update master tab status (aggregate)"]
+    B3 --> B3c["notifyMallSession()"]
+    B3c --> B4["MallSessionOrderStatusNotification<br/>- Channel: session.{hash}<br/>- Includes: tenant_name, status, products"]
+    B4 -->|"WebSocket Event"| C
+    C["CUSTOMER APP (MallClientTabsList)<br/>MallClientTabsContext receives event"] --> C1["Update tenantStatusesByTab state"]
+    C --> C2["Show toast notification"]
+    C --> C3["Refresh order list"]
 ```
 
 ---
@@ -407,37 +158,14 @@ This document describes the complete flow of the **Customer App (Mall Client)** 
 
 ## Notification Flow to Customer
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    NOTIFICATION FLOW TO CUSTOMER                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                         ┌─────────────────────────────┐
-                         │   MallSessionOrderStatus    │
-                         │   Notification              │
-                         └──────────────┬──────────────┘
-                                        │
-              ┌─────────────────────────┼─────────────────────────┐
-              │                         │                         │
-              ▼                         ▼                         ▼
-    ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-    │    WebSocket    │     │    Database     │     │   FCM Push      │
-    │                 │     │    Storage      │     │   (Optional)    │
-    │ Channel:        │     │                 │     │                 │
-    │ session.{hash}  │     │ mall_session_   │     │ (if registered) │
-    │                 │     │ notifications   │     │                 │
-    └────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-             │                       │                       │
-             │                       │                       │
-             ▼                       ▼                       ▼
-    ┌─────────────────────────────────────────────────────────────────────┐
-    │                        CUSTOMER EXPERIENCE                          │
-    │                                                                     │
-    │  WebSocket → Instant toast notification + list refresh             │
-    │  Database  → Retrievable notification history                      │
-    │  FCM Push  → Background notification (if app closed)               │
-    │                                                                     │
-    └─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["MallSessionOrderStatusNotification"] --> B["WebSocket<br/>Channel: session.{hash}"]
+    A --> C["Database Storage<br/>mall_session_notifications"]
+    A --> D["FCM Push (Optional)<br/>(if registered)"]
+    B --> E["CUSTOMER EXPERIENCE<br/>WebSocket → Instant toast notification + list refresh<br/>Database → Retrievable notification history<br/>FCM Push → Background notification (if app closed)"]
+    C --> E
+    D --> E
 ```
 
 ---
@@ -515,51 +243,15 @@ deleteMany: () => { throw new Error('Delete not allowed'); },
 
 ## Assistance Request Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      ASSISTANCE REQUEST FLOW                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────┐
-  │ Customer Clicks │
-  │ "Request Help"  │
-  │ for a store     │
-  └────────┬────────┘
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │              API: POST /api/public/mall/stores/{id}/assistance           │
-  │                                                                          │
-  │  MallStoresController::assistance()                                      │
-  │    │                                                                     │
-  │    ├──▶ Validate session is active                                      │
-  │    │                                                                     │
-  │    ├──▶ Check rate limit (max 2 per store per session)                  │
-  │    │                                                                     │
-  │    ├──▶ Update session.assistance_requests counter                      │
-  │    │                                                                     │
-  │    └──▶ Send notification:                                              │
-  │           MallStoreAssistanceNotification                               │
-  │             • Channel: tenant.{storeId}.system                          │
-  │             • Targets: kitchen, staff                                   │
-  │             • Type: urgency-alert:speech                                │
-  │             • TTS: "Customer {name} at table {table}"                   │
-  │             • Alarm: true                                               │
-  │             • FCM Push: true                                            │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-           │
-           │
-           ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    RESTAURANT STAFF RECEIVES                             │
-  │                                                                          │
-  │  • Loud alarm sound plays                                               │
-  │  • TTS announces: "Customer Francisco at table 8 needs help"            │
-  │  • FCM push notification on mobile device                               │
-  │  • WebSocket notification updates dashboard                             │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Customer Clicks 'Request Help' for a store"] --> B
+    B["API: POST /api/public/mall/stores/{id}/assistance<br/>MallStoresController::assistance()"] --> B1["Validate session is active"]
+    B --> B2["Check rate limit (max 2 per store per session)"]
+    B --> B3["Update session.assistance_requests counter"]
+    B --> B4["Send notification: MallStoreAssistanceNotification<br/>- Channel: tenant.{storeId}.system<br/>- Targets: kitchen, staff<br/>- Type: urgency-alert:speech<br/>- TTS: 'Customer {name} at table {table}'<br/>- Alarm: true<br/>- FCM Push: true"]
+    B4 --> C
+    C["RESTAURANT STAFF RECEIVES<br/>- Loud alarm sound plays<br/>- TTS announces: 'Customer Francisco at table 8 needs help'<br/>- FCM push notification on mobile device<br/>- WebSocket notification updates dashboard"]
 ```
 
 ---
@@ -585,27 +277,24 @@ deleteMany: () => { throw new Error('Delete not allowed'); },
 
 ## Frontend Component Hierarchy
 
-```
-MallClientWrapper
-├── MallSessionEchoProvider (WebSocket context)
-│   └── KitchnTabsPrivateApp
-│       ├── GlobalTenantWrapper (theming/settings)
-│       ├── MallAppMediator (customer data modal)
-│       │
-│       └── MallClientAppResources
-│           └── ResourceTemplate (tab)
-│               ├── MallTabsContext
-│               │
-│               ├── CREATE VIEW
-│               │   ├── MallOrderStoresField (store filters)
-│               │   ├── MallOrderProducts (product grid)
-│               │   ├── MallProductModifiersModal
-│               │   └── MallCartSummary
-│               │
-│               └── LIST VIEW
-│                   └── MallClientTabsList
-│                       └── OrderProductsView
-│                           └── MallSessionOrderProgress
+```mermaid
+flowchart TD
+    A["MallClientWrapper"] --> B["MallSessionEchoProvider (WebSocket context)"]
+    B --> C["KitchnTabsPrivateApp"]
+    C --> D["GlobalTenantWrapper (theming/settings)"]
+    C --> E["MallAppMediator (customer data modal)"]
+    C --> F["MallClientAppResources"]
+    F --> G["ResourceTemplate (tab)"]
+    G --> H["MallTabsContext"]
+    G --> I["CREATE VIEW"]
+    I --> I1["MallOrderStoresField (store filters)"]
+    I --> I2["MallOrderProducts (product grid)"]
+    I --> I3["MallProductModifiersModal"]
+    I --> I4["MallCartSummary"]
+    G --> J["LIST VIEW"]
+    J --> K["MallClientTabsList"]
+    K --> L["OrderProductsView"]
+    L --> M["MallSessionOrderProgress"]
 ```
 
 ---

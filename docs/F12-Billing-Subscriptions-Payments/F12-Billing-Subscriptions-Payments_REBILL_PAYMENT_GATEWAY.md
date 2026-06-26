@@ -91,68 +91,34 @@ ALTER TABLE subscription_plans ADD rebill_plan_id VARCHAR(255) NULL;
 
 ```mermaid
 sequenceDiagram
-    participant Tenant
-    participant Backend
+    participant App as Application
     participant Rebill
-
-    rect rgb(240, 248, 255)
-    Note over Backend,Rebill: 1. Plan Sync (one-time)
-    Backend->>Rebill: POST /plans
-    Rebill-->>Backend: Plan ID
-    end
-
-    rect rgb(255, 250, 240)
-    Note over Tenant,Rebill: 2. Customer Creation
-    Backend->>Rebill: POST /organizations + /customers
-    Rebill-->>Backend: Customer ID
-    end
-
-    rect rgb(240, 255, 240)
-    Note over Tenant,Rebill: 3. Card Tokenization (SDK)
-    Tenant->>Rebill: SDK tokenizes card
-    Rebill-->>Tenant: Card token
-    Tenant->>Backend: Submit token
-    Backend->>Rebill: POST /cards
-    end
-
-    rect rgb(255, 240, 245)
-    Note over Backend,Rebill: 4. Subscription
-    Backend->>Rebill: POST /checkout (subscription)
-    Rebill-->>Backend: Subscription created
-    end
+    participant Customer
+    
+    App->>Rebill: Create subscription
+    Rebill-->>App: Subscription ID
+    App->>Rebill: Register payment method
+    Rebill-->>Customer: Token request
+    Customer->>Rebill: Enter card info
+    Rebill-->>App: Method registered
+    App->>Rebill: Charge subscription
+    Rebill-->>App: Payment result
 ```
 
 ---
 
 ## Card Tokenization (Frontend)
 
-```html
-<!-- Include REDBILL SDK -->
-<script src="https://sdk.rebill.com/v1/rebill.min.js"></script>
-
-<script>
-const rebill = new Rebill({
-    publicKey: 'your_public_key'
-});
-
-// Create card element
-const cardElement = rebill.elements.create('card');
-cardElement.mount('#card-container');
-
-// Tokenize card
-async function tokenizeCard() {
-    const { token, error } = await rebill.createToken(cardElement);
-    if (error) {
-        console.error(error);
-        return;
-    }
-    // Send token to your backend
-    await fetch('/api/payment-methods', {
-        method: 'POST',
-        body: JSON.stringify({ token })
-    });
-}
-</script>
+```mermaid
+flowchart TD
+    A["Subscription Created"] --> B["Register Payment Method"]
+    B --> C["Token Generated"]
+    C --> D["Store token"]
+    D --> E["Ready for billing"]
+    E --> F["Charge on schedule"]
+    F --> G{Success?}
+    G -->|Yes| H["Update status"]
+    G -->|No| I["Retry or suspend"]
 ```
 
 ---

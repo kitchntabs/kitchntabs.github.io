@@ -72,10 +72,23 @@ const STATUS_CANCELLED = 'CANCELLED';       // Order cancelled
 
 ### Status Flow
 
-```
-CREATED → CONFIRMED → IN_PREPARATION → PREPARED → DELIVERED → CLOSED
-    ↓                                                           ↓
-CANCELLED ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+```mermaid
+flowchart LR
+    Created["CREATED"]
+    Confirmed["CONFIRMED"]
+    InPrep["IN_PREPARATION"]
+    Prepared["PREPARED"]
+    Delivered["DELIVERED"]
+    Closed["CLOSED"]
+    Cancelled["CANCELLED"]
+    
+    Created --> Confirmed --> InPrep --> Prepared --> Delivered --> Closed
+    Created --> Cancelled
+    Confirmed --> Cancelled
+    InPrep --> Cancelled
+    Prepared --> Cancelled
+    Delivered --> Cancelled
+    Closed --> Cancelled
 ```
 
 ### Key Relationships
@@ -161,10 +174,15 @@ Manages customer sessions in a mall/food court. When a customer scans a QR code 
 
 ### Session Status Flow
 
-```
-PENDING → ACTIVE → COMPLETED
-            ↓
-        CANCELLED
+```mermaid
+flowchart LR
+    Pending["PENDING"]
+    Active["ACTIVE"]
+    Completed["COMPLETED"]
+    Cancelled["CANCELLED"]
+    
+    Pending --> Active --> Completed
+    Active --> Cancelled
 ```
 
 ### Key Methods
@@ -189,45 +207,30 @@ public function addNotification(array $data): MallSessionNotification
 
 ### Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      MALL SESSION                            │
-│                  (customer_name, mall_location)              │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │                    MASTER TAB                         │   │
-│  │              (mall manager tenant)                    │   │
-│  │                                                       │   │
-│  │  - is_master_tab = true                              │   │
-│  │  - Contains ALL products from all restaurants        │   │
-│  │  - Customer sees aggregated order progress           │   │
-│  │                                                       │   │
-│  │  ┌─────────────────────────────────────────────────┐ │   │
-│  │  │                  MASTER ORDER                   │ │   │
-│  │  │  - All products (Pizza, Sushi, Burger)         │ │   │
-│  │  │  - Aggregated subtotal                         │ │   │
-│  │  └─────────────────────────────────────────────────┘ │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                          │                                   │
-│         ┌────────────────┼────────────────┐                 │
-│         │                │                │                 │
-│         ▼                ▼                ▼                 │
-│  ┌────────────┐   ┌────────────┐   ┌────────────┐          │
-│  │ TENANT TAB │   │ TENANT TAB │   │ TENANT TAB │          │
-│  │  (Pizza)   │   │  (Sushi)   │   │  (Burger)  │          │
-│  │            │   │            │   │            │          │
-│  │ master_tab │   │ master_tab │   │ master_tab │          │
-│  │ _id = 100  │   │ _id = 100  │   │ _id = 100  │          │
-│  │            │   │            │   │            │          │
-│  │ ┌────────┐ │   │ ┌────────┐ │   │ ┌────────┐ │          │
-│  │ │ ORDER  │ │   │ │ ORDER  │ │   │ │ ORDER  │ │          │
-│  │ │ parent │ │   │ │ parent │ │   │ │ parent │ │          │
-│  │ │ =Master│ │   │ │ =Master│ │   │ │ =Master│ │          │
-│  │ └────────┘ │   │ └────────┘ │   │ └────────┘ │          │
-│  └────────────┘   └────────────┘   └────────────┘          │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Session["MALL SESSION<br/>customer_name mall_location"]
+    
+    MasterTab["MASTER TAB<br/>mall manager tenant<br/>is_master_tab = true<br/>Contains ALL products from all restaurants<br/>Customer sees aggregated order progress"]
+    
+    MasterOrder["MASTER ORDER<br/>All products Pizza Sushi Burger<br/>Aggregated subtotal"]
+    
+    TenantTab1["TENANT TAB Pizza<br/>master_tab_id = 100"]
+    TenantTab2["TENANT TAB Sushi<br/>master_tab_id = 100"]
+    TenantTab3["TENANT TAB Burger<br/>master_tab_id = 100"]
+    
+    Order1["ORDER<br/>parent = Master"]
+    Order2["ORDER<br/>parent = Master"]
+    Order3["ORDER<br/>parent = Master"]
+    
+    Session --> MasterTab
+    MasterTab --> MasterOrder
+    MasterTab --> TenantTab1
+    MasterTab --> TenantTab2
+    MasterTab --> TenantTab3
+    TenantTab1 --> Order1
+    TenantTab2 --> Order2
+    TenantTab3 --> Order3
 ```
 
 ### Key Points
@@ -444,95 +447,59 @@ Broadcast::channel('tenant.{tenantId}.system', function ($user, $tenantId) {
 
 ### Order Creation Flow
 
-```
-Customer                   Frontend                    Backend                    Database
-   │                          │                          │                          │
-   │ Select products          │                          │                          │
-   ├─────────────────────────▶│                          │                          │
-   │                          │ POST /public/mall/tab    │                          │
-   │                          ├─────────────────────────▶│                          │
-   │                          │                          │ Begin Transaction        │
-   │                          │                          │                          │
-   │                          │                          │ Create Master Tab        │
-   │                          │                          ├─────────────────────────▶│
-   │                          │                          │                          │
-   │                          │                          │ Create Master Order      │
-   │                          │                          ├─────────────────────────▶│
-   │                          │                          │                          │
-   │                          │                          │ For each tenant:         │
-   │                          │                          │   Create Tenant Tab      │
-   │                          │                          │   Create Tenant Order    │
-   │                          │                          ├─────────────────────────▶│
-   │                          │                          │                          │
-   │                          │                          │ Commit Transaction       │
-   │                          │                          │                          │
-   │                          │                          │ Send Notifications:      │
-   │                          │                          │   - To session channel   │
-   │                          │                          │   - To tenant channels   │
-   │                          │                          │                          │
-   │◀───────WebSocket─────────┤◀─────────────────────────┤                          │
-   │                          │                          │                          │
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant Frontend
+    participant Backend
+    participant Database
+    
+    Customer->>Frontend: Select products
+    Frontend->>Backend: POST /public/mall/tab
+    Backend->>Backend: Begin Transaction
+    Backend->>Database: Create Master Tab
+    Backend->>Database: Create Master Order
+    Backend->>Database: For each tenant:<br/>Create Tenant Tab<br/>Create Tenant Order
+    Backend->>Backend: Commit Transaction
+    Backend->>Backend: Send Notifications:<br/>- To session channel<br/>- To tenant channels
+    Backend-->>Frontend: WebSocket
+    Frontend-->>Customer: WebSocket
 ```
 
 ### Order Update Flow (When Customer Modifies Unconfirmed Order)
 
-```
-Customer                   Frontend                    Backend                    Tenant Staff
-   │                          │                          │                          │
-   │ Modify quantities        │                          │                          │
-   ├─────────────────────────▶│                          │                          │
-   │                          │ PUT /public/mall/tab/{id}│                          │
-   │                          ├─────────────────────────▶│                          │
-   │                          │                          │                          │
-   │                          │                          │ Validate:                │
-   │                          │                          │   - is_master_tab=true   │
-   │                          │                          │   - status=CREATED       │
-   │                          │                          │                          │
-   │                          │                          │ For each tenant tab:     │
-   │                          │                          │   If status=CREATED:     │
-   │                          │                          │     Update quantities    │
-   │                          │                          │     Recalculate totals   │
-   │                          │                          │                          │
-   │                          │                          │ Sync master order items  │
-   │                          │                          │                          │
-   │                          │                          │ Send Notifications:      │
-   │                          │                          │   - Customer (no alarm)  │
-   │                          │                          │   - Tenant (WITH alarm)  │
-   │                          │                          │                          │
-   │◀───────WebSocket─────────┤◀─────────────────────────┤                          │
-   │                          │                          ├──────────────────────────▶│
-   │                          │                          │  🔊 ALARM + TTS:         │
-   │                          │                          │  "The customer X at      │
-   │                          │                          │   table Y has updated    │
-   │                          │                          │   the order"             │
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant Frontend
+    participant Backend
+    participant Staff as Tenant Staff
+    
+    Customer->>Frontend: Modify quantities
+    Frontend->>Backend: PUT /public/mall/tab/{id}
+    Backend->>Backend: Validate:<br/>- is_master_tab=true<br/>- status=CREATED
+    Backend->>Backend: For each tenant tab:<br/>If status=CREATED:<br/>Update quantities<br/>Recalculate totals
+    Backend->>Backend: Sync master order items
+    Backend->>Backend: Send Notifications:<br/>- Customer no alarm<br/>- Tenant WITH alarm
+    Backend-->>Frontend: WebSocket
+    Backend-->>Staff: 🔊 ALARM + TTS:<br/>The customer X at<br/>table Y has updated order
+    Frontend-->>Customer: WebSocket
 ```
 
 ### Status Update Flow (When Restaurant Updates Status)
 
-```
-Tenant Staff               Backend                    Customer
-     │                        │                          │
-     │ Change status to       │                          │
-     │ IN_PREPARATION         │                          │
-     ├───────────────────────▶│                          │
-     │                        │                          │
-     │                        │ Update tenant tab status │
-     │                        │                          │
-     │                        │ Sync master order items: │
-     │                        │   product.status =       │
-     │                        │   IN_PREPARATION         │
-     │                        │                          │
-     │                        │ Update master tab status │
-     │                        │ (based on aggregate rule)│
-     │                        │                          │
-     │                        │ Send notification to     │
-     │                        │ session.{hash} channel   │
-     │                        ├─────────────────────────▶│
-     │                        │                          │
-     │                        │                    Toast: │
-     │                        │             "Pizza Place │
-     │                        │             is preparing │
-     │                        │               your order"│
+```mermaid
+sequenceDiagram
+    participant Staff as Tenant Staff
+    participant Backend
+    participant Customer
+    
+    Staff->>Backend: Change status to<br/>IN_PREPARATION
+    Backend->>Backend: Update tenant tab status
+    Backend->>Backend: Sync master order items:<br/>product.status =<br/>IN_PREPARATION
+    Backend->>Backend: Update master tab status<br/>based on aggregate rule
+    Backend->>Backend: Send notification to<br/>session.{hash} channel
+    Backend-->>Customer: Toast:<br/>Pizza Place<br/>is preparing<br/>your order
 ```
 
 ---

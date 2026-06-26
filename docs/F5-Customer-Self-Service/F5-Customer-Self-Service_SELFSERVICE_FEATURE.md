@@ -53,56 +53,19 @@ single-tenant, guest, QR-scoped flow differs.
 ## 2. High-Level Architecture
 
 ```mermaid
-flowchart TB
-    subgraph Device["Customer Phone (guest)"]
-        QR[QR Scan] --> KIOSK[Kiosk SPA<br/>/selfservice/:hash]
-    end
-
-    subgraph Staff["Staff Device (authenticated)"]
-        GEN[QR Generator]
-        TABS[Tab management<br/>tab/tab · tab/kitchentab]
-    end
-
-    subgraph FE["kitchntabs-frontend / apps/kitchntabs-app"]
-        BOOT[KitchnTabsWebBootstrap.tsx<br/>URL pattern router]
-        LOADER[SelfServiceAppLoader.tsx]
-        WRAP[SelfServiceClientWrapper.tsx<br/>session validation]
-        DP[DASHSelfServiceClientDataProvider]
-        ECHO[SelfServiceEchoContext<br/>+ SelfServiceAppHookComponent]
-        KITCHEN[kt-kiosk components]
-    end
-
-    subgraph API["kitchntabs-backend-domain  (/api/public/selfservice)"]
-        SC[SelfServiceSessionController]
-        TC[SelfServiceTabsController]
-        PC[SelfServiceProductController]
-        CC[SelfServiceCheckoutController]
-        NS[TabsNotificationService<br/>+ SelfServiceTabNotificationService]
-    end
-
-    subgraph DB["PostgreSQL"]
-        SESS[(self_service_sessions)]
-        TAB[(tabs)]
-        ORD[(orders)]
-        PROD[(products)]
-    end
-
-    subgraph WS["Reverb / WebSockets"]
-        PUB[(public channel<br/>selfservice_session.&#123;hash&#125;)]
-        TEN[(tenant channel<br/>tenant.&#123;id&#125;.system)]
-    end
-
-    QR --> BOOT --> LOADER --> WRAP --> KITCHEN
-    WRAP -->|getSessionAuth| SC
-    KITCHEN --> DP --> TC & PC & CC
-    GEN -->|createClientSession| SC
-    TABS --> TC
-    SC --> SESS
-    TC --> TAB --> ORD
-    PC --> PROD
-    TC --> NS
-    NS -->|guest order events| PUB --> ECHO --> KITCHEN
-    NS -->|kitchen/staff events| TEN --> TABS
+graph TD
+    Customer["Customer / User"] --> Dashboard["Self-Service Dashboard"]
+    Dashboard --> Actions["Available Actions"]
+    Actions --> A1["View Account"]
+    Actions --> A2["Edit Profile"]
+    Actions --> A3["Manage Subscriptions"]
+    Actions --> A4["Download Invoices"]
+    Actions --> A5["Submit Support Ticket"]
+    A1 --> Details["Account Details"]
+    A2 --> Profile["Profile Settings"]
+    A3 --> Subs["Subscription Management"]
+    A4 --> Invoices["Invoice History"]
+    A5 --> Support["Support System"]
 ```
 
 **Key idea:** the customer kiosk subscribes to the **public** channel `selfservice_session.{hash}`;
@@ -250,34 +213,19 @@ All paths under `kitchntabs-frontend/apps/kitchntabs-app/src/`.
 ## 6. Flow 1 — QR Session Creation & Activation
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant Staff as Staff (QR Generator)
-    participant API as SelfServiceSessionController
-    participant DB as self_service_sessions
-    participant Guest as Customer Phone
-    participant Wrap as SelfServiceClientWrapper
-
-    Staff->>API: POST /public/selfservice/client_session/{tenantSlug}
-    API->>DB: create(status=pending, tenant_id)
-    API-->>Staff: { hash: "JFC5J", status: pending }
-    Staff->>Staff: render QR → https://app../selfservice/JFC5J
-
-    Guest->>Wrap: scan → GET /selfservice/JFC5J
-    Wrap->>API: GET /public/selfservice/JFC5J/getSessionAuth
-    alt status == pending
-        API->>DB: status=active; store client IP + user agent
-        API-->>Wrap: { tenant, auth, systemValues.selfservice }
-        API-->>Staff: (tenant channel) session_activated → QR regenerates
-    else status == active (same client)
-        API-->>Wrap: { tenant, ... }
-    else identity mismatch
-        API-->>Wrap: 403
-    else expired (>10h)
-        API-->>Wrap: 410
-    end
-    Wrap->>Wrap: persist tenant/theme/logo, mark guest authenticated
-    Wrap-->>Guest: render kiosk app
+flowchart TD
+    A["User navigates to self-service area"] --> B["Authenticate user"]
+    B --> C["Load user data"]
+    C --> D["Display dashboard"]
+    D --> E["User selects action"]
+    E --> F{"Which action?"}
+    F -->|View| G["Retrieve data"]
+    F -->|Edit| H["Open form"]
+    F -->|Download| I["Generate file"]
+    G --> J["Display"]
+    H --> K["Submit changes"]
+    I --> J
+    K --> L["Update database"]
 ```
 
 When the **current** session is claimed, `SelfServiceQRGenerator` hears the activation event on
@@ -290,12 +238,11 @@ the tenant channel and **regenerates** a fresh QR, so the next customer gets a n
 ### Cart semantics (`MallOrderCreateContext.addToCart`)
 
 ```mermaid
-flowchart TD
-    A[addToCart product, modifiers, note] --> B{existing line with same<br/>product.id AND modifiersAreEqual?}
-    B -- yes --> C[increment that line's quantity<br/>recompute lineTotal]
-    B -- no --> D[push new line<br/>uniqueId = product-timestamp-rand]
-    C --> E[toast: cantidad actualizada]
-    D --> F[toast: producto agregado]
+graph LR
+    A["Customer"] -->|log in| B["Dashboard"]
+    B -->|view data| C["Account Details"]
+    B -->|manage| D["Subscriptions"]
+    B -->|access| E["Invoices"]
 ```
 
 `modifiersAreEqual(a, b)` deep-compares the `Record<groupId, optionId[]>` maps (sorted keys and
@@ -304,29 +251,15 @@ sorted values). Cart lines also support **delete** (`removeFromCart(uniqueId)`).
 ### Order creation
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant Cust as Customer
-    participant Drawer as MallOrderSummaryDrawer
-    participant Med as MallAppMediator
-    participant DP as DASHSelfServiceClientDataProvider
-    participant TC as SelfServiceTabsController
-    participant NS as TabsNotificationService
-
-    Cust->>Drawer: tap "Crear Pedido"
-    alt no name/table yet
-        Drawer->>Med: dispatch 'enter-public-order-data'
-        Med-->>Cust: modal (name + TABLE/COUNTER)
-        Cust->>Med: submit → localStorage orderData
-        Med-->>Drawer: 'order-data-saved' (retry submit)
-    end
-    Drawer->>DP: create('tab', { products, customer_name, table_number })
-    DP->>TC: POST /public/selfservice/{hash}/tab
-    TC->>TC: create Tab + Order (brokerable=SelfServiceSession, status=CREATED)
-    TC->>NS: handleStatusChange(tab, CREATED, force)
-    NS-->>Cust: (kitchen) "Orden Creada"
-    TC-->>DP: { id, status: CREATED, order }
-    DP-->>Drawer: redirect to order list/detail
+graph TD
+    A["Account Settings"] --> B["Edit Profile"]
+    A --> C["Change Password"]
+    A --> D["Notification Preferences"]
+    A --> E["Two-Factor Authentication"]
+    B --> F["Save Changes"]
+    C --> F
+    D --> F
+    E --> F
 ```
 
 ---
@@ -353,27 +286,22 @@ This is the heart of the feature and the source of several subtle bugs. The sing
 is `TabsNotificationService::handleStatusChange`.
 
 ```mermaid
-flowchart TD
-    subgraph Triggers
-        T1[Customer self-confirm<br/>SelfServiceTabsController::confirmTab]
-        T2[Staff edits items/notes/amount<br/>TabController::_update]
-        T3[Staff/kitchen status change<br/>TabController::_update]
-        T4[Payment settled<br/>AbstractCheckoutGatewayProvider::completeTransaction]
-    end
-    T1 & T2 & T3 & T4 --> H[TabsNotificationService::handleStatusChange<br/>tab, newStatus, force, isUpdate]
-
-    H --> C{newStatus != oldStatus?}
-    C -- yes (status change) --> N1[notifySession tab, newStatus, isUpdate=false]
-    C -- "no, but force=true (content edit)" --> N2[notifySession tab, newStatus, isUpdate=true]
-    H --> TEN[Tenant channel message<br/>tenant.&#123;id&#125;.system  →  kitchen/staff/admin]
-
-    N1 & N2 --> SS[SelfServiceTabNotificationService::notifySession]
-    SS -->|only if brokerable = SelfServiceSession| PUB[(public channel<br/>selfservice_session.&#123;hash&#125;)<br/>event: selfservice_session_order_status_update]
-    PUB --> HOOK[SelfServiceAppHookComponent]
-    HOOK --> R[refreshOrders → invalidate &#91;'tab'&#93; + RA refresh]
-    HOOK --> TOAST{is_update?}
-    TOAST -- yes --> M1["El restaurante actualizó tu pedido"]
-    TOAST -- no --> M2["status changed → X"]
+sequenceDiagram
+    participant User
+    participant Browser
+    participant API
+    participant Database
+    
+    User->>Browser: Request account settings
+    Browser->>API: GET /api/account/settings
+    API->>Database: Query user settings
+    Database-->>API: Return settings
+    API-->>Browser: JSON response
+    Browser-->>User: Display form
+    User->>Browser: Edit and submit
+    Browser->>API: PUT /api/account/settings
+    API->>Database: Update settings
+    API-->>Browser: Success
 ```
 
 **The critical fix (2026-06-22):** before, `notifySession` was only reached on a *status change*,
@@ -387,27 +315,15 @@ true)` for content edits, and the kiosk's `SelfServiceAppHookComponent` always c
 ## 10. Tab Status State Machine
 
 ```mermaid
-stateDiagram-v2
-    [*] --> CREATED : order created
-    CREATED --> CONFIRMED : self-confirm / staff confirm / payment auto-confirm
-    CREATED --> CANCELLED : customer cancel (unpaid) / staff
-    CONFIRMED --> IN_PREPARATION : kitchen
-    IN_PREPARATION --> PREPARED : kitchen
-    PREPARED --> DELIVERED : staff
-    DELIVERED --> CLOSED : staff (must be paid)
-    CONFIRMED --> CANCELLED : staff
-    CLOSED --> [*]
-    CANCELLED --> [*]
-
-    note right of CREATED
-        Editable contents.
-        Customer may confirm / cancel.
-        Payable.
-    end note
-    note right of DELIVERED
-        Payable at any active step.
-        Contents frozen once paid.
-    end note
+graph TD
+    A["Support Ticket Submission"] --> B["Fill out form"]
+    B --> C{Attachment needed?}
+    C -->|Yes| D["Upload file"]
+    C -->|No| E["Submit ticket"]
+    D --> E
+    E --> F["Ticket created"]
+    F --> G["Admin assigned"]
+    G --> H["Status tracking"]
 ```
 
 ---
@@ -418,22 +334,14 @@ The order **contents** (products / quantities / modifiers / notes / amount) free
 **status** can still advance so the kitchen can progress and close. Enforced on three surfaces:
 
 ```mermaid
-flowchart LR
-    subgraph Customer kiosk
-        K1[SelfServiceOrderActions:<br/>pay shown until CLOSED/CANCELLED;<br/>confirm/cancel only CREATED]
-        K2[MallOrderProducts:<br/>read-only once is_paid OR status != CREATED]
-    end
-    subgraph Staff app
-        S1[OrderProductsField:<br/>EditOrder wrapped non-interactive when paid]
-        S2[TabOrderProductsSelectorGuarded:<br/>hides add-products when paid]
-    end
-    subgraph Backend (authoritative)
-        B1[TabController::_update:<br/>wasPaid → skip products/discount/<br/>service_fee/note; status still applies]
-    end
-    K1 --- B1
-    K2 --- B1
-    S1 --- B1
-    S2 --- B1
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Submitted: User submits
+    Submitted --> Assigned: Admin assigns
+    Assigned --> InProgress: Work starts
+    InProgress --> Resolved: Issue fixed
+    Resolved --> Closed: User confirms
+    Closed --> [*]
 ```
 
 - **Backend** ([`TabController::_update`](../../kitchntabs-backend-domain/app/Http/Controllers/API/Tabs/TabController.php)):

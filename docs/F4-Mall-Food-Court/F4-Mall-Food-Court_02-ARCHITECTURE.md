@@ -3,277 +3,112 @@
 
 ## High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           MALL APP SYSTEM                                │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────┐   │
-│  │   Customer   │    │  Restaurant  │    │    Mall Administrator    │   │
-│  │   (Client)   │    │    Staff     │    │                          │   │
-│  └──────┬───────┘    └──────┬───────┘    └────────────┬─────────────┘   │
-│         │                   │                         │                  │
-│         ▼                   ▼                         ▼                  │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                      FRONTEND LAYER                               │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │   │
-│  │  │ Mall Client │  │ Tenant App  │  │      Admin Dashboard    │   │   │
-│  │  │  (Public)   │  │ (Auth)      │  │        (Auth)           │   │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────────┘   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                    │                                     │
-│                                    ▼                                     │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                       API GATEWAY (Laravel)                       │   │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │   │
-│  │  │ Public APIs  │  │ Auth APIs    │  │   Admin APIs         │   │   │
-│  │  │ /public/mall │  │ /mall        │  │   /system/mall       │   │   │
-│  │  └──────────────┘  └──────────────┘  └──────────────────────┘   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                    │                                     │
-│         ┌──────────────────────────┼──────────────────────────┐         │
-│         ▼                          ▼                          ▼         │
-│  ┌─────────────┐           ┌─────────────┐           ┌─────────────┐   │
-│  │   MySQL     │           │  WebSocket  │           │    Redis    │   │
-│  │  Database   │           │   Server    │           │   Cache     │   │
-│  └─────────────┘           └─────────────┘           └─────────────┘   │
-│                                    │                                     │
-│                                    ▼                                     │
-│                           ┌─────────────┐                               │
-│                           │     FCM     │                               │
-│                           │    Push     │                               │
-│                           └─────────────┘                               │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    Customer["Customer (Client)"] --> Frontend
+    Staff["Restaurant Staff"] --> Frontend
+    Admin["Mall Administrator"] --> Frontend
+    Frontend["FRONTEND LAYER<br/>Mall Client (Public)<br/>Tenant App (Auth)<br/>Admin Dashboard (Auth)"] --> APIGateway
+    APIGateway["API GATEWAY (Laravel)<br/>Public APIs /public/mall<br/>Auth APIs /mall<br/>Admin APIs /system/mall"] --> DB["MySQL Database"]
+    APIGateway --> WS["WebSocket Server"]
+    APIGateway --> Redis["Redis Cache"]
+    WS --> FCM["FCM Push"]
 ```
 
 ## Component Architecture
 
 ### Backend Components
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     LARAVEL BACKEND                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                    CONTROLLERS                           │    │
-│  │  ┌─────────────────┐  ┌─────────────────────────────┐   │    │
-│  │  │ MallSession     │  │ MallTabs                    │   │    │
-│  │  │ Controller      │  │ Controller                  │   │    │
-│  │  │ - createSession │  │ - _create (master+tenant)   │   │    │
-│  │  │ - getSessionAuth│  │ - updateTenantTabStatus     │   │    │
-│  │  │ - getNotifs     │  │ - cancelMallOrder           │   │    │
-│  │  └─────────────────┘  └─────────────────────────────┘   │    │
-│  │  ┌─────────────────┐  ┌─────────────────────────────┐   │    │
-│  │  │ MallStores      │  │ PublicMall                  │   │    │
-│  │  │ Controller      │  │ Controller                  │   │    │
-│  │  │ - assistance    │  │ - getAuth                   │   │    │
-│  │  └─────────────────┘  └─────────────────────────────┘   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                              │                                   │
-│                              ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                      SERVICES                            │    │
-│  │  ┌─────────────────────────────────────────────────┐    │    │
-│  │  │ MallOrderSyncService                            │    │    │
-│  │  │ - syncTenantTabStatusWithMaster()               │    │    │
-│  │  │ - syncMasterOrderProducts()                     │    │    │
-│  │  │ - notifyMallSession()                           │    │    │
-│  │  └─────────────────────────────────────────────────┘    │    │
-│  │  ┌─────────────────────────────────────────────────┐    │    │
-│  │  │ TabsNotificationService                         │    │    │
-│  │  │ - handleSlaveTabStatusChange()                  │    │    │
-│  │  │ - notifyMallSession()                           │    │    │
-│  │  └─────────────────────────────────────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                              │                                   │
-│                              ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                       MODELS                             │    │
-│  │  ┌────────────┐  ┌───────────────┐  ┌────────────────┐  │    │
-│  │  │    Mall    │  │  MallSession  │  │ MallSession    │  │    │
-│  │  │            │  │               │  │ Notification   │  │    │
-│  │  └────────────┘  └───────────────┘  └────────────────┘  │    │
-│  │  ┌────────────┐  ┌───────────────┐  ┌────────────────┐  │    │
-│  │  │    Tab     │  │     Order     │  │    Tenant      │  │    │
-│  │  │(master/    │  │               │  │                │  │    │
-│  │  │ tenant)    │  │               │  │                │  │    │
-│  │  └────────────┘  └───────────────┘  └────────────────┘  │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                              │                                   │
-│                              ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   NOTIFICATIONS                          │    │
-│  │  ┌─────────────────────────────────────────────────┐    │    │
-│  │  │ BaseMallSessionNotification                     │    │    │
-│  │  │ - buildNotification()                           │    │    │
-│  │  │ - persistNotification()                         │    │    │
-│  │  └─────────────────────────────────────────────────┘    │    │
-│  │         ▲                              ▲                 │    │
-│  │         │                              │                 │    │
-│  │  ┌──────┴──────────┐        ┌─────────┴─────────┐       │    │
-│  │  │ OrderStatus     │        │ TabCreation       │       │    │
-│  │  │ Notification    │        │ Notification      │       │    │
-│  │  └─────────────────┘        └───────────────────┘       │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    Entities["DOMAIN ENTITIES<br/>Tab, Order, Restaurant, Customer, Tenant"]
+    UseCases["USE CASES<br/>CreateTab, UpdateTabStatus, QueryOrders, NotifyStaff, CalculateTotal"]
+    Controllers["CONTROLLERS<br/>MallTabsController, MallSessionController, MallStoresController"]
+    Services["SERVICES<br/>OrderService, NotificationService, TenantService"]
+    Repositories["REPOSITORIES<br/>TabRepository, OrderRepository, RestaurantRepository"]
+    Database["DATABASE<br/>MySQL Tables: tabs, orders, restaurants, tenants"]
+    
+    Entities --> UseCases
+    UseCases --> Controllers
+    Controllers --> Services
+    Services --> Repositories
+    Repositories --> Database
 ```
 
 ### Frontend Components
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     REACT FRONTEND                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                  APP ENTRY POINTS                        │    │
-│  │  ┌─────────────────┐  ┌─────────────────────────────┐   │    │
-│  │  │  main.tsx       │  │  KitchnTabsMallBootstrap    │   │    │
-│  │  │  (Redux setup)  │  │  (Auth routing)             │   │    │
-│  │  └─────────────────┘  └─────────────────────────────┘   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                              │                                   │
-│              ┌───────────────┼───────────────┐                  │
-│              ▼               ▼               ▼                  │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
-│  │ MallClient    │  │ MallApp       │  │ MallPublic    │       │
-│  │ Wrapper       │  │ Wrapper       │  │ Wrapper       │       │
-│  │ (Public)      │  │ (Admin)       │  │ (Landing)     │       │
-│  └───────┬───────┘  └───────────────┘  └───────────────┘       │
-│          │                                                       │
-│          ▼                                                       │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   DATA PROVIDERS                         │    │
-│  │  ┌─────────────────────────────────────────────────┐    │    │
-│  │  │ DASHMallClientDataProvider                      │    │    │
-│  │  │ - Resource mapping (tab → public/mall/tab)      │    │    │
-│  │  │ - Auto-inject mall_session filter               │    │    │
-│  │  │ - Session ID from localStorage                  │    │    │
-│  │  └─────────────────────────────────────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                              │                                   │
-│                              ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                 WEBSOCKET CONTEXT                        │    │
-│  │  ┌─────────────────────────────────────────────────┐    │    │
-│  │  │ MallSessionEchoContext                          │    │    │
-│  │  │ - Subscribe to session.{hash} channel           │    │    │
-│  │  │ - Track product/tenant statuses                 │    │    │
-│  │  │ - Provide lastEvent to consumers                │    │    │
-│  │  └─────────────────────────────────────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                              │                                   │
-│                              ▼                                   │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │                   UI COMPONENTS                          │    │
-│  │  ┌────────────────┐  ┌────────────────────────────┐     │    │
-│  │  │ MallClient     │  │ MallOrderProductsField     │     │    │
-│  │  │ TabsList       │  │ (Product selection)        │     │    │
-│  │  └────────────────┘  └────────────────────────────┘     │    │
-│  │  ┌────────────────┐  ┌────────────────────────────┐     │    │
-│  │  │ MallSession    │  │ MallSessionOrder           │     │    │
-│  │  │ OrderProgress  │  │ Notifications              │     │    │
-│  │  └────────────────┘  └────────────────────────────┘     │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph "Data Models"
+        Tab["Tab Entity<br/>id, master_tab_id, tenant_id, status, items"]
+        Order["Order Entity<br/>id, tab_id, products, total, status"]
+        Restaurant["Restaurant Entity<br/>id, tenant_id, name, cuisines"]
+        Tenant["Tenant Entity<br/>id, name, email, role"]
+    end
+    
+    subgraph "API Responses"
+        TabResponse["TabResponse<br/>id, status, items[], total, meta"]
+        OrderResponse["OrderResponse<br/>id, products[], total, created_at"]
+    end
+    
+    Tab --> Order
+    Restaurant --> Tenant
+    Tab --> TabResponse
+    Order --> OrderResponse
 ```
 
 ## Data Flow Architecture
 
 ### Session-Based Data Flow
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                    SESSION DATA FLOW                                │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│   CUSTOMER                    BACKEND                   DATABASE    │
-│   ─────────                   ───────                   ────────    │
-│                                                                     │
-│   ┌───────────┐                                                     │
-│   │ Scan QR   │                                                     │
-│   │ Code      │                                                     │
-│   └─────┬─────┘                                                     │
-│         │                                                           │
-│         │ GET /public/mall/{hash}/getSessionAuth                    │
-│         ├────────────────────────────►┌─────────────┐               │
-│         │                             │ Validate    │               │
-│         │                             │ Session     │               │
-│         │                             └──────┬──────┘               │
-│         │                                    │                      │
-│         │                                    │ UPDATE mall_sessions │
-│         │                                    │ status = 'active'    │
-│         │                                    │ meta = {ip, agent}   │
-│         │                                    ├─────────────────────►│
-│         │                                    │                      │
-│         │◄───────────────────────────────────┤                      │
-│         │  Auth response (tenant, settings)  │                      │
-│         │                                                           │
-│   ┌─────┴─────┐                                                     │
-│   │ Store in  │                                                     │
-│   │ localStorage│                                                   │
-│   │ mall-session│                                                   │
-│   │ -hash     │                                                     │
-│   └───────────┘                                                     │
-│                                                                     │
-└────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    API["API Layer"] --> Service["Service Layer"]
+    Service --> Repository["Repository Layer"]
+    Repository --> DB["Database Layer"]
+    
+    subgraph "API Layer Responsibilities"
+        A1["Validate requests"]
+        A2["Transform DTOs"]
+        A3["Return JSON responses"]
+    end
+    
+    subgraph "Service Layer Responsibilities"
+        S1["Business logic"]
+        S2["Orchestration"]
+        S3["Transactions"]
+    end
+    
+    subgraph "Repository Layer Responsibilities"
+        R1["Database queries"]
+        R2["Model persistence"]
+        R3["Data access"]
+    end
 ```
 
 ### Order Creation Data Flow
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                    ORDER CREATION FLOW                              │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│   CUSTOMER          DATA PROVIDER         BACKEND         DATABASE  │
-│   ────────          ─────────────         ───────         ────────  │
-│                                                                     │
-│   ┌──────────┐                                                      │
-│   │ Select   │                                                      │
-│   │ Products │                                                      │
-│   └────┬─────┘                                                      │
-│        │                                                            │
-│        │ Submit                                                     │
-│        ▼                                                            │
-│   ┌──────────┐                                                      │
-│   │ Validate │                                                      │
-│   │ Customer │                                                      │
-│   │ Info     │                                                      │
-│   └────┬─────┘                                                      │
-│        │                                                            │
-│        │ create(tab, data)                                          │
-│        ├──────────────────►┌────────────┐                           │
-│        │                   │ Inject     │                           │
-│        │                   │ mall_session│                          │
-│        │                   │ mall_id    │                           │
-│        │                   └─────┬──────┘                           │
-│        │                         │                                  │
-│        │                         │ POST /public/mall/tab            │
-│        │                         ├──────────────►┌─────────┐        │
-│        │                         │               │ Create  │        │
-│        │                         │               │ Master  │        │
-│        │                         │               │ Tab     │───────►│
-│        │                         │               └────┬────┘        │
-│        │                         │                    │             │
-│        │                         │               ┌────▼────┐        │
-│        │                         │               │ Create  │        │
-│        │                         │               │ Tenant  │───────►│
-│        │                         │               │ Tabs    │        │
-│        │                         │               └────┬────┘        │
-│        │                         │                    │             │
-│        │                         │               ┌────▼────┐        │
-│        │                         │               │ Send    │        │
-│        │                         │               │ Notifs  │        │
-│        │                         │               └─────────┘        │
-│        │◄────────────────────────┤                                  │
-│        │  Master Tab Response    │                                  │
-│                                                                     │
-└────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant FrontendApp as Frontend
+    participant APIGateway as API Gateway
+    participant Services
+    participant Database
+    participant WebSocket
+    participant Notification
+
+    Customer->>FrontendApp: Select items and submit
+    FrontendApp->>APIGateway: POST /api/public/mall/tab
+    APIGateway->>Services: OrderService.createTab()
+    Services->>Database: Save tab and orders
+    Database-->>Services: Tab ID
+    Services->>WebSocket: Broadcast tab.created event
+    WebSocket-->>FrontendApp: Tab created notification
+    Services->>Notification: Trigger notifications to staff/kitchen
+    Notification-->>Notification: Send emails and FCM pushes
+    APIGateway-->>FrontendApp: 201 Created
+    FrontendApp-->>Customer: Show confirmation
 ```
 
 ## API Route Architecture
@@ -317,56 +152,19 @@
 
 ### Entity Relationships
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DATABASE RELATIONSHIPS                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌──────────┐         ┌───────────────┐                        │
-│   │   Mall   │◄────────┤  mall_tenant  │                        │
-│   │          │  1:M    │   (pivot)     │                        │
-│   └────┬─────┘         └───────┬───────┘                        │
-│        │                       │                                 │
-│        │ 1:M                   │ M:1                             │
-│        ▼                       ▼                                 │
-│   ┌──────────────┐       ┌──────────┐                           │
-│   │ MallSession  │       │  Tenant  │                           │
-│   │              │       │          │                           │
-│   │ - hash       │       │          │                           │
-│   │ - status     │       │          │                           │
-│   │ - meta       │       │          │                           │
-│   └──────┬───────┘       └────┬─────┘                           │
-│          │                    │                                  │
-│          │ 1:M                │ 1:M                              │
-│          ▼                    ▼                                  │
-│   ┌──────────────────┐  ┌──────────┐                            │
-│   │ MallSession      │  │   Tab    │◄─────────┐                 │
-│   │ Notification     │  │          │          │                 │
-│   └──────────────────┘  │ - status │          │ master_tab_id   │
-│                         │ - is_master_tab     │                 │
-│                         └────┬─────┘──────────┘                 │
-│                              │                                   │
-│                              │ 1:1                               │
-│                              ▼                                   │
-│                         ┌──────────┐                            │
-│                         │  Order   │                            │
-│                         │          │◄─────────┐                 │
-│                         │ - status │          │ parent_order_id │
-│                         │ - brokerable_type   │                 │
-│                         │ - brokerable_id     │                 │
-│                         └────┬─────┘──────────┘                 │
-│                              │                                   │
-│                              │ 1:M                               │
-│                              ▼                                   │
-│                         ┌──────────────┐                        │
-│                         │ OrderProduct │                        │
-│                         │              │                        │
-│                         │ - product_id │                        │
-│                         │ - quantity   │                        │
-│                         │ - status     │                        │
-│                         └──────────────┘                        │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    Start["Customer places order"] --> GroupByTenant["Group products by restaurant"]
+    GroupByTenant --> CreateMaster["Create master tab (aggregator)"]
+    CreateMaster --> CreateTenant["Create tenant tab for each restaurant"]
+    CreateTenant --> ValidateStock["Validate stock availability"]
+    ValidateStock --> Decision{Stock OK?}
+    Decision -->|No| CancelOrder["Cancel order and refund"]
+    Decision -->|Yes| CreateOrders["Create order records"]
+    CreateOrders --> NotifyStaff["Notify staff of new orders"]
+    NotifyStaff --> NotifyCustomer["Notify customer of confirmation"]
+    NotifyCustomer --> UpdateStatus["Update status to CONFIRMED"]
+    UpdateStatus --> End["Order workflow complete"]
 ```
 
 ### Key Tables

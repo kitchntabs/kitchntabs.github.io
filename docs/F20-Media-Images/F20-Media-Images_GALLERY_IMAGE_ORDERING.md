@@ -198,54 +198,9 @@ public function getImageUrlsLight()
 
 ## Data Flow Diagram
 
-```
-┌─────────────────┐
-│  User drags     │
-│  image in UI    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ onDragEnd swaps │
-│ array positions │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  useEffect      │
-│  creates        │
-│  images_order   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ formPost        │
-│ Formatter       │
-│ converts to     │
-│ FormData        │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Laravel         │
-│ validates       │
-│ request         │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Controller      │
-│ updates         │
-│ display_order   │
-│ in database     │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Model returns   │
-│ images sorted   │
-│ by display_order│
-└─────────────────┘
+```mermaid
+flowchart TD
+    A["User drags image in UI"] --> B["onDragEnd swaps array positions"] --> C["useEffect creates images_order"] --> D["formPost Formatter converts to FormData"] --> E["Laravel validates request"] --> F["Controller updates display_order in database"] --> G["Model returns images sorted by display_order"]
 ```
 
 ## Key Technical Decisions

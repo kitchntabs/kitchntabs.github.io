@@ -7,15 +7,17 @@ Technical documentation of the sidebar implementation in the DASH Admin framewor
 
 ```mermaid
 graph TD
-    A["DashAppComponent"] -->|Redux initial state| B["KitchnTabsWebBootstrap"]
-    B --> C["KitchnTabsWebPublicApp"]
-    C --> D["DomainAppLayout"]
-    D --> E["DomainTheme"]
-    E --> F["AppSidebarMaterial"]
-    E --> G["DomainHeader"]
-    F --> H["AppMaterialMenu"]
-    H --> I["GenerateItems"]
-    I --> J["SidebarItem / CollapsedSidebarItems"]
+    A["Admin Dashboard"] --> B["Sidebar Navigation"]
+    B --> C1["Dashboard"]
+    B --> C2["Users"]
+    B --> C3["Tenants"]
+    B --> C4["Settings"]
+    B --> C5["Reports"]
+    B --> C6["Logs"]
+    C1 --> D["Overview"]
+    C2 --> E["User List, Edit, Delete"]
+    C3 --> F["Tenant Management"]
+    C4 --> G["System Config"]
 ```
 
 ---
@@ -27,12 +29,11 @@ The sidebar uses a **three-layer state system**: local component state (source o
 ### State Flow
 
 ```mermaid
-flowchart LR
-    LS["localStorage<br/>(dashNavExpanded, dashNavSize)"] -->|initial read| LOCAL["AppSidebarMaterial<br/>local state"]
-    LOCAL -->|persist on change| LS
-    LOCAL -->|sync on location change| REDUX["Redux<br/>(common.navExpanded, common.navSize)"]
-    EVENTS["NavEventManager<br/>(custom events)"] <-->|toggle/set/close| LOCAL
-    HEADER["DomainHeader<br/>burger button"] -->|NavEventManager.toggleExpanded| EVENTS
+flowchart TD
+    A["Sidebar Component"] --> B["Menu Items"]
+    B --> C["Router Links"]
+    C --> D["Active state tracking"]
+    D --> E["Highlight current page"]
 ```
 
 ### Key State Variables
@@ -102,10 +103,11 @@ const sidebarPosition = isMediumOrSmaller ? secondarySidebarPosition : primarySi
 
 ### Variant Selection
 
-```typescript
-// "small" navSize → temporary (overlay, dismiss on backdrop click)
-// "large" navSize → permanent (always visible, pushes content)
-variant={localNavSize === "small" ? 'temporary' : 'permanent'}
+```mermaid
+graph LR
+    A["User permission"] --> B{Can access?}
+    B -->|Yes| C["Show menu item"]
+    B -->|No| D["Hide menu item"]
 ```
 
 ### Horizontal Mode Override

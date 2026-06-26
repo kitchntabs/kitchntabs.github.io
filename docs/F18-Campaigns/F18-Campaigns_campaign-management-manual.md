@@ -87,10 +87,11 @@ This procedure guides Tenant Administrators through the complete process of crea
 - Orders from the campaign are tracked and attributed correctly
 
 ### Campaign Status Flow
-```
-DRAFT → PUBLISHING → PUBLISHED
-    ↓       ↓           ↓
-CANCELLED  PAUSED     FINISHING → FINISHED
+```mermaid
+graph TD
+    A["Campaign Created"] --> B["Set targets"]
+    B --> C["Review"]
+    C --> D["Publish"]
 ```
 
 ### Troubleshooting
@@ -204,18 +205,13 @@ The system's scheduler checks every **5 minutes** for:
 
 ### Scheduled Campaign Lifecycle
 
-```
-[PENDING + scheduled=true + start_date]
-        │
-        │ ← System checks every 5 minutes
-        │
-        ▼ (when start_date <= now)
-[PUBLISHING → PUBLISHED]
-        │
-        │ ← Campaign runs normally
-        │
-        ▼ (when end_date <= now)
-[FINISHING → FINISHED]
+```mermaid
+flowchart TD
+    A["Active Campaign"] --> B["Monitor performance"]
+    B --> C["View metrics"]
+    C --> D["Edit if needed"]
+    D --> E["Pause/Resume"]
+    E --> F["End campaign"]
 ```
 
 ### Technical Implementation

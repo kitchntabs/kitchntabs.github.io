@@ -31,29 +31,16 @@ The Dash Notification System is a comprehensive, multi-channel notification fram
 
 The notification system follows a modular architecture with clear separation of concerns:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Application Layer                        │
-├─────────────────────────────────────────────────────────────┤
-│  AppNotificationBuilder (Entry Point & Orchestration)      │
-├─────────────────────────────────────────────────────────────┤
-│                   Notification Classes                      │
-│  ┌─────────────────────┐  ┌─────────────────────────────────┐│
-│  │ AppNotification     │  │ AppNotificationBase             ││
-│  │ (Laravel Handler)   │  │ (Business Logic)                ││
-│  └─────────────────────┘  └─────────────────────────────────┘│
-├─────────────────────────────────────────────────────────────┤
-│                    Channel Handlers                         │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────────────┐│
-│  │  Mail   │ │ Socket  │ │Database │ │ Push (Firebase)     ││
-│  └─────────┘ └─────────┘ └─────────┘ └─────────────────────┘│
-├─────────────────────────────────────────────────────────────┤
-│                    External Services                        │
-│  ┌─────────────────────┐  ┌─────────────────────────────────┐│
-│  │ Laravel Queue       │  │ Firebase Cloud Messaging       ││
-│  │ System              │  │ (FCM)                           ││
-│  └─────────────────────┘  └─────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Notification Event"] --> B["Notification Handler"]
+    B --> C["Build notification"]
+    C --> D["Select channels"]
+    D --> E{Which channels?}
+    E -->|Database| F["Store in DB"]
+    E -->|Mail| G["Send email"]
+    E -->|Push| H["Send FCM"]
+    E -->|WebSocket| I["Broadcast live"]
 ```
 
 ## Notification Channels
@@ -130,21 +117,13 @@ Mobile push notifications via Firebase Cloud Messaging (FCM).
 
 The push notification system uses a dedicated `PushChannel` class (`app/Channels/PushChannel.php`) that handles all FCM delivery:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  AppNotificationBuilder::send()                             │
-│  ↓ Creates notification with channels config                │
-├─────────────────────────────────────────────────────────────┤
-│  AppNotification                                            │
-│  ↓ via() returns ['push'] if enabled                        │
-├─────────────────────────────────────────────────────────────┤
-│  PushChannel::send($notifiable, $notification)              │
-│  ↓ Extracts title/body from toArray()                       │
-│  ↓ Handles alarm/order priority flags                       │
-├─────────────────────────────────────────────────────────────┤
-│  FirebaseService                                            │
-│  ↓ sendNotification() / sendAlarmNotification()             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    A["Event triggered"] --> B["Check preferences"]
+    B --> C["Build payload"]
+    C --> D["Queue for delivery"]
+    D --> E["Send via channels"]
+    E --> F["Log activity"]
 ```
 
 **Title and Body Extraction:**

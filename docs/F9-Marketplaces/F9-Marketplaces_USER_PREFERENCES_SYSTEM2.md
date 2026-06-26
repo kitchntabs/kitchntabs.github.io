@@ -7,30 +7,16 @@ The User Preferences System provides a flexible, extensible way to manage user-c
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         USER PREFERENCES SYSTEM                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐   │
-│  │  config/         │     │  User Model      │     │  UserController  │   │
-│  │  preferences.php │────▶│  (getters)       │────▶│  (API endpoints) │   │
-│  │  (schema)        │     │                  │     │                  │   │
-│  └──────────────────┘     └──────────────────┘     └──────────────────┘   │
-│                                    │                        │             │
-│                                    │                        │             │
-│                                    ▼                        ▼             │
-│                           ┌──────────────────────────────────────────┐   │
-│                           │          users.preferences JSON          │   │
-│                           │  {                                       │   │
-│                           │    "notifications": [...],               │   │
-│                           │    "sample_boolean_setting": true,       │   │
-│                           │    "sample_integer_setting": 50,         │   │
-│                           │    "sample_text": "My notes"             │   │
-│                           │  }                                       │   │
-│                           └──────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Config["config/preferences.php<br/>schema"]
+    Model["User Model<br/>getters"]
+    Controller["UserController<br/>API endpoints"]
+    JSON["users.preferences JSON<br/>{<br/>  'notifications': [...],<br/>  'sample_boolean_setting': true,<br/>  'sample_integer_setting': 50,<br/>  'sample_text': 'My notes'<br/>}"]
+
+    Config --> Model --> Controller
+    Model --> JSON
+    Controller --> JSON
 ```
 
 ## Backend

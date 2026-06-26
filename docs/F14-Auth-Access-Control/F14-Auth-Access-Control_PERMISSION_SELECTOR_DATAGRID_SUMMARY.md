@@ -118,24 +118,18 @@ See full instructions in `PERMISSION_SELECTOR_DATAGRID.md`
 
 ### Data Flow (Identical to Original)
 
-```
-Available Permissions (from cache)
-    ↓
-Initialize statePermissions with checked status
-    ↓
-User toggles permissions
-    ↓
-Update local state
-    ↓
-Sync to form fields:
-  - permission_objects: checked permissions
-  - permissions: checked route_names
-    ↓
-Form submits to backend
-    ↓
-RoleController processes permission_objects
-    ↓
-SyncRolePermissionsJob updates database
+```mermaid
+flowchart TD
+    A["Available Permissions from cache"]
+    B["Initialize statePermissions with checked status"]
+    C["User toggles permissions"]
+    D["Update local state"]
+    E["Sync to form fields:<br/>- permission_objects: checked permissions<br/>- permissions: checked route_names"]
+    F["Form submits to backend"]
+    G["RoleController processes permission_objects"]
+    H["SyncRolePermissionsJob updates database"]
+
+    A --> B --> C --> D --> E --> F --> G --> H
 ```
 
 ### State Management

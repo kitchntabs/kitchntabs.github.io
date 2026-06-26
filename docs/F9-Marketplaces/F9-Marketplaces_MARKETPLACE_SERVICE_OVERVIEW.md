@@ -33,37 +33,27 @@ The **Marketplace Service** is a comprehensive e-commerce integration layer that
 
 ### Design Philosophy
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        DASH PLATFORM                                │
-├─────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐     │
-│  │   Campaign      │  │   Tracker       │  │   Job Queue     │     │
-│  │   Management    │  │   Service       │  │   System        │     │
-│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘     │
-│           │                    │                     │              │
-│           └────────────────────┼─────────────────────┘              │
-│                                │                                    │
-│  ┌─────────────────────────────▼─────────────────────────────────┐ │
-│  │              MARKETPLACE CONTRACT INTERFACE                    │ │
-│  │   publishProducts() | pauseProducts() | finishProducts()      │ │
-│  │   handleWebhook() | confirmOrder() | updateOrderStatus()      │ │
-│  └─────────────────────────────┬─────────────────────────────────┘ │
-│                                │                                    │
-├────────────────────────────────┼────────────────────────────────────┤
-│                                │                                    │
-│  ┌──────────┐  ┌──────────┐  ┌▼─────────┐  ┌──────────┐           │
-│  │ Uber     │  │Jumpseller│  │  Dash    │  │ Falabella│  (etc.)   │
-│  │ Service  │  │ Service  │  │ Service  │  │ Service  │           │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘           │
-│       │             │             │             │                   │
-└───────┼─────────────┼─────────────┼─────────────┼───────────────────┘
-        │             │             │             │
-        ▼             ▼             ▼             ▼
-   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
-   │Uber Eats│  │Jumpseller│ │ Internal│  │Falabella│
-   │   API   │  │   API   │  │   API   │  │   API   │
-   └─────────┘  └─────────┘  └─────────┘  └─────────┘
+```mermaid
+flowchart TD
+    subgraph Platform["DASH PLATFORM"]
+        Camp["Campaign Management"]
+        Track["Tracker Service"]
+        Queue["Job Queue System"]
+        Camp --> Interface
+        Track --> Interface
+        Queue --> Interface
+        Interface["MARKETPLACE CONTRACT INTERFACE<br/>publishProducts() | pauseProducts() | finishProducts()<br/>handleWebhook() | confirmOrder() | updateOrderStatus()"]
+    end
+
+    Interface --> Uber["Uber Service"]
+    Interface --> Jumpseller["Jumpseller Service"]
+    Interface --> Dash["Dash Service"]
+    Interface --> Falabella["Falabella Service (etc.)"]
+
+    Uber --> UberAPI["Uber Eats API"]
+    Jumpseller --> JSApi["Jumpseller API"]
+    Dash --> DashAPI["Internal API"]
+    Falabella --> FalAPI["Falabella API"]
 ```
 
 ---
@@ -72,141 +62,61 @@ The **Marketplace Service** is a comprehensive e-commerce integration layer that
 
 ### Campaign Publishing Flow
 
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                         CAMPAIGN PUBLISHING FLOW                            │
-└────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    User["User Request"]
+    CPJ["CampaignProcessJob<br/>1. Cancel existing in-progress trackers<br/>2. Create new CampaignTracker<br/>3. Acquire distributed lock<br/>4. Initialize tracker phases per marketplace<br/>5. Group products by SystemMarketplace<br/>6. Dispatch job chains per marketplace"]
+    
+    subgraph Uber["Uber Eats"]
+        UJ["PublishProductsJob (single)<br/>Prepares menu<br/>Creates/updates all at once"]
+        UM["ManagePublishedProductsJob"]
+        UJ --> UM
+    end
 
-     ┌──────────┐
-     │  User    │
-     │ Request  │
-     └────┬─────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           CampaignProcessJob                                 │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ 1. Cancel existing in-progress trackers                              │   │
-│  │ 2. Create new CampaignTracker                                        │   │
-│  │ 3. Acquire distributed lock                                          │   │
-│  │ 4. Initialize tracker phases per marketplace                         │   │
-│  │ 5. Group products by SystemMarketplace                               │   │
-│  │ 6. Dispatch job chains per marketplace                               │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-          │
-          │ For each marketplace
-          ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    Marketplace-Specific Job Chain                            │
-├──────────────────────┬──────────────────────┬───────────────────────────────┤
-│     Uber Eats        │     Jumpseller       │         Generic               │
-├──────────────────────┼──────────────────────┼───────────────────────────────┤
-│ ┌──────────────────┐ │ ┌──────────────────┐ │ ┌───────────────────────────┐ │
-│ │ PublishProducts  │ │ │ BatchUpdate      │ │ │ PublishProductsJob        │ │
-│ │ Job (single)     │ │ │ ProductsJob      │ │ │ (single phase)            │ │
-│ │ ───────────────  │ │ │ ───────────────  │ │ │                           │ │
-│ │ Prepares menu    │ │ │ Phase: product   │ │ │                           │ │
-│ │ Creates/updates  │ │ │ _data            │ │ │                           │ │
-│ │ all at once      │ │ │                  │ │ │                           │ │
-│ └────────┬─────────┘ │ └────────┬─────────┘ │ └─────────────┬─────────────┘ │
-│          │           │          │           │               │               │
-│          │           │          ▼           │               │               │
-│          │           │ ┌──────────────────┐ │               │               │
-│          │           │ │ BatchUpdate      │ │               │               │
-│          │           │ │ VariantsJob      │ │               │               │
-│          │           │ │ ───────────────  │ │               │               │
-│          │           │ │ Phase: variants  │ │               │               │
-│          │           │ └────────┬─────────┘ │               │               │
-│          │           │          │           │               │               │
-│          │           │          ▼           │               │               │
-│          │           │ ┌──────────────────┐ │               │               │
-│          │           │ │ BatchUpdate      │ │               │               │
-│          │           │ │ ImagesJob        │ │               │               │
-│          │           │ │ ───────────────  │ │               │               │
-│          │           │ │ Phase: images    │ │               │               │
-│          │           │ └────────┬─────────┘ │               │               │
-│          │           │          │           │               │               │
-│          ▼           │          ▼           │               ▼               │
-│ ┌──────────────────┐ │ ┌──────────────────┐ │ ┌───────────────────────────┐ │
-│ │ ManagePublished  │ │ │ CheckCampaign    │ │ │ ManagePublished           │ │
-│ │ ProductsJob      │ │ │ CompletionJob    │ │ │ ProductsJob               │ │
-│ └──────────────────┘ │ └──────────────────┘ │ └───────────────────────────┘ │
-└──────────────────────┴──────────────────────┴───────────────────────────────┘
-          │                       │                          │
-          └───────────────────────┼──────────────────────────┘
-                                  ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       CampaignTrackerService                                 │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ • updatePhaseProgress(trackerId, phase, processed, success, fail)   │   │
-│  │ • completePhase(trackerId, phase)                                   │   │
-│  │ • completeTracker(trackerId)                                        │   │
-│  │ • Send WebSocket notifications at milestones (10%, 25%, 50%...)     │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       Real-Time Frontend Updates                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ WebSocket Channel: tenant.{tenant_id}.system                        │   │
-│  │ Event: campaign.tracker.update                                      │   │
-│  │ Data: { progress: 45, phase: 'variants', status: 'in_progress' }    │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
+    subgraph JS["Jumpseller"]
+        JSP["BatchUpdateProductsJob<br/>Phase: product_data"]
+        JSV["BatchUpdateVariantsJob<br/>Phase: variants"]
+        JSI["BatchUpdateImagesJob<br/>Phase: images"]
+        JSC["CheckCampaignCompletionJob"]
+        JSP --> JSV --> JSI --> JSC
+    end
+
+    subgraph Generic["Generic"]
+        GJ["PublishProductsJob (single phase)"]
+        GM["ManagePublishedProductsJob"]
+        GJ --> GM
+    end
+
+    Tracker["CampaignTrackerService<br/>- updatePhaseProgress(trackerId, phase, processed, success, fail)<br/>- completePhase(trackerId, phase)<br/>- completeTracker(trackerId)<br/>- Send WebSocket notifications at milestones"]
+
+    FrontEnd["Real-Time Frontend Updates<br/>WebSocket Channel: tenant.{tenant_id}.system<br/>Event: campaign.tracker.update<br/>Data: { progress: 45, phase: 'variants', status: 'in_progress' }"]
+
+    User --> CPJ
+    CPJ -->|For each marketplace| Uber
+    CPJ -->|For each marketplace| JS
+    CPJ -->|For each marketplace| Generic
+    UM --> Tracker
+    JSC --> Tracker
+    GM --> Tracker
+    Tracker --> FrontEnd
 ```
 
 ### Order Processing Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          ORDER PROCESSING FLOW                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Marketplace as Marketplace (Uber/JS)
+    participant Webhook as handleWebhook()
+    participant OrderModel as Order Model
+    participant UpdateStatus as updateOrderStatus()
+    participant DashAdmin as Dash Admin Frontend
 
-┌─────────────────┐                              ┌─────────────────┐
-│   Marketplace   │                              │   Dash Admin    │
-│   (Uber/JS)     │                              │   Frontend      │
-└────────┬────────┘                              └────────┬────────┘
-         │                                                │
-         │ Webhook: order_created                         │
-         ▼                                                │
-┌─────────────────────────────────────────────────────────│────────────────────┐
-│                        handleWebhook()                  │                    │
-│  ┌──────────────────────────────────────────────────────│──────────────────┐│
-│  │ 1. Verify webhook authenticity (HMAC)                │                  ││
-│  │ 2. Parse order data                                  │                  ││
-│  │ 3. Create Order record                               │                  ││
-│  │ 4. Create OrderProduct records                       │                  ││
-│  │ 5. Create Tab                                        │                  ││
-│  │ 6. Dispatch notifications                            │                  ││
-│  └──────────────────────────────────────────────────────│──────────────────┘│
-└─────────────────────────────────────────────────────────│────────────────────┘
-         │                                                │
-         │ ┌──────────────────────────────────────────────┘
-         │ │
-         ▼ ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            Order Model                                       │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ source_id: marketplace_order_id                                      │   │
-│  │ brokerable_type: Marketplace::class                                  │   │
-│  │ brokerable_id: marketplace_id                                        │   │
-│  │ status: CREATED → PAID → IN_PREPARATION → SHIPPED                    │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-         │
-         │ Status Update (from Frontend)
-         ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       updateOrderStatus()                                    │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ 1. Map internal status → marketplace status                          │   │
-│  │ 2. Update order in marketplace via API                               │   │
-│  │ 3. Handle fulfillment updates (if applicable)                        │   │
-│  │ 4. Send customer notification                                        │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
+    Marketplace->>Webhook: Webhook: order_created
+    Note over Webhook: 1. Verify webhook authenticity HMAC<br/>2. Parse order data<br/>3. Create Order record<br/>4. Create OrderProduct records<br/>5. Create Tab<br/>6. Dispatch notifications
+    Webhook->>OrderModel: Order Created<br/>source_id: marketplace_order_id<br/>brokerable_type: Marketplace::class<br/>brokerable_id: marketplace_id<br/>status: CREATED → PAID → IN_PREPARATION → SHIPPED
+    DashAdmin->>UpdateStatus: Status Update (from Frontend)
+    Note over UpdateStatus: 1. Map internal status → marketplace status<br/>2. Update order in marketplace via API<br/>3. Handle fulfillment updates if applicable<br/>4. Send customer notification
+    UpdateStatus->>Marketplace: Order Status Updated
 ```
 
 ---

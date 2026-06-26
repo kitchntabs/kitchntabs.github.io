@@ -18,30 +18,14 @@ The KitchnTabs Mall application uses WebSocket technology to provide real-time o
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        WEBSOCKET ARCHITECTURE                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────┐                     ┌─────────────────┐                │
-│  │  Laravel        │                     │  Customer       │                │
-│  │  Backend        │                     │  Browser        │                │
-│  └────────┬────────┘                     └────────┬────────┘                │
-│           │                                       │                          │
-│           │ 1. Dispatch Event                     │ 4. Receive Event         │
-│           ▼                                       ▼                          │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                     Pusher/Soketi Server                            │    │
-│  │                                                                      │    │
-│  │  Channel: session.{sessionId}                                       │    │
-│  │  Example: session.DFJNL                                             │    │
-│  │                                                                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  2. Backend → Pusher (HTTP POST)                                            │
-│  3. Pusher → Browser (WebSocket)                                            │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Laravel Backend"] -->|"1. Dispatch Event"| B["Pusher/Soketi Server<br/>Channel: session.{sessionId}<br/>Example: session.DFJNL"]
+    C["Customer Browser"] -->|"4. Receive Event"| B
+    B -->|"2. Backend → Pusher HTTP POST"| B2["&nbsp;"]
+    B -->|"3. Pusher → Browser WebSocket"| C
+    B2:::invisible
+    classDef invisible fill:none,stroke:none
 ```
 
 ---
@@ -162,41 +146,17 @@ const completeConfig = {
 
 The WebSocket events flow through a hierarchy of React contexts:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       CONTEXT PROVIDER HIERARCHY                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  MallClientWrapper                                                           │
-│  │                                                                           │
-│  └── MallSessionEchoProvider                                                │
-│      │   - SINGLE WebSocket subscriber (useLaravelEcho)                     │
-│      │   - Subscribes to session.{sessionId}                                │
-│      │   - Processes and stores events                                      │
-│      │                                                                       │
-│      └── MallEchoBridgeWrapper                                              │
-│          │   - Uses useMallSessionEcho() to get events                      │
-│          │   - Bridges events from app to package                           │
-│          │                                                                   │
-│          └── MallEchoBridgeProvider (from kt-mall package)                  │
-│              │   - Provides events to package components                    │
-│              │   - Package can't import from app, so uses bridge            │
-│              │                                                               │
-│              └── KitchnTabsPrivateApp                                       │
-│                  │                                                           │
-│                  └── Resource Components                                    │
-│                      │                                                       │
-│                      └── MallTabsContext (contextComponent)                 │
-│                          │                                                   │
-│                          └── MallClientTabsProvider                         │
-│                              │   - Uses useMallEchoBridge()                 │
-│                              │   - Provides lastEvent to children           │
-│                              │                                               │
-│                              └── MallClientTabsList                         │
-│                                  - Consumes lastEvent                       │
-│                                  - Triggers refresh() on events             │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["MallClientWrapper"]
+    A --> B["MallSessionEchoProvider<br/>- SINGLE WebSocket subscriber useLaravelEcho<br/>- Subscribes to session.{sessionId}<br/>- Processes and stores events"]
+    B --> C["MallEchoBridgeWrapper<br/>- Uses useMallSessionEcho to get events<br/>- Bridges events from app to package"]
+    C --> D["MallEchoBridgeProvider from kt-mall package<br/>- Provides events to package components<br/>- Package can't import from app, so uses bridge"]
+    D --> E["KitchnTabsPrivateApp"]
+    E --> F["Resource Components"]
+    F --> G["MallTabsContext contextComponent"]
+    G --> H["MallClientTabsProvider<br/>- Uses useMallEchoBridge<br/>- Provides lastEvent to children"]
+    H --> I["MallClientTabsList<br/>- Consumes lastEvent<br/>- Triggers refresh on events"]
 ```
 
 ---
@@ -283,23 +243,9 @@ The bridge context allows the `kt-mall` package to receive events without import
 
 TypeScript's `rootDir` constraints prevent the `kt-mall` package from importing directly from the `kitchntabs-mall` app. The bridge pattern solves this:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         BRIDGE PATTERN                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  kitchntabs-mall (app)              kt-mall (package)                       │
-│  ─────────────────────              ──────────────────                      │
-│                                                                              │
-│  MallSessionEchoContext             MallEchoBridgeContext                   │
-│  (WebSocket subscriber)             (Event receiver)                        │
-│         │                                    ▲                               │
-│         │                                    │                               │
-│         └────────────────────────────────────┘                               │
-│              Props passed via                                                │
-│              MallEchoBridgeProvider                                          │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    A["kitchntabs-mall app<br/>MallSessionEchoContext<br/>WebSocket subscriber"] -->|"Props passed via MallEchoBridgeProvider"| B["kt-mall package<br/>MallEchoBridgeContext<br/>Event receiver"]
 ```
 
 ### Bridge Interface
@@ -473,38 +419,15 @@ const StoreProgressBars = ({ masterTabId, record }) => {
 
 ### Connection Lifecycle
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       CONNECTION LIFECYCLE                                   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. INITIALIZATION                                                           │
-│     - Component mounts with sessionId                                       │
-│     - useLaravelEcho hook creates Echo client                               │
-│     - Client subscribes to session.{sessionId}                              │
-│                                                                              │
-│  2. CONNECTED                                                                │
-│     - Echo client receives 'connected' event from Pusher                    │
-│     - isConnected set to true                                               │
-│     - Ping timer started (30s interval)                                     │
-│                                                                              │
-│  3. RECEIVING EVENTS                                                         │
-│     - bind_global captures all events on channel                            │
-│     - Events stored in lastEvent state                                      │
-│     - Consumers (contexts, components) react to lastEvent changes           │
-│                                                                              │
-│  4. DISCONNECTED                                                             │
-│     - Echo client receives 'disconnected' event                             │
-│     - isConnected set to false                                              │
-│     - Ping timer stopped                                                    │
-│     - Automatic reconnection handled by Pusher.js                           │
-│                                                                              │
-│  5. CLEANUP                                                                  │
-│     - Component unmounts                                                    │
-│     - Ping timer cleared                                                    │
-│     - Echo client disconnected                                              │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    S1["1. INITIALIZATION<br/>- Component mounts with sessionId<br/>- useLaravelEcho hook creates Echo client<br/>- Client subscribes to session.{sessionId}"] --> S2
+    S2["2. CONNECTED<br/>- Echo client receives connected event from Pusher<br/>- isConnected set to true<br/>- Ping timer started 30s interval"] --> S3
+    S3["3. RECEIVING EVENTS<br/>- bind_global captures all events on channel<br/>- Events stored in lastEvent state<br/>- Consumers contexts, components react to lastEvent changes"] --> S4
+    S4{Disconnected?}
+    S4 -->|Yes| S5["4. DISCONNECTED<br/>- Echo client receives disconnected event<br/>- isConnected set to false<br/>- Ping timer stopped<br/>- Automatic reconnection handled by Pusher.js"]
+    S4 -->|No| S3
+    S5 --> S6["5. CLEANUP<br/>- Component unmounts<br/>- Ping timer cleared<br/>- Echo client disconnected"]
 ```
 
 ### Keep-Alive Mechanism

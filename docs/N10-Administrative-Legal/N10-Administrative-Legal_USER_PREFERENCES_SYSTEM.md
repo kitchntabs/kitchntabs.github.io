@@ -27,43 +27,17 @@ The User Preferences System is a flexible, extensible framework that allows user
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         USER PREFERENCES ARCHITECTURE                        │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                          FRONTEND LAYER                               │   │
-│  │  ┌────────────────────┐  ┌─────────────────────────────────────────┐ │   │
-│  │  │ UserPreferences.tsx│  │ AuthContext (user.preferences)          │ │   │
-│  │  │ - Render switches   │  │ - Stores user object with preferences   │ │   │
-│  │  │ - Save preferences  │  │ - fetchAuth() refreshes user data      │ │   │
-│  │  └────────────────────┘  └─────────────────────────────────────────┘ │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    ▼                                         │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                            API LAYER                                  │   │
-│  │  PUT /api/system/user/preferences                                    │   │
-│  │  GET /api/auth/getauth (returns user.preferences + systemValues)     │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    ▼                                         │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                          BACKEND LAYER                                │   │
-│  │  ┌───────────────────────────┐  ┌──────────────────────────────────┐ │   │
-│  │  │ UserController            │  │ User Model                       │ │   │
-│  │  │ - updatePreferences()     │  │ - preferences (JSON column)      │ │   │
-│  │  └───────────────────────────┘  └──────────────────────────────────┘ │   │
-│  │                                                                       │   │
-│  │  ┌───────────────────────────────────────────────────────────────────┐│   │
-│  │  │ AppNotification::via()                                            ││   │
-│  │  │ - Checks user.preferences.notifications before sending            ││   │
-│  │  │ - Respects email/push opt-out per notification type               ││   │
-│  │  └───────────────────────────────────────────────────────────────────┘│   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["User Preferences System"] --> B["Preference Categories"]
+    B --> C1["Profile Settings"]
+    B --> C2["Notification Settings"]
+    B --> C3["Privacy Settings"]
+    B --> C4["Display Settings"]
+    C1 --> D1["Username, Avatar, Bio"]
+    C2 --> D2["Email, SMS, Push"]
+    C3 --> D3["Visibility, Data Sharing"]
+    C4 --> D4["Theme, Language, Timezone"]
 ```
 
 ## Data Model
@@ -461,58 +435,25 @@ public function via($user)
 
 ### Flow Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    NOTIFICATION DELIVERY FLOW                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   ┌─────────────────┐                                                   │
-│   │ Event Triggered │                                                   │
-│   │ (e.g., Tab      │                                                   │
-│   │  Created)       │                                                   │
-│   └────────┬────────┘                                                   │
-│            │                                                            │
-│            ▼                                                            │
-│   ┌─────────────────────────────────────────────────────────────────┐  │
-│   │ AppNotificationBuilder::send()                                   │  │
-│   │ - Creates notification instance                                  │  │
-│   │ - Determines target users                                        │  │
-│   └────────────────────────────┬────────────────────────────────────┘  │
-│                                │                                        │
-│                                ▼                                        │
-│   ┌─────────────────────────────────────────────────────────────────┐  │
-│   │ For each target user: $user->notify(new AppNotification(...))   │  │
-│   └────────────────────────────┬────────────────────────────────────┘  │
-│                                │                                        │
-│                                ▼                                        │
-│   ┌─────────────────────────────────────────────────────────────────┐  │
-│   │ AppNotification::via($user)                                      │  │
-│   │                                                                   │  │
-│   │ 1. Get channels from notification config                        │  │
-│   │    └─ TabCreatedNotification::config()['channels']              │  │
-│   │                                                                   │  │
-│   │ 2. Check user preferences                                       │  │
-│   │    └─ $user->preferences['notifications']                       │  │
-│   │    └─ Find preference matching notification class               │  │
-│   │    └─ Get email/push opt-in values                              │  │
-│   │                                                                   │  │
-│   │ 3. Filter channels based on user preferences                    │  │
-│   │    └─ If user opted out of email → remove 'mail'                │  │
-│   │    └─ If user opted out of push → remove 'push'                 │  │
-│   │                                                                   │  │
-│   │ 4. Return filtered channels array                               │  │
-│   │    └─ e.g., ['database', 'broadcast'] (no mail/push)            │  │
-│   └────────────────────────────┬────────────────────────────────────┘  │
-│                                │                                        │
-│            ┌───────────────────┼───────────────────┐                   │
-│            │                   │                   │                   │
-│            ▼                   ▼                   ▼                   │
-│   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐          │
-│   │   WebSocket    │  │   Database     │  │   Mail/Push    │          │
-│   │ (always sent)  │  │ (if enabled)   │  │ (if opted in)  │          │
-│   └────────────────┘  └────────────────┘  └────────────────┘          │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant User
+    participant App as Frontend App
+    participant API
+    participant Database
+    
+    User->>App: Open settings
+    App->>API: GET /api/user/preferences
+    API->>Database: Query preferences
+    Database-->>API: User preferences
+    API-->>App: JSON response
+    App-->>User: Display form
+    User->>App: Update settings
+    App->>API: PUT /api/user/preferences
+    API->>Database: Update record
+    Database-->>API: Success
+    API-->>App: Updated preferences
+    App-->>User: Show confirmation
 ```
 
 ## Adding New Preferences

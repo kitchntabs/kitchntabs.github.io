@@ -9,24 +9,25 @@ This document describes the notification system for the **Staff/Kitchen App** - 
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     STAFF APP NOTIFICATION ARCHITECTURE                      │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌──────────────────────┐     ┌──────────────────────┐     ┌────────────────┐
-  │   NOTIFICATION       │     │    WEBSOCKET         │     │   STAFF APP    │
-  │   SOURCES            │────▶│    CHANNEL           │────▶│   (FRONTEND)   │
-  └──────────────────────┘     └──────────────────────┘     └────────────────┘
-                                                                    │
-   • Order Created                private-tenant.{id}.system        │
-   • Status Changed                                                 ▼
-   • Customer Order (Mall)        ┌────────────────────────────────────────┐
-   • Assistance Request           │  LaravelEchoContext                    │
-                                  │  - Listens to tenant system channel    │
-                                  │  - Processes incoming events           │
-                                  │  - Triggers UI updates                 │
-                                  └────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Sources["NOTIFICATION SOURCES"]
+        S1["Order Created"]
+        S2["Status Changed"]
+        S3["Customer Order (Mall)"]
+        S4["Assistance Request"]
+    end
+    
+    Sources -- "private-tenant.{id}.system" --> WSC["WEBSOCKET CHANNEL"]
+    WSC --> App["STAFF APP (FRONTEND)"]
+    
+    subgraph Echo["LaravelEchoContext"]
+        E1["Listens to tenant system channel"]
+        E2["Processes incoming events"]
+        E3["Triggers UI updates"]
+    end
+    
+    App --> Echo
 ```
 
 ---

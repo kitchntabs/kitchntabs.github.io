@@ -64,29 +64,20 @@ changes — the three-tier model (catalog → entitlement → instance), the per
 `CheckoutGatewayTransaction`, and the settlement tail are all shared.
 
 ```mermaid
-flowchart TB
-    subgraph Platform["Platform — SystemAdmin"]
-        SCG["SystemCheckoutGateway<br/>name='Transbank Webpay Plus'<br/>class=TransbankPSTCheckoutProvider"]
-    end
-    subgraph Instance["Per-tenant instance"]
-        CG["CheckoutGateway<br/>connection_params={ commerce_code, test_mode, auto_refund }"]
-        CGT["checkout_gateway_tenants<br/>tenant_id · is_default"]
-    end
-    subgraph Order["Per-order"]
-        TX["CheckoutGatewayTransaction<br/>external_session_id = token_ws<br/>status · return_url · raw_response"]
-        ORD[Order.is_paid] --> PAY[Payment]
-        TAB[Tab → CONFIRMED]
-    end
-    subgraph TBK["Transbank Webpay Plus"]
-        WP[(webpay3g / webpay3gint)]
-    end
-
-    SCG --> CG --> CGT
-    CG -->|createPaymentSession → Webpay::create| TX
-    TX -->|confirmPayment → Webpay::commit| ORD
-    TX --> TAB
-    CG -. redirect_url + token_ws .-> WP
-    WP -. return_url (token_ws) .-> TX
+sequenceDiagram
+    participant Customer as Customer<br/>Mobile App
+    participant Backend
+    participant Transbank as Transbank<br/>Payment Gateway
+    
+    Customer->>Backend: Request payment
+    Backend->>Transbank: Create transaction
+    Transbank-->>Backend: Transaction token
+    Backend-->>Customer: Redirect to Transbank
+    Customer->>Transbank: Enter payment details
+    Transbank->>Transbank: Process payment
+    Transbank-->>Customer: Success/Failure
+    Transbank->>Backend: Webhook notification
+    Backend->>Backend: Update order status
 ```
 
 **Reused unchanged:** `AbstractCheckoutGatewayProvider::completeTransaction()`,
@@ -145,10 +136,11 @@ PST), configured once. Sandbox ignores the tenant code entirely and uses Transba
 integration credentials — so development needs no certification.
 
 ```mermaid
-flowchart TD
-    A["TransbankPSTCheckoutProvider::resolveCredentials()"] --> B{instance test_mode?<br/>(default true)}
-    B -- "yes (sandbox)" --> S["environment = integration<br/>commerce code = 597055555532  (Webpay::INTEGRATION_KEY)<br/>api key = 579B…  (Transbank::INTEGRATION_SECRET)"]
-    B -- "no (production)" --> P["environment = production<br/>commerce code = instance.connection_params.commerce_code  (tenant's 12-digit)<br/>api key = config('checkout.transbank.pst_api_key')  (platform PST key)"]
+graph TD
+    A["Payment Request"] --> B["Validate amount"]
+    B --> C["Create Transbank<br/>transaction"]
+    C --> D["Get token"]
+    D --> E["Redirect user"]
 ```
 
 | Source | Sandbox (`test_mode` on) | Production (`test_mode` off) |
@@ -179,13 +171,13 @@ multi-tenant credentials are achieved by **scoping those config keys around each
 **(b) Result objects don't expose data as plain properties.** This caused the first runtime bug:
 
 ```mermaid
-flowchart LR
-    subgraph create["Webpay::create() → Response"]
-        R["protected $token, $url<br/>✅ getToken() / getUrl()<br/>❌ ->token / ->url  (Cannot access protected property)"]
-    end
-    subgraph commit["Webpay::commit() → Transaction (extends Fluent)"]
-        T["snake_case attrs: response_code, card_detail.card_number, …<br/>✅ isSuccessful() · get('response_code') · getCreditCardNumber()<br/>❌ ->responseCode (camelCase → null, silent)"]
-    end
+flowchart TD
+    A["Customer initiates checkout"] --> B["Validate order"]
+    B --> C["Send to Transbank"]
+    C --> D{Payment approved?}
+    D -->|Yes| E["Update order status"]
+    D -->|No| F["Show error"]
+    E --> G["Confirm transaction"]
 ```
 
 - `Webpay::create()` returns a `Response` with **protected** `$token`/`$url` → use **`getToken()` /
@@ -242,37 +234,17 @@ protected function runWebpay(callable $fn)
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant Cust as Customer (kiosk)
-    participant Hook as useSelfServiceCheckout
-    participant API as SelfServiceCheckoutController
-    participant Prov as TransbankPSTCheckoutProvider
-    participant TBK as Webpay (webpay3gint)
-    participant Ret as CheckoutWebController::transbankReturn
-    participant Tail as completeTransaction
-
-    Cust->>Hook: tap "Pagar"
-    Hook->>API: GET /checkout/gateways  (decide skip vs select)
-    Hook->>API: POST /checkout/session { order_id=tabId, amount, return_url, checkout_gateway_id? }
-    API->>API: payable-state guard + resolve gateway (selected or default)
-    API->>Prov: createPaymentSession(orderData)
-    Prov->>Prov: runWebpay(): set tenant/sandbox config
-    Prov->>TBK: Webpay::create(buyOrder, amount, returnUrl=/checkout/transbank/return/{hash})
-    TBK-->>Prov: Response { token, url }
-    Prov->>Prov: persist txn (external_session_id=token); redirect_url = url + "?token_ws=" + token
-    Prov-->>API: { redirect_url }
-    API-->>Hook: { redirect_url }
-    Hook->>TBK: SAME-TAB navigate → Webpay hosted card page
-    Cust->>TBK: enter card (e.g. VISA 4051 8856 0044 6623)
-    TBK->>Ret: POST return_url  (token_ws)
-    Ret->>Prov: confirmPayment(token_ws)
-    Prov->>TBK: Webpay::commit(token_ws)
-    TBK-->>Prov: Transaction { response_code, amount, authorization_code, card_detail, … }
-    Prov->>Prov: approved = isSuccessful() && amount matches
-    Prov->>Tail: completeTransaction(txn, PAID|REJECTED, raw)
-    Tail->>Tail: (PAID) order.is_paid=true · Payment · tab→CONFIRMED · notify staff+kiosk
-    Ret-->>Cust: redirect → /selfservice/{hash}/tab/{tabId}?transaction={id}
-    Cust->>Hook: SelfServiceAppHookComponent reads ?transaction → status → toast/dialog
+    participant Transbank
+    participant WebhookHandler as Backend<br/>Webhook Handler
+    participant Database
+    
+    Transbank->>WebhookHandler: Payment success webhook
+    WebhookHandler->>Database: Find order
+    Database-->>WebhookHandler: Order data
+    WebhookHandler->>WebhookHandler: Validate signature
+    WebhookHandler->>Database: Update status = paid
+    WebhookHandler->>WebhookHandler: Trigger fulfillment
+    WebhookHandler-->>Transbank: 200 OK
 ```
 
 **Real sandbox log excerpt (working):**
@@ -291,15 +263,11 @@ Webpay returns the browser to `return_url` = `/checkout/transbank/return/{hash}`
 and bounces back to the kiosk SPA.
 
 ```mermaid
-flowchart TD
-    A["POST /checkout/transbank/return/{hash}"] --> B{which param?}
-    B -- "token_ws (paid attempt)" --> C[find txn by external_session_id = token_ws]
-    C --> D["service()->confirmPayment(token_ws) → Webpay::commit + completeTransaction"]
-    B -- "TBK_TOKEN only (user aborted / timeout)" --> E[find txn by external_session_id = TBK_TOKEN]
-    E --> F[txn.status = REJECTED  (no commit)]
-    D --> G["redirect → transaction.return_url + ?transaction={id}"]
-    F --> G
-    G --> H["kiosk SPA: SelfServiceAppHookComponent<br/>→ GET checkout/transaction/{id} → success toast / failure dialog"]
+graph TD
+    A["Webhook received"] --> B["Validate signature"]
+    B --> C["Check order exists"]
+    C --> D["Update to PAID"]
+    D --> E["Send confirmation"]
 ```
 
 Notes:
@@ -319,18 +287,15 @@ Identical to the DashTest path — `AbstractCheckoutGatewayProvider::completeTra
 everything after `confirmPayment` returns PAID:
 
 ```mermaid
-flowchart TD
-    A[completeTransaction txn, status, raw] --> B[txn.status = status; save raw_response]
-    B --> C{status == PAID?}
-    C -- no --> Z[return]
-    C -- yes --> D["tab = Tab::with('order')->find(txn.order_id)  // order_id holds the TAB id"]
-    D --> E[order = tab.order]
-    E --> F[order.is_paid = true]
-    F --> G["Payment::create(source_order_id, order_id, tenant_id, currency_id,<br/>transaction_amount, total_paid_amount, payment_type='checkout_gateway', data=raw)"]
-    G --> H{tab.status == CREATED?}
-    H -- yes --> I[tab → CONFIRMED]
-    I --> J[TabsNotificationService::handleStatusChange → notify staff + kiosk]
-    J --> Z
+stateDiagram-v2
+    [*] --> Pending
+    Pending --> Processing: Payment submitted
+    Processing --> Authorized: Payment approved
+    Authorized --> Captured: Funds captured
+    Captured --> Settled: Transaction settled
+    Processing --> Failed: Payment declined
+    Failed --> [*]
+    Settled --> [*]
 ```
 
 > Reminder: `CheckoutGatewayTransaction.order_id` carries the **Tab id** (the kiosk sends
@@ -348,18 +313,12 @@ flowchart TD
 | return with `TBK_TOKEN` only (aborted) | `STATUS_REJECTED` | no settlement |
 
 ```mermaid
-stateDiagram-v2
-    [*] --> pending : Webpay::create()
-    pending --> paid : commit isSuccessful() & amount OK
-    pending --> rejected : commit declined / user abort (TBK_TOKEN)
-    pending --> failed : commit error / amount mismatch
-    paid --> [*]
-    rejected --> [*]
-    failed --> [*]
-    note right of paid
-        Order.is_paid=true · Payment row
-        Tab CREATED → CONFIRMED · staff notified
-    end note
+flowchart TD
+    A["Error during payment"] --> B["Log error"}
+    B --> C["Notify customer"]
+    C --> D["Retry available?"}
+    D -->|Yes| E["Show retry button"]
+    D -->|No| F["Suggest alternative<br/>payment method"]
 ```
 
 Persisted in `raw_response` / `Payment.data`: `response_code`, `authorization_code`, `amount`,
@@ -374,15 +333,11 @@ Because a tenant can now enable **DashTest and Transbank** (and future providers
 selection screen when more than one is enabled. Shared logic lives in `useSelfServiceCheckout`.
 
 ```mermaid
-flowchart TD
-    A[startPayment orderId, amount] --> B[GET /checkout/gateways  (active, default first)]
-    B --> C{count}
-    C -- "0 or 1, or allow_gateway_selection = false" --> D["createSession (gateway_id = single id or none → backend default)"]
-    C -- "2+ and selection allowed" --> E[open CheckoutGatewayDialog  (default first + chip)]
-    E --> F[user taps a gateway]
-    F --> G["createSession (checkout_gateway_id = chosen)"]
-    D --> H[same-tab redirect to gateway]
-    G --> H
+graph LR
+    A["Transbank response"] --> B["Parse status"]
+    B --> C["Update DB"]
+    C --> D["Emit event"]
+    D --> E["Notify user"]
 ```
 
 - **Backend:** `CheckoutGatewayTenant::getEnabledForTenant()` (default first); `listGateways`

@@ -49,117 +49,80 @@ The **JumpsellerService** is a comprehensive e-commerce marketplace integration 
 
 ### Component Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           JumpsellerService                                  │
-│                     (implements MarketplaceContract)                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                          SERVICE TRAITS                              │   │
-│  ├─────────────────┬─────────────────┬─────────────────┬───────────────┤   │
-│  │ PublishService  │ PauseService    │ FinishService   │ DeleteService │   │
-│  │ Methods         │ Methods         │ Methods         │ Methods       │   │
-│  ├─────────────────┼─────────────────┼─────────────────┼───────────────┤   │
-│  │ OrdersService   │ CategoryService │ Notification    │               │   │
-│  │ Methods         │ Methods         │ ServiceMethods  │               │   │
-│  └─────────────────┴─────────────────┴─────────────────┴───────────────┘   │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                     PHASE-SPECIFIC JOBS                              │   │
-│  ├─────────────────┬─────────────────┬─────────────────┬───────────────┤   │
-│  │ BatchUpdate     │ BatchUpdate     │ BatchUpdate     │ BatchPause    │   │
-│  │ ProductsJob     │ VariantsJob     │ ImagesJob       │ ProductsJob   │   │
-│  ├─────────────────┼─────────────────┼─────────────────┼───────────────┤   │
-│  │ BatchFinish     │ BatchDelete     │                 │               │   │
-│  │ ProductsJob     │ ProductsJob     │                 │               │   │
-│  └─────────────────┴─────────────────┴─────────────────┴───────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │ HTTP Basic Auth
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         JUMPSELLER API                                       │
-│                   https://api.jumpseller.com                                 │
-├──────────────────────┬──────────────────────┬───────────────────────────────┤
-│   Product Endpoints  │   Order Endpoints    │    Category Endpoints         │
-│                      │                      │                               │
-│ /products.json       │ /orders/{id}.json    │ /categories.json              │
-│ /products/{id}.json  │ /fulfillments.json   │ /categories/{id}.json         │
-│ /products/{id}/      │                      │                               │
-│   variants.json      │                      │                               │
-│ /products/{id}/      │                      │                               │
-│   images.json        │                      │                               │
-└──────────────────────┴──────────────────────┴───────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Service["JumpsellerService (implements MarketplaceContract)"]
+        subgraph Traits["SERVICE TRAITS"]
+            T1["PublishServiceMethods"]
+            T2["PauseServiceMethods"]
+            T3["FinishServiceMethods"]
+            T4["DeleteServiceMethods"]
+            T5["OrdersServiceMethods"]
+            T6["CategoryServiceMethods"]
+            T7["NotificationServiceMethods"]
+        end
+        subgraph Jobs["PHASE-SPECIFIC JOBS"]
+            J1["BatchUpdateProductsJob"]
+            J2["BatchUpdateVariantsJob"]
+            J3["BatchUpdateImagesJob"]
+            J4["BatchPauseProductsJob"]
+            J5["BatchFinishProductsJob"]
+            J6["BatchDeleteProductsJob"]
+        end
+    end
+
+    Service -->|HTTP Basic Auth| API
+
+    subgraph API["JUMPSELLER API (https://api.jumpseller.com)"]
+        PE["Product Endpoints<br/>/products.json<br/>/products/{id}.json<br/>/products/{id}/variants.json<br/>/products/{id}/images.json"]
+        OE["Order Endpoints<br/>/orders/{id}.json<br/>/fulfillments.json"]
+        CE["Category Endpoints<br/>/categories.json<br/>/categories/{id}.json"]
+    end
 ```
 
 ### Multi-Phase Publishing Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    JUMPSELLER MULTI-PHASE PUBLISHING                         │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    CPJ["CampaignProcessJob"]
+    Config["Phases Configuration:<br/>'product_data' → BatchUpdateProductsJob<br/>'variants' → BatchUpdateVariantsJob<br/>'images' → BatchUpdateImagesJob"]
+    P1["PHASE 1: product_data (BatchUpdateProductsJob)<br/>- Validate products (price &gt; 0, stock ≥ 0)<br/>- Check if product exists in Jumpseller (by SKU or ID)<br/>- Create new product OR update existing<br/>- Store Jumpseller product ID in marketplace_info<br/>- Set status → PUBLISHED<br/>- Track progress via CampaignTrackerService"]
+    P2["PHASE 2: variants (BatchUpdateVariantsJob)<br/>- Filter to products with marketplace_info (already published)<br/>- Process modifier groups → Jumpseller variants<br/>- Generate SKU: {BASE_SKU}-{MODIFIER_GROUP_ID}-{OPTION_ID}<br/>- Create/update/delete variants as needed<br/>- Track progress"]
+    P3["PHASE 3: images (BatchUpdateImagesJob)<br/>- Filter to products with marketplace_info<br/>- Delete existing images from Jumpseller<br/>- Upload new images from product gallery<br/>- Use absolute AWS URLs<br/>- Track progress"]
+    P4["CheckCampaignCompletionJob<br/>- Verify all phases completed<br/>- Update campaign status<br/>- Complete tracker"]
 
-┌─────────────────┐
-│ CampaignProcess │
-│ Job             │
-└────────┬────────┘
-         │
-         │ getProcessPhases('publish')
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Phases Configuration:                                                        │
-│ ┌──────────────────┬─────────────────────┬─────────────────────────────────┐│
-│ │ 'product_data'   │ 'variants'          │ 'images'                        ││
-│ │ BatchUpdate      │ BatchUpdate         │ BatchUpdate                     ││
-│ │ ProductsJob      │ VariantsJob         │ ImagesJob                       ││
-│ └──────────────────┴─────────────────────┴─────────────────────────────────┘│
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         │ Bus::chain([Phase1, Phase2, Phase3, CheckCompletion])
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                                                                              │
-│  PHASE 1: product_data (BatchUpdateProductsJob)                              │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │ • Validate products (price > 0, stock ≥ 0)                             │ │
-│  │ • Check if product exists in Jumpseller (by SKU or ID)                 │ │
-│  │ • Create new product OR update existing                                │ │
-│  │ • Store Jumpseller product ID in marketplace_info                      │ │
-│  │ • Set status → PUBLISHED                                               │ │
-│  │ • Track progress via CampaignTrackerService                            │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                          │                                                   │
-│                          ▼                                                   │
-│  PHASE 2: variants (BatchUpdateVariantsJob)                                  │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │ • Filter to products with marketplace_info (already published)         │ │
-│  │ • Process modifier groups → Jumpseller variants                        │ │
-│  │ • Generate SKU: {BASE_SKU}-{MODIFIER_GROUP_ID}-{OPTION_ID}             │ │
-│  │ • Create/update/delete variants as needed                              │ │
-│  │ • Track progress                                                       │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                          │                                                   │
-│                          ▼                                                   │
-│  PHASE 3: images (BatchUpdateImagesJob)                                      │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │ • Filter to products with marketplace_info                             │ │
-│  │ • Delete existing images from Jumpseller                               │ │
-│  │ • Upload new images from product gallery                               │ │
-│  │ • Use absolute AWS URLs                                                │ │
-│  │ • Track progress                                                       │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                          │                                                   │
-│                          ▼                                                   │
-│  CheckCampaignCompletionJob                                                  │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │ • Verify all phases completed                                          │ │
-│  │ • Update campaign status                                               │ │
-│  │ • Complete tracker                                                     │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+    CPJ -->|"getProcessPhases('publish')"| Config
+    Config -->|"Bus::chain([Phase1, Phase2, Phase3, CheckCompletion])"| P1
+    P1 --> P2 --> P3 --> P4
+```
+
+Progress Tracking (via CampaignTrackerService):
+
+```
+tracker.phases_status = {
+  "product_data": {
+    "status": "completed",
+    "progress": 100.00,
+    "total_items": 5,
+    "processed_items": 5,
+    "successful_items": 5,
+    "failed_items": 0
+  },
+  "variants": {
+    "status": "in_progress",
+    "progress": 60.00,
+    "total_items": 5,
+    "processed_items": 3,
+    "successful_items": 3,
+    "failed_items": 0
+  },
+  "images": {
+    "status": "pending",
+    "progress": 0.00,
+    "total_items": 5,
+    "processed_items": 0
+  }
+}
 ```
 
 ---
@@ -232,26 +195,13 @@ public const CONNECTION_PARAMS_WEBHOOK_TOKEN = 'webhook_token';
 
 ### Authentication Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     JUMPSELLER AUTHENTICATION                                │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Store Setup   │    │   API Request   │    │   Jumpseller    │
-│   in Dash       │───▶│   with Basic    │───▶│   API Server    │
-│                 │    │   Auth Header   │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-        │                      │                      │
-        │                      │                      │
-        ▼                      ▼                      ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Admin enters login + authtoken in marketplace settings       │
-│ 2. Credentials stored in marketplace.connection_params          │
-│ 3. Each API request includes:                                   │
-│    Authorization: Basic base64(login:authtoken)                 │
-│ 4. Jumpseller validates credentials                             │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Store Setup in Dash"] --> B["API Request with Basic Auth Header"] --> C["Jumpseller API Server"]
+    Steps["1. Admin enters login + authtoken in marketplace settings<br/>2. Credentials stored in marketplace.connection_params<br/>3. Each API request includes: Authorization: Basic base64(login:authtoken)<br/>4. Jumpseller validates credentials"]
+    A --> Steps
+    B --> Steps
+    C --> Steps
 ```
 
 ---
@@ -644,49 +594,16 @@ $statusMapping = [
 **Purpose:** Creates/updates basic product information in Jumpseller
 
 **Flow:**
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                     BatchUpdateProductsJob Flow                               │
-└──────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Handle["handle()"]
+    S1["1. Get marketplace service instance"]
+    S2["2. Start tracker phase<br/>CampaignTrackerService::startPhase($trackerId, 'product_data')"]
+    S3["3. Validate products<br/>- Price &gt; 0<br/>- Stock ≥ 0 (or allowZeroStock)"]
+    S4["4. For each valid product:<br/>a. Check if exists in Jumpseller (by marketplace_info.id or SKU)<br/>b. If exists: PUT /products/{id}.json<br/>c. If new: POST /products.json<br/>d. Update marketplace_info with Jumpseller ID<br/>e. Set status = PUBLISHED"]
+    S5["5. Update tracker progress<br/>CampaignTrackerService::updatePhaseProgress($trackerId, 'product_data', $processed, $success, $fail)"]
 
-┌─────────────┐
-│   handle()  │
-└──────┬──────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 1. Get marketplace service instance                                          │
-└──────────────────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 2. Start tracker phase                                                       │
-│    CampaignTrackerService::startPhase($trackerId, 'product_data')            │
-└──────────────────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 3. Validate products                                                         │
-│    - Price > 0                                                               │
-│    - Stock ≥ 0 (or allowZeroStock)                                           │
-└──────────────────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 4. For each valid product:                                                   │
-│    a. Check if exists in Jumpseller (by marketplace_info.id or SKU)          │
-│    b. If exists: PUT /products/{id}.json                                     │
-│    c. If new: POST /products.json                                            │
-│    d. Update marketplace_info with Jumpseller ID                             │
-│    e. Set status = PUBLISHED                                                 │
-└──────────────────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 5. Update tracker progress                                                   │
-│    CampaignTrackerService::updatePhaseProgress($trackerId, 'product_data',   │
-│                                                $processed, $success, $fail)  │
-└──────────────────────────────────────────────────────────────────────────────┘
+    Handle --> S1 --> S2 --> S3 --> S4 --> S5
 ```
 
 ### 8.2 BatchUpdateVariantsJob
@@ -777,45 +694,17 @@ Example: PROD001-5-12
 
 ### Modifier to Variant Mapping
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    MODIFIER GROUP → VARIANT MAPPING                          │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Product["Dash Product (with Modifier Groups):<br/>Product: 'Pizza Margarita'<br/>SKU: 'PIZZA001'<br/>Price: $12.00<br/><br/>Modifier Group: 'Size' (id: 5)<br/>- Option: 'Small' (id: 10) - price_adjustment: -$2.00<br/>- Option: 'Medium' (id: 11) - price_adjustment: $0.00<br/>- Option: 'Large' (id: 12) - price_adjustment: +$3.00"]
 
-Dash Product (with Modifier Groups):
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Product: "Pizza Margarita"                                                   │
-│ SKU: "PIZZA001"                                                              │
-│ Price: $12.00                                                                │
-│                                                                              │
-│ Modifier Group: "Size" (id: 5)                                               │
-│   ├── Option: "Small" (id: 10) - price_adjustment: -$2.00                    │
-│   ├── Option: "Medium" (id: 11) - price_adjustment: $0.00                    │
-│   └── Option: "Large" (id: 12) - price_adjustment: +$3.00                    │
-└──────────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │ generateEnhancedVariants()
-                                    ▼
-Jumpseller Variants:
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Variant 1:                                                                   │
-│   SKU: "PIZZA001-5-10"                                                       │
-│   Price: $10.00                                                              │
-│   Options: [{name: "Size", value: "Small"}]                                  │
-│   Metadata: {modifier_group_id: 5, modifier_option_id: 10}                   │
-│                                                                              │
-│ Variant 2:                                                                   │
-│   SKU: "PIZZA001-5-11"                                                       │
-│   Price: $12.00                                                              │
-│   Options: [{name: "Size", value: "Medium"}]                                 │
-│   Metadata: {modifier_group_id: 5, modifier_option_id: 11}                   │
-│                                                                              │
-│ Variant 3:                                                                   │
-│   SKU: "PIZZA001-5-12"                                                       │
-│   Price: $15.00                                                              │
-│   Options: [{name: "Size", value: "Large"}]                                  │
-│   Metadata: {modifier_group_id: 5, modifier_option_id: 12}                   │
-└──────────────────────────────────────────────────────────────────────────────┘
+    V1["Variant 1:<br/>SKU: 'PIZZA001-5-10'<br/>Price: $10.00<br/>Options: [{name: 'Size', value: 'Small'}]<br/>Metadata: {modifier_group_id: 5, modifier_option_id: 10}"]
+    V2["Variant 2:<br/>SKU: 'PIZZA001-5-11'<br/>Price: $12.00<br/>Options: [{name: 'Size', value: 'Medium'}]<br/>Metadata: {modifier_group_id: 5, modifier_option_id: 11}"]
+    V3["Variant 3:<br/>SKU: 'PIZZA001-5-12'<br/>Price: $15.00<br/>Options: [{name: 'Size', value: 'Large'}]<br/>Metadata: {modifier_group_id: 5, modifier_option_id: 12}"]
+
+    Product -->|generateEnhancedVariants()| V1
+    Product -->|generateEnhancedVariants()| V2
+    Product -->|generateEnhancedVariants()| V3
 ```
 
 ### Variant Generation Code
@@ -887,64 +776,18 @@ $formattedVariant = [
 
 ### Order Creation Flow (Webhook)
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    ORDER_PAID WEBHOOK FLOW                                   │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Webhook["Webhook: order_paid"]
+    S1["1. Verify webhook authenticity HMAC<br/>$calculatedHmac = base64_encode(hash_hmac('sha256', $data, $token, true))<br/>hash_equals($hmacHeader, $calculatedHmac)"]
+    S2["2. Check if order already exists<br/>Order::where('source_id', $jumpsellerOrderId)-&gt;first()"]
+    S3["3. Create Order record<br/>- source_id = Jumpseller order ID<br/>- status = PAID<br/>- brokerable_type = Marketplace::class<br/>- brokerable_id = $marketplace-&gt;id"]
+    S4["4. Process order products<br/>For each product in webhook:<br/>a. Match SKU including variant SKU support<br/>b. Create OrderProduct record<br/>c. If variant: Create OrderProductModifier records"]
+    S5["5. Create Tab for order<br/>Links order to POS system for kitchen/service tracking"]
+    S6["6. Create initial fulfillment for delivery orders<br/>POST /fulfillments.json"]
+    S7["7. Send WebSocket notification<br/>Notify frontend of new order"]
 
-┌─────────────────┐
-│ Webhook:        │
-│ order_paid      │
-└────────┬────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 1. Verify webhook authenticity (HMAC)                                        │
-│    $calculatedHmac = base64_encode(hash_hmac('sha256', $data, $token, true)) │
-│    hash_equals($hmacHeader, $calculatedHmac)                                 │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 2. Check if order already exists                                             │
-│    Order::where('source_id', $jumpsellerOrderId)->first()                    │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 3. Create Order record                                                       │
-│    - source_id = Jumpseller order ID                                         │
-│    - status = PAID                                                           │
-│    - brokerable_type = Marketplace::class                                    │
-│    - brokerable_id = $marketplace->id                                        │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 4. Process order products                                                    │
-│    For each product in webhook:                                              │
-│    a. Match SKU (including variant SKU support)                              │
-│    b. Create OrderProduct record                                             │
-│    c. If variant: Create OrderProductModifier records                        │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 5. Create Tab for order                                                      │
-│    Links order to POS system for kitchen/service tracking                    │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 6. Create initial fulfillment (for delivery orders)                          │
-│    POST /fulfillments.json                                                   │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ 7. Send WebSocket notification                                               │
-│    Notify frontend of new order                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+    Webhook --> S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
 ```
 
 ### Order Status Update Flow

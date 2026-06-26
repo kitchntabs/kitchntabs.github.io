@@ -14,25 +14,32 @@ This document explains how these components are built and packaged together.
 
 ## Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           ELECTRON APPLICATION                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────────┐   │
-│  │   Electron Main  │    │   React Frontend │    │   Python Service     │   │
-│  │   (Node.js)      │    │   (Vite Bundle)  │    │   (kt_service)       │   │
-│  │                  │    │                  │    │                      │   │
-│  │  - Window mgmt   │    │  - UI Components │    │  - WebSocket client  │   │
-│  │  - IPC handlers  │    │  - React-Admin   │    │  - Thermal printing  │   │
-│  │  - Auto-updater  │    │  - State mgmt    │    │  - Audio playback    │   │
-│  │  - Spawns Python │    │  - API calls     │    │  - Event handling    │   │
-│  └────────┬─────────┘    └──────────────────┘    └──────────┬───────────┘   │
-│           │                                                  │               │
-│           │              IPC / Process Spawn                 │               │
-│           └──────────────────────────────────────────────────┘               │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph EA["ELECTRON APPLICATION"]
+        subgraph EM["Electron Main (Node.js)"]
+            E1["- Window mgmt"]
+            E2["- IPC handlers"]
+            E3["- Auto-updater"]
+            E4["- Spawns Python"]
+        end
+        
+        subgraph RF["React Frontend (Vite Bundle)"]
+            R1["- UI Components"]
+            R2["- React-Admin"]
+            R3["- State mgmt"]
+            R4["- API calls"]
+        end
+        
+        subgraph PS["Python Service (kt_service)"]
+            P1["- WebSocket client"]
+            P2["- Thermal printing"]
+            P3["- Audio playback"]
+            P4["- Event handling"]
+        end
+        
+        EM -- "IPC / Process Spawn" --> PS
+    end
 ```
 
 ---
@@ -41,48 +48,14 @@ This document explains how these components are built and packaged together.
 
 ### Complete Build Flow
 
+```mermaid
+flowchart TD
+    Start["pnpm release:electron:kitchntabs:development"] --> S1["1. CONFIG GENERATION (build_config.js)<br/>- Creates build_config.json with CUSTOM_MODE, platform, etc."]
+    S1 --> S2["2. PYTHON SERVICE BUILD (build-python-service.js)<br/>- Reads build_config.json<br/>- Calls ../dash-python-service/build-service.js<br/>- Copies config.{CUSTOM_MODE}.yaml → config.yaml<br/>- Runs PyInstaller to create standalone executable<br/>- Output: dash-python-service/kt_service/kt_service"]
+    S2 --> S3["3. ICON GENERATION (electron-icon-builder)<br/>- Creates icons/mac/icon.icns, icons/win/icon.ico, icons/png/*"]
+    S3 --> S4["4. FRONTEND BUILD (turbo build)<br/>- Builds React app with Vite<br/>- Injects environment variables from .env.{CUSTOM_MODE}<br/>- Output: apps/dash/dist/"]
+    S4 --> S5["5. ELECTRON PACKAGING (build-electron.js → electron-builder)<br/>- Hides pnpm workspace files (workaround)<br/>- Builds Electron main/preload with Vite<br/>- Packages app with electron-builder<br/>- Copies Python service as extraResource<br/>- Output: release/*.zip, release/*.deb, release/*.exe"]
 ```
-pnpm release:electron:kitchntabs:development
-        │
-        ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│  1. CONFIG GENERATION (build_config.js)                               │
-│     └─ Creates build_config.json with CUSTOM_MODE, platform, etc.     │
-└───────────────────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│  2. PYTHON SERVICE BUILD (build-python-service.js)                    │
-│     ├─ Reads build_config.json                                        │
-│     ├─ Calls ../dash-python-service/build-service.js                  │
-│     ├─ Copies config.{CUSTOM_MODE}.yaml → config.yaml                 │
-│     ├─ Runs PyInstaller to create standalone executable               │
-│     └─ Output: dash-python-service/kt_service/kt_service              │
-└───────────────────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│  3. ICON GENERATION (electron-icon-builder)                           │
-│     └─ Creates icons/mac/icon.icns, icons/win/icon.ico, icons/png/*   │
-└───────────────────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│  4. FRONTEND BUILD (turbo build)                                      │
-│     ├─ Builds React app with Vite                                     │
-│     ├─ Injects environment variables from .env.{CUSTOM_MODE}          │
-│     └─ Output: apps/dash/dist/                                        │
-└───────────────────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────────────────────────────┐
-│  5. ELECTRON PACKAGING (build-electron.js → electron-builder)         │
-│     ├─ Hides pnpm workspace files (workaround)                        │
-│     ├─ Builds Electron main/preload with Vite                         │
-│     ├─ Packages app with electron-builder                             │
-│     ├─ Copies Python service as extraResource                         │
-│     └─ Output: release/*.zip, release/*.deb, release/*.exe            │
-└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -489,32 +462,19 @@ dash-python-service/
 
 ### How It Works
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     Docker Cross-Compilation Flow                        │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  Your Mac (ARM64 or x64)                                                │
-│  ┌────────────────────────────────────────────────────────────────┐     │
-│  │  Docker Desktop                                                 │     │
-│  │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────┐  │     │
-│  │  │ linux/amd64      │  │ linux/arm64      │  │ linux/arm/v7 │  │     │
-│  │  │ container        │  │ container        │  │ container    │  │     │
-│  │  │                  │  │                  │  │              │  │     │
-│  │  │ QEMU emulation   │  │ QEMU emulation   │  │ QEMU emul.   │  │     │
-│  │  │ Python 3.9       │  │ Python 3.9       │  │ Python 3.9   │  │     │
-│  │  │ PyInstaller      │  │ PyInstaller      │  │ PyInstaller  │  │     │
-│  │  │                  │  │                  │  │              │  │     │
-│  │  │ → kt_service     │  │ → kt_service     │  │ → kt_service │  │     │
-│  │  │   (x64 ELF)      │  │   (ARM64 ELF)    │  │   (ARMv7)    │  │     │
-│  │  └────────┬─────────┘  └────────┬─────────┘  └──────┬───────┘  │     │
-│  │           │                     │                   │          │     │
-│  └───────────┼─────────────────────┼───────────────────┼──────────┘     │
-│              │                     │                   │                │
-│              ▼                     ▼                   ▼                │
-│         kt_service_builds/x64  kt_service_builds/arm64  armv7l         │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Title["Docker Cross-Compilation Flow"]
+    Title --> Mac["Your Mac (ARM64 or x64)"]
+    Mac --> Docker["Docker Desktop"]
+    
+    Docker --> C1["linux/amd64 container<br/>QEMU emulation<br/>Python 3.9<br/>PyInstaller<br/>→ kt_service (x64 ELF)"]
+    Docker --> C2["linux/arm64 container<br/>QEMU emulation<br/>Python 3.9<br/>PyInstaller<br/>→ kt_service (ARM64 ELF)"]
+    Docker --> C3["linux/arm/v7 container<br/>QEMU emulation<br/>Python 3.9<br/>PyInstaller<br/>→ kt_service (ARMv7)"]
+    
+    C1 --> Out1["kt_service_builds/x64"]
+    C2 --> Out2["kt_service_builds/arm64"]
+    C3 --> Out3["armv7l"]
 ```
 
 ### Electron Builder Integration

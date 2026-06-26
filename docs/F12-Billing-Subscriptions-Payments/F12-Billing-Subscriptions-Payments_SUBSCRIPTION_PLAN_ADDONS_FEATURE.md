@@ -58,56 +58,30 @@ The Subscription Plan Add-ons feature extends the existing subscription plan sys
 
 ### System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        ADD-ONS ARCHITECTURE                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────────────┐    ┌──────────────────────┐                       │
-│  │    React Admin UI    │    │    Public Pricing    │                       │
-│  │  (Plan Management)   │    │    (Display Only)    │                       │
-│  └──────────┬───────────┘    └──────────────────────┘                       │
-│             │                                                                │
-│             │         REST API                                               │
-│             ▼                                                                │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                   Laravel Backend (API Layer)                         │   │
-│  │  ┌────────────────────────────────────────────────────────────────┐  │   │
-│  │  │              SystemSubscriptionPlanController                   │  │   │
-│  │  │  - GET  /api/system/subscription-plan/addonFormats             │  │   │
-│  │  │  - GET  /api/system/subscription-plan/allFormats               │  │   │
-│  │  │  - POST /api/system/subscription-plan (with addons)            │  │   │
-│  │  │  - PUT  /api/system/subscription-plan/{id} (update addons)     │  │   │
-│  │  └────────────────────────────────────────────────────────────────┘  │   │
-│  │                                │                                      │   │
-│  │                                ▼                                      │   │
-│  │  ┌────────────────────────────────────────────────────────────────┐  │   │
-│  │  │                   SubscriptionPlan Model                        │  │   │
-│  │  │  - hasAddon(string $addonId): bool                             │  │   │
-│  │  │  - getAddon(string $addonId, $default): mixed                  │  │   │
-│  │  │  - getAllAddons(): array                                       │  │   │
-│  │  │  - getEnabledAddons(): array                                   │  │   │
-│  │  │  - hasMarketplaceAddons(): bool                                │  │   │
-│  │  │  - hasPosAddons(): bool                                        │  │   │
-│  │  │  - getAddonServiceClass(string $addonId): ?string              │  │   │
-│  │  └────────────────────────────────────────────────────────────────┘  │   │
-│  │                                │                                      │   │
-│  │                                ▼                                      │   │
-│  │  ┌────────────────────────────────────────────────────────────────┐  │   │
-│  │  │              TenancySubscription Model                          │  │   │
-│  │  │  - Delegates add-on checks to active subscription plan         │  │   │
-│  │  │  - hasAddon(), getEnabledAddons(), etc.                        │  │   │
-│  │  └────────────────────────────────────────────────────────────────┘  │   │
-│  │                                │                                      │   │
-│  │                                ▼                                      │   │
-│  │  ┌────────────────────────────────────────────────────────────────┐  │   │
-│  │  │                   Config (subscription_plans.php)               │  │   │
-│  │  │  - addon_formats: Array of available add-on definitions        │  │   │
-│  │  │  - Maps add-on IDs to service classes                          │  │   │
-│  │  └────────────────────────────────────────────────────────────────┘  │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph UA["UI & Interfaces"]
+        Admin["React Admin UI<br/>(Plan Management)"]
+        Public["Public Pricing<br/>(Display Only)"]
+    end
+    
+    Admin --> API["REST API<br/>Laravel Backend (API Layer)"]
+    Public --> API
+    
+    subgraph Backend["Laravel Backend"]
+        Controller["SystemSubscriptionPlanController<br/>- GET /api/system/subscription-plan/addonFormats<br/>- GET /api/system/subscription-plan/allFormats<br/>- POST /api/system/subscription-plan (with addons)<br/>- PUT /api/system/subscription-plan/{id}"]
+        
+        Model1["SubscriptionPlan Model<br/>- hasAddon(string $addonId): bool<br/>- getAddon(string $addonId, $default): mixed<br/>- getAllAddons(): array<br/>- getEnabledAddons(): array<br/>- hasMarketplaceAddons(): bool<br/>- hasPosAddons(): bool<br/>- getAddonServiceClass(string $addonId): ?string"]
+        
+        Model2["TenancySubscription Model<br/>- Delegates add-on checks to active subscription plan<br/>- hasAddon(), getEnabledAddons(), etc."]
+        
+        Config["Config (subscription_plans.php)<br/>- addon_formats: Array of available add-on definitions<br/>- Maps add-on IDs to service classes"]
+    end
+    
+    API --> Controller
+    Controller --> Model1
+    Model1 --> Model2
+    Model2 --> Config
 ```
 
 ### Data Flow

@@ -40,81 +40,22 @@ The hash is:
 
 ## Authentication Flow Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     GUEST AUTHENTICATION FLOW                                │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  STEP 1: QR Code Scan                                                        │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Customer scans QR code at mall table                               │    │
-│  │  QR contains URL: https://mall.app/malltest/s/DFJNL                 │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 2: URL Pattern Detection (KitchnTabsMallBootstrap)                    │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Regex: /^\/[^/]+\/s\/[A-Z0-9]{5,}/i.test(pathname)                │    │
-│  │  Result: isSessionUrl = true                                        │    │
-│  │                                                                      │    │
-│  │  CRITICAL: Set authenticated='true' in localStorage                 │    │
-│  │  This allows React Admin to render protected routes for guests      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 3: MallClientWrapper Initialization                                    │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  a) Parse URL: Extract mallSlug='malltest', sessionId='DFJNL'       │    │
-│  │  b) Store in localStorage:                                          │    │
-│  │     - 'mall-session-hash' = 'DFJNL'                                 │    │
-│  │     - 'mall-slug' = 'malltest'                                      │    │
-│  │     - 'authenticated' = 'true'                                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 4: Backend Session Validation                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  API Call: GET /public/mall/{sessionId}/getSessionAuth              │    │
-│  │                                                                      │    │
-│  │  Backend validates:                                                  │    │
-│  │  - Session hash exists in database                                  │    │
-│  │  - Session is not expired (10 hours from activation)                │    │
-│  │  - Session is not cancelled                                         │    │
-│  │  - Mall is active                                                   │    │
-│  │                                                                      │    │
-│  │  Response includes: tenantData, systemValues, redirectTo            │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│         ┌────────────────────┴────────────────────┐                         │
-│         ▼                                         ▼                         │
-│  ┌──────────────────┐                   ┌──────────────────┐                │
-│  │  SUCCESS         │                   │  FAILURE         │                │
-│  │                  │                   │                  │                │
-│  │ isValid = true   │                   │ Show error:      │                │
-│  │ Continue to app  │                   │ - 410: Expired   │                │
-│  │                  │                   │ - 404: Not Found │                │
-│  └──────────────────┘                   │ - 403: Denied    │                │
-│                                         └──────────────────┘                │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 5: React Admin Initialization                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  DASHMallClientAuthProvider.checkAuth() → Promise.resolve()         │    │
-│  │  React Admin treats guest as authenticated                          │    │
-│  │  Protected routes are accessible                                    │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 6: Application Ready                                                   │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Customer can:                                                       │    │
-│  │  - Browse restaurant menus                                          │    │
-│  │  - Add products to cart                                             │    │
-│  │  - Place orders                                                     │    │
-│  │  - Track order status in real-time                                  │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Mobile as Mobile App
+    participant OAuth as OAuth Provider
+    participant API as API Gateway
+    participant DB as Database
+
+    Mobile->>OAuth: Request auth
+    OAuth-->>Mobile: Login URL
+    Mobile->>OAuth: Login credentials
+    OAuth-->>Mobile: Auth token
+    Mobile->>API: POST /login with token
+    API->>DB: Verify token, get user
+    DB-->>API: User data
+    API-->>Mobile: JWT + Tenant session
+    Mobile->>API: Authenticated requests
 ```
 
 ---
@@ -125,44 +66,14 @@ The hash is:
 
 The main entry point that detects session URLs and routes accordingly.
 
-```typescript
-// Located: apps/kitchntabs-mall/src/KitchnTabsMallBootstrap.tsx
-
-const KitchnTabsMallBootstrap: React.FC = () => {
-    const [pathname, setPathname] = useState(window.location.pathname);
-    const auth = useSelector((state: IDASHAppState) => state.auth);
-    const isAuthenticated = auth.authenticated;
-    
-    // Detect session URL pattern
-    const isSessionUrl = /^\/[^/]+\/s\/[A-Z0-9]{5,}/i.test(pathname);
-    
-    // CRITICAL: Pre-set authenticated for session URLs
-    // This must happen BEFORE React Admin renders
-    if (isSessionUrl) {
-        const currentAuth = dashStorage.getItem('authenticated');
-        if (currentAuth !== 'true') {
-            dashStorage.setItem('authenticated', 'true');
-        }
-    }
-    
-    // Route decision
-    return (
-        <Suspense fallback={<Loader />}>
-            {isAuthenticated ? (
-                // Admin user → Full admin panel
-                <KitchnTabsPrivateApp {...privateAppProps} />
-            ) : isSessionUrl ? (
-                // Guest with session → Mall ordering wrapped in validation
-                <MallClientWrapper>
-                    <KitchnTabsPrivateApp {...publicAppProps} />
-                </MallClientWrapper>
-            ) : (
-                // Public visitor → Landing pages, login
-                <KitchnTabsPublicApp />
-            )}
-        </Suspense>
-    );
-};
+```mermaid
+graph TD
+    A["Mobile App"] -->|OAuth flow| B["Third-party OAuth<br/>(Google/Apple)"]
+    B -->|Callback with token| C["API Gateway"]
+    C --> D["Verify token"]
+    D --> E["Get/Create tenant"]
+    E --> F["Generate JWT"]
+    F -->|Return JWT| A
 ```
 
 ### 2. MallClientWrapper
@@ -398,42 +309,15 @@ GET /api/public/mall/{sessionId}/getSessionAuth
 
 ## Session Lifecycle
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         SESSION LIFECYCLE                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────┐                                                           │
-│  │   PENDING    │ ← Created when QR code is generated                       │
-│  │              │   (Backend creates MallSession with hash)                 │
-│  └──────┬───────┘                                                           │
-│         │                                                                    │
-│         │ Customer scans QR and accesses URL                                │
-│         │ GET /public/mall/{hash}/getSessionAuth                            │
-│         ▼                                                                    │
-│  ┌──────────────┐                                                           │
-│  │   ACTIVE     │ ← Session activated, timer starts                         │
-│  │              │   meta: { activated_at, client_ip, user_agent }          │
-│  └──────┬───────┘                                                           │
-│         │                                                                    │
-│         │ Customer can:                                                      │
-│         │ - Browse menus                                                     │
-│         │ - Create orders                                                    │
-│         │ - Track order status                                              │
-│         │                                                                    │
-│         │ After 10 hours OR all orders completed                            │
-│         ▼                                                                    │
-│  ┌──────────────┐                                                           │
-│  │  COMPLETED   │ ← Session ended normally                                  │
-│  └──────────────┘                                                           │
-│                                                                              │
-│         OR                                                                   │
-│                                                                              │
-│  ┌──────────────┐                                                           │
-│  │  CANCELLED   │ ← Session cancelled by admin                              │
-│  └──────────────┘                                                           │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> Unauthenticated
+    Unauthenticated --> OAuthLogin: Start OAuth
+    OAuthLogin --> Authenticated: Token verified
+    Authenticated --> SessionActive: Session created
+    SessionActive --> Authenticated: Token refresh
+    Authenticated --> Unauthenticated: Logout
+    Unauthenticated --> [*]
 ```
 
 ### Session Expiration
@@ -511,37 +395,17 @@ This ensures customers can only see/modify their own orders.
 
 ## Comparison: Admin vs Guest Authentication
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    ADMIN vs GUEST AUTHENTICATION                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ADMIN USER (Restaurant Staff)              GUEST USER (Customer)            │
-│  ─────────────────────────────              ─────────────────────            │
-│                                                                              │
-│  Entry: /login                              Entry: /{mall}/s/{hash}          │
-│                                                                              │
-│  Auth Provider: DASHMallAuthProvider        Auth Provider: DASHMallClient    │
-│  - Real login flow                          AuthProvider                     │
-│  - Token-based auth                         - Always resolves checkAuth      │
-│  - User identity from backend               - Guest identity                 │
-│                                                                              │
-│  Data Provider: DASHMallDataProvider        Data Provider: DASHMallClient    │
-│  - Full API access                          DataProvider                     │
-│  - Token in Authorization header            - Public API endpoints only      │
-│  - No session filtering                     - Session filter auto-injected   │
-│                                                                              │
-│  Redux Auth State:                          Redux Auth State:                │
-│  - authenticated: true                      - authenticated: true (pre-set)  │
-│  - user: { id, name, email }               - user: null                     │
-│  - auth: { token, roles }                  - auth: null                     │
-│                                                                              │
-│  localStorage:                              localStorage:                    │
-│  - token: 'eyJ...'                         - mall-session-hash: 'DFJNL'     │
-│  - user: {...}                             - authenticated: 'true'          │
-│  - authenticated: 'true'                   - orderData: {...}               │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["User opens app"] --> B{Is logged in?}
+    B -->|Yes| C["Check token expiry"]
+    C --> D{Token valid?}
+    D -->|Yes| E["Load dashboard"]
+    D -->|No| F["Refresh token"]
+    F --> E
+    B -->|No| G["Show OAuth login"]
+    G --> H["User logs in"]
+    H --> E
 ```
 
 ---

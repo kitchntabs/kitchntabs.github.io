@@ -9,25 +9,12 @@
 
 The DASH billing system uses a **gateway-agnostic architecture** built around the `PaymentGatewayContract` interface. This allows seamless integration with multiple payment providers while maintaining consistent behavior across the application.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Application Layer                        │
-│  (Tenancy, TenancySubscription, Billable trait, Controllers)   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    PaymentGatewayContract                        │
-│  (Abstract interface defining all payment operations)           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌───────────────┐   ┌─────────────────┐   ┌─────────────────┐
-│   Internal    │   │    Transbank    │   │     Stripe      │
-│   Gateway     │   │    Gateway      │   │    Gateway      │
-│  (Demo/Test)  │   │ (Webpay/Oneclick)│   │   (Cashier)     │
-└───────────────┘   └─────────────────┘   └─────────────────┘
+```mermaid
+flowchart TD
+    A["Application Layer<br/>Tenancy, TenancySubscription, Billable trait, Controllers"] --> B["PaymentGatewayContract<br/>Abstract interface defining all payment operations"]
+    B --> C["Internal Gateway<br/>Demo/Test"]
+    B --> D["Transbank Gateway<br/>Webpay/Oneclick"]
+    B --> E["Stripe Gateway<br/>Cashier"]
 ```
 
 ---

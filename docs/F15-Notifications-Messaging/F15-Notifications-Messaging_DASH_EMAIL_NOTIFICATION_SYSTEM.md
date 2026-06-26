@@ -9,46 +9,15 @@ The Dash Email Notification System is a multi-channel notification infrastructur
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          EMAIL NOTIFICATION FLOW                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                 AppNotificationBuilder::send()                      │   │
-│   │   - Entry point for all notifications                               │   │
-│   │   - Accepts: notificationClass, data, modelInstance, tenant, etc.  │   │
-│   └────────────────────────────────┬────────────────────────────────────┘   │
-│                                    │                                        │
-│                                    ▼                                        │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                   AppNotificationBase (Abstract)                    │   │
-│   │   - Constructor calls processTenantData()                          │   │
-│   │   - Resolves tenant from: explicit param, modelInstance->tenant_id │   │
-│   │   - Uses TenantResource to convert tenant model to array           │   │
-│   │   - Normalizes tenant data (logo URLs, colors, contact info)       │   │
-│   └────────────────────────────────┬────────────────────────────────────┘   │
-│                                    │                                        │
-│                                    ▼                                        │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                      AppNotification                                │   │
-│   │   toMail($notifiable):                                              │   │
-│   │     - Gets tenantData via getTenantData()                          │   │
-│   │     - Injects 'tenant' and 'tenantData' into view data             │   │
-│   │     - Sets FROM email/name from tenant contact info                │   │
-│   │     - Renders view: notifications.{mailView} or notifications.generic │
-│   └────────────────────────────────┬────────────────────────────────────┘   │
-│                                    │                                        │
-│                                    ▼                                        │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                      Blade Email Templates                          │   │
-│   │   - layouts/emails.blade.php (main layout with tenant branding)    │   │
-│   │   - notifications/tab_order.blade.php (order notifications)        │   │
-│   │   - notifications/generic.blade.php (fallback template)            │   │
-│   │   - Uses data_get_safe() for stdClass/array compatibility          │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Email Notification System"] --> B["Event Triggered"]
+    B --> C["Build Email"]
+    C --> D["Queue Job"]
+    D --> E["Send via SMTP"]
+    E --> F{Success?}
+    F -->|Yes| G["Log success"]
+    F -->|No| H["Retry or log error"]
 ```
 
 ---
@@ -346,43 +315,22 @@ AppNotificationBuilder::send(
 
 ## Tenant Data Injection Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       TENANT DATA INJECTION FLOW                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. CALLER sends notification:                                              │
-│     AppNotificationBuilder::send(                                           │
-│         tenant: $tenant,        // Option A: Explicit                       │
-│         modelInstance: $model,  // Option B: Auto-resolve from model        │
-│     )                                                                        │
-│                                                                              │
-│  2. AppNotificationBase CONSTRUCTOR:                                        │
-│     ├── If $tenant provided:                                                │
-│     │   └── Use TenantResource to convert to array                         │
-│     │                                                                        │
-│     ├── Else if $modelInstance->tenant_id exists:                           │
-│     │   └── Load Tenant model → Use TenantResource                          │
-│     │                                                                        │
-│     └── Else:                                                                │
-│         └── Use default tenant data from config                             │
-│                                                                              │
-│  3. normalizeTenantData():                                                  │
-│     ├── Process logo URLs (relative → absolute)                             │
-│     ├── Set fallback values for missing fields                              │
-│     └── Build dashboard/support URLs                                        │
-│                                                                              │
-│  4. AppNotification::toMail():                                              │
-│     ├── Call getTenantData() → returns normalized array                     │
-│     ├── Inject into view as $tenant and $tenantData                         │
-│     └── Set FROM email/name from tenant contact info                        │
-│                                                                              │
-│  5. EMAIL TEMPLATE (layouts/emails.blade.php):                              │
-│     ├── Extract tenant colors → apply as inline styles                      │
-│     ├── Display tenant logo                                                 │
-│     └── Show tenant name in footer                                          │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Event as Application Event
+    participant Queue as Queue System
+    participant Mailer as Mail Service
+    participant SMTP as SMTP Server
+    participant Recipient
+    
+    Event->>Queue: Push notification job
+    Queue->>Mailer: Dequeue job
+    Mailer->>Mailer: Build email
+    Mailer->>SMTP: Send email
+    SMTP->>Recipient: Deliver
+    Recipient-->>SMTP: ACK
+    SMTP-->>Mailer: Success
+    Mailer-->>Queue: Mark complete
 ```
 
 ---

@@ -41,105 +41,41 @@ The Campaign Publishing System enables merchants to publish products from their 
 
 ## 2. Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                       CAMPAIGN PUBLISHING SYSTEM ARCHITECTURE                        │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Title["CAMPAIGN PUBLISHING SYSTEM ARCHITECTURE"]
+    FE["FRONTEND (React)<br/>CampaignProductsBatchOperations<br/>- Select products<br/>- Choose marketplaces<br/>- Click Publish/Pause/Finish"]
+    CTRL["CONTROLLER LAYER<br/>CampaignProductController<br/>- Validate authorization<br/>- Create tracker<br/>- Dispatch job"]
 
-                          ┌─────────────────────────────────────┐
-                          │           FRONTEND (React)          │
-                          │                                     │
-                          │  CampaignProductsBatchOperations    │
-                          │  • Select products                  │
-                          │  • Choose marketplaces              │
-                          │  • Click Publish/Pause/Finish       │
-                          └──────────────┬──────────────────────┘
-                                         │
-                                         │ POST /api/ecommerce/campaign/{id}/products/{action}
-                                         ▼
-                          ┌─────────────────────────────────────┐
-                          │         CONTROLLER LAYER            │
-                          │                                     │
-                          │  CampaignProductController          │
-                          │  • Validate authorization           │
-                          │  • Create tracker                   │
-                          │  • Dispatch job                     │
-                          └──────────────┬──────────────────────┘
-                                         │
-                                         │ dispatch()
-                                         ▼
-┌────────────────────────────────────────────────────────────────────────────────────┐
-│                                JOB QUEUE LAYER                                      │
-│                                                                                     │
-│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────────────┐ │
-│  │ PublishProductsJob  │  │  PauseProductsJob   │  │    FinishProductsJob        │ │
-│  │                     │  │                     │  │                             │ │
-│  │ Queue: campaigns    │  │ Queue: campaigns    │  │ Queue: campaigns            │ │
-│  │ Timeout: 900s       │  │ Timeout: 600s       │  │ Timeout: 600s               │ │
-│  │ Tries: 3            │  │ Tries: 3            │  │ Tries: 3                    │ │
-│  └──────────┬──────────┘  └──────────┬──────────┘  └──────────────┬──────────────┘ │
-│             │                        │                            │                │
-│             └────────────────────────┼────────────────────────────┘                │
-│                                      │                                              │
-│                                      ▼                                              │
-│                          ┌───────────────────────────┐                             │
-│                          │   ActionJobCommonTrait    │                             │
-│                          │                           │                             │
-│                          │   • handleCommon()        │                             │
-│                          │   • processProducts()     │                             │
-│                          │   • handleJobFailure()    │                             │
-│                          └─────────────┬─────────────┘                             │
-│                                        │                                            │
-└────────────────────────────────────────┼────────────────────────────────────────────┘
-                                         │
-                    ┌────────────────────┴────────────────────┐
-                    │                                         │
-                    ▼                                         ▼
-    ┌───────────────────────────────┐         ┌───────────────────────────────┐
-    │      JUMPSELLER SERVICE       │         │       UBEREATS SERVICE        │
-    │                               │         │                               │
-    │  • Phase-based processing     │         │  • Menu-based bulk API        │
-    │  • Individual product calls   │         │  • Single operation           │
-    │                               │         │                               │
-    │  Phases:                      │         │  Operations:                  │
-    │  1. categories                │         │  • publishProducts()          │
-    │  2. product_data              │         │  • pauseProducts()            │
-    │  3. variants                  │         │  • deleteProducts()           │
-    │  4. images                    │         │                               │
-    └───────────────┬───────────────┘         └───────────────┬───────────────┘
-                    │                                         │
-                    └────────────────────┬────────────────────┘
-                                         │
-                                         ▼
-                          ┌─────────────────────────────────────┐
-                          │    ManagePublishedProductsJob       │
-                          │                                     │
-                          │  • Update product statuses          │
-                          │  • Record errors                    │
-                          │  • Pause products on other campaigns│
-                          │  • Update tracker progress          │
-                          └──────────────┬──────────────────────┘
-                                         │
-                                         ▼
-                    ┌────────────────────────────────────────────┐
-                    │           NOTIFICATION LAYER               │
-                    │                                            │
-                    │  ┌──────────────────┐  ┌────────────────┐ │
-                    │  │ CampaignTracker  │  │ CampaignNotif- │ │
-                    │  │ Service          │  │ icationService │ │
-                    │  │                  │  │                │ │
-                    │  │ Progress updates │  │ Status changes │ │
-                    │  └────────┬─────────┘  └───────┬────────┘ │
-                    │           │                    │          │
-                    │           └──────────┬─────────┘          │
-                    │                      ▼                    │
-                    │         ┌──────────────────────┐          │
-                    │         │ AppNotificationBuilder│         │
-                    │         │                       │         │
-                    │         │ Channel: WebSocket    │         │
-                    │         │ (Email disabled)      │         │
-                    │         └───────────────────────┘         │
-                    └────────────────────────────────────────────┘
+    subgraph JQ["JOB QUEUE LAYER"]
+        PJ["PublishProductsJob<br/>Queue: campaigns<br/>Timeout: 900s<br/>Tries: 3"]
+        PaJ["PauseProductsJob<br/>Queue: campaigns<br/>Timeout: 600s<br/>Tries: 3"]
+        FJ["FinishProductsJob<br/>Queue: campaigns<br/>Timeout: 600s<br/>Tries: 3"]
+        AJCT["ActionJobCommonTrait<br/>- handleCommon()<br/>- processProducts()<br/>- handleJobFailure()"]
+        PJ --> AJCT
+        PaJ --> AJCT
+        FJ --> AJCT
+    end
+
+    JS["JUMPSELLER SERVICE<br/>- Phase-based processing<br/>- Individual product calls<br/>Phases: 1. categories, 2. product_data, 3. variants, 4. images"]
+    US["UBEREATS SERVICE<br/>- Menu-based bulk API<br/>- Single operation<br/>Operations: publishProducts(), pauseProducts(), deleteProducts()"]
+    MPJ["ManagePublishedProductsJob<br/>- Update product statuses<br/>- Record errors<br/>- Pause products on other campaigns<br/>- Update tracker progress"]
+
+    subgraph NL["NOTIFICATION LAYER"]
+        CTS["CampaignTrackerService<br/>Progress updates"]
+        CNS["CampaignNotificationService<br/>Status changes"]
+        ANB["AppNotificationBuilder<br/>Channel: WebSocket<br/>(Email disabled)"]
+        CTS --> ANB
+        CNS --> ANB
+    end
+
+    FE -->|"POST /api/ecommerce/campaign/{id}/products/{action}"| CTRL
+    CTRL -->|"dispatch()"| JQ
+    AJCT --> JS
+    AJCT --> US
+    JS --> MPJ
+    US --> MPJ
+    MPJ --> NL
 ```
 
 ---
@@ -148,129 +84,83 @@ The Campaign Publishing System enables merchants to publish products from their 
 
 ### Step-by-Step Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                              PUBLISH FLOW SEQUENCE                                   │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    S1["STEP 1: User Action<br/>User selects products → Selects marketplaces (Jumpseller, UberEats) → Clicks 'Publicar'"]
 
-  STEP 1: User Action
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  User selects products → Selects marketplaces (Jumpseller, UberEats) → Clicks "Publicar"
-  
-  
-  STEP 2: Frontend Request
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  CampaignProductsBatchOperations.tsx
-       │
-       ├── Validates selection (products + marketplaces)
-       │
-       └── POST /api/ecommerce/campaign/{id}/products/publish
-           {
-               "product_ids": ["uuid1", "uuid2", "uuid3"],
-               "marketplace_ids": [1, 2]
-           }
-  
-  
-  STEP 3: Controller Processing
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  CampaignProductController::publish()
-       │
-       ├── Authorize action (CampaignMarketplaceProduct policy)
-       │
-       ├── Validate request (PublishCampaignProductRequest)
-       │
-       ├── **UPDATE TRACKER** (Before dispatch - prevents stuck states)
-       │   └── CampaignTrackerService::createOrUpdateTracker()
-       │       └── status: 'pending', progress: 0%
-       │
-       └── Dispatch job
-           └── PublishProductsJob::dispatch($campaignMarketplaceProducts, $tracker)
-  
-  
-  STEP 4: Job Execution
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  PublishProductsJob::handle()
-       │
-       ├── ActionJobCommonTrait::handleCommon()
-       │       │
-       │       ├── Group products by marketplace
-       │       │
-       │       └── For each marketplace:
-       │               │
-       │               ├── Get marketplace service (via MarketplaceContract)
-       │               │
-       │               ├── Check rate limits
-       │               │       │
-       │               │       ├── delay = 0 → Execute immediately
-       │               │       ├── delay ≤ 5s → sleep() then execute
-       │               │       └── delay > 5s → Dispatch delayed job
-       │               │
-       │               └── Execute: $service->publishProducts()
-       │
-       └── Dispatch ManagePublishedProductsJob::dispatchSync()
-  
-  
-  STEP 5: Result Processing
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  ManagePublishedProductsJob::handle()
-       │
-       ├── Update successful products
-       │   └── status = PUBLISHED, published_at = now(), error_message = null
-       │
-       ├── Update failed products
-       │   └── status = ERRORED, error_message = {reason}
-       │
-       ├── Pause products on other active campaigns
-       │   └── A product can only be published once per marketplace
-       │
-       └── Update tracker progress
-           └── CampaignTrackerService::updateProgress()
-  
-  
-  STEP 6: Completion Notification
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  ManageCampaign::finishNotification()
-       │
-       ├── Update campaign status (if all products processed)
-       │   └── Campaign.status = PUBLISHED
-       │
-       └── CampaignNotificationService::campaignStatusChanged()
-               │
-               └── AppNotificationBuilder::send()
-                       │
-                       └── WebSocket → tenant.{id}.system channel
-                               │
-                               └── 🔔 "Campaign published successfully"
+    S2A["CampaignProductsBatchOperations.tsx"]
+    S2B["Validates selection (products + marketplaces)"]
+    S2C["POST /api/ecommerce/campaign/{id}/products/publish<br/>{ product_ids: [uuid1, uuid2, uuid3], marketplace_ids: [1, 2] }"]
+    S2A --> S2B --> S2C
+
+    S3A["CampaignProductController::publish()"]
+    S3B["Authorize action (CampaignMarketplaceProduct policy)"]
+    S3C["Validate request (PublishCampaignProductRequest)"]
+    S3D["**UPDATE TRACKER** (Before dispatch - prevents stuck states)<br/>CampaignTrackerService::createOrUpdateTracker()<br/>status: 'pending', progress: 0%"]
+    S3E["Dispatch job<br/>PublishProductsJob::dispatch($campaignMarketplaceProducts, $tracker)"]
+    S3A --> S3B --> S3C --> S3D --> S3E
+
+    S4A["PublishProductsJob::handle()"]
+    S4B["ActionJobCommonTrait::handleCommon()"]
+    S4C["Group products by marketplace"]
+    S4D["For each marketplace: Get marketplace service (via MarketplaceContract)"]
+    S4E["Check rate limits"]
+    S4F1["delay = 0 → Execute immediately"]
+    S4F2["delay ≤ 5s → sleep() then execute"]
+    S4F3["delay > 5s → Dispatch delayed job"]
+    S4G["Execute: $service->publishProducts()"]
+    S4H["Dispatch ManagePublishedProductsJob::dispatchSync()"]
+    S4A --> S4B --> S4C --> S4D --> S4E
+    S4E --> S4F1
+    S4E --> S4F2
+    S4E --> S4F3
+    S4F1 --> S4G
+    S4F2 --> S4G
+    S4F3 --> S4G
+    S4G --> S4H
+
+    S5A["ManagePublishedProductsJob::handle()"]
+    S5B["Update successful products<br/>status = PUBLISHED, published_at = now(), error_message = null"]
+    S5C["Update failed products<br/>status = ERRORED, error_message = {reason}"]
+    S5D["Pause products on other active campaigns<br/>A product can only be published once per marketplace"]
+    S5E["Update tracker progress<br/>CampaignTrackerService::updateProgress()"]
+    S5A --> S5B --> S5C --> S5D --> S5E
+
+    S6A["ManageCampaign::finishNotification()"]
+    S6B["Update campaign status (if all products processed)<br/>Campaign.status = PUBLISHED"]
+    S6C["CampaignNotificationService::campaignStatusChanged()"]
+    S6D["AppNotificationBuilder::send()"]
+    S6E["WebSocket → tenant.{id}.system channel"]
+    S6F["'Campaign published successfully'"]
+    S6A --> S6B --> S6C --> S6D --> S6E --> S6F
+
+    S1 --> S2A
+    S2C --> S3A
+    S3E --> S4A
+    S4H --> S5A
+    S5E --> S6A
 ```
 
 ### Timeline Diagram
 
-```
-Time ──────────────────────────────────────────────────────────────────────────────▶
+```mermaid
+sequenceDiagram
+    participant User as User Click
+    participant Controller
+    participant JobDispatch as Job Dispatch
+    participant Processing
+    participant Completion
+    participant Notification
 
-User Click    Controller    Job Dispatch    Processing    Completion    Notification
-    │             │              │              │              │              │
-    ▼             ▼              ▼              ▼              ▼              ▼
-┌───────┐   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
-│ POST  │──▶│ Validate│───▶│ Queue   │───▶│ Execute │───▶│ Update  │───▶│ Socket  │
-│/publish│  │ Create  │    │ Job     │    │ API     │    │ Status  │    │ Push    │
-│       │   │ Tracker │    │         │    │ Calls   │    │         │    │         │
-└───────┘   └─────────┘    └─────────┘    └─────────┘    └─────────┘    └─────────┘
-    │             │              │              │              │              │
-    │<──────────Response─────────│              │              │              │
-    │         (Job queued)       │              │              │              │
-    │                            │              │              │              │
-    │                            │<─────Progress Updates───────│              │
-    │                            │     (every 10%, 25%...)     │              │
-    │                            │                             │              │
-    │<─────────────────────────────────────────────────────────│──Notification│
-    │                           Final status update (PUBLISHED/PAUSED/FINISHED)
+    User->>Controller: POST /publish
+    Controller->>JobDispatch: Validate, Create Tracker → Queue Job
+    JobDispatch->>Processing: Execute API Calls
+    Processing->>Completion: Update Status
+    Completion->>Notification: Socket Push
+
+    Controller-->>User: Response (Job queued)
+    Processing-->>JobDispatch: Progress Updates (every 10%, 25%...)
+    Notification-->>User: Final status update (PUBLISHED/PAUSED/FINISHED)
 ```
 
 ---
@@ -281,53 +171,39 @@ User Click    Controller    Job Dispatch    Processing    Completion    Notifica
 
 Jumpseller uses a **phase-based** processing approach. Products are published in sequential phases:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                         JUMPSELLER PUBLISHING PHASES                                 │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    PJ["PublishProductsJob"]
+    GP["JumpsellerService::getProcessPhases()<br/>Returns: ['categories', 'product_data', 'variants', 'images']"]
+    PJ --> GP
 
-  PublishProductsJob
-         │
-         │  JumpsellerService::getProcessPhases()
-         │  Returns: ['categories', 'product_data', 'variants', 'images']
-         │
-         ▼
-  ┌─────────────────────────────────────────────────────────────────────────────────┐
-  │                                                                                  │
-  │   PHASE 1: Categories                     PHASE 2: Product Data                 │
-  │   ────────────────────                    ─────────────────────                 │
-  │   BatchSyncCategoriesJob                  BatchUpdateProductsJob                │
-  │                                                                                  │
-  │   • Sync product categories               • Create/update product records       │
-  │   • Create missing categories             • Set name, description, price        │
-  │   • Map local → Jumpseller IDs            • Link to Jumpseller categories       │
-  │                                                                                  │
-  │         ▼                                         ▼                             │
-  │   ┌──────────┐                            ┌──────────┐                          │
-  │   │ Progress │ 25%                        │ Progress │ 50%                      │
-  │   └──────────┘                            └──────────┘                          │
-  │                                                                                  │
-  │   PHASE 3: Variants                       PHASE 4: Images                       │
-  │   ─────────────────                       ───────────────                       │
-  │   BatchUpdateVariantsJob                  BatchUpdateImagesJob                  │
-  │                                                                                  │
-  │   • Update product variants               • Upload product images               │
-  │   • Set stock, SKU, prices                • Set main image                      │
-  │   • Handle variant options                • Upload gallery images               │
-  │                                                                                  │
-  │         ▼                                         ▼                             │
-  │   ┌──────────┐                            ┌──────────┐                          │
-  │   │ Progress │ 75%                        │ Progress │ 100%                     │
-  │   └──────────┘                            └──────────┘                          │
-  │                                                                                  │
-  └─────────────────────────────────────────────────────────────────────────────────┘
+    subgraph Phases["Jumpseller Publishing Phases"]
+        P1["PHASE 1: Categories<br/>BatchSyncCategoriesJob<br/>- Sync product categories<br/>- Create missing categories<br/>- Map local → Jumpseller IDs"]
+        Pr1["Progress: 25%"]
+        P2["PHASE 2: Product Data<br/>BatchUpdateProductsJob<br/>- Create/update product records<br/>- Set name, description, price<br/>- Link to Jumpseller categories"]
+        Pr2["Progress: 50%"]
+        P3["PHASE 3: Variants<br/>BatchUpdateVariantsJob<br/>- Update product variants<br/>- Set stock, SKU, prices<br/>- Handle variant options"]
+        Pr3["Progress: 75%"]
+        P4["PHASE 4: Images<br/>BatchUpdateImagesJob<br/>- Upload product images<br/>- Set main image<br/>- Upload gallery images"]
+        Pr4["Progress: 100%"]
 
-  Key Characteristics:
-  • Individual API calls per product
-  • Rate limiting per request
-  • Phase can fail independently
-  • Granular progress tracking
+        P1 --> Pr1
+        P2 --> Pr2
+        P3 --> Pr3
+        P4 --> Pr4
+        Pr1 --> P2
+        Pr2 --> P3
+        Pr3 --> P4
+    end
+
+    GP --> P1
 ```
+
+Key Characteristics:
+- Individual API calls per product
+- Rate limiting per request
+- Phase can fail independently
+- Granular progress tracking
 
 #### Jumpseller API Flow
 
@@ -371,61 +247,27 @@ public function publishProducts($user, $products, ...): array
 
 UberEats uses a **menu-based** bulk API approach. All products are sent as a complete menu structure:
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                          UBEREATS MENU-BASED PUBLISHING                              │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    PJ["PublishProductsJob"]
+    UP["UberService::publishProducts()"]
+    PJ --> UP
 
-  PublishProductsJob
-         │
-         │  UberService::publishProducts()
-         │
-         ▼
-  ┌─────────────────────────────────────────────────────────────────────────────────┐
-  │                                                                                  │
-  │   STEP 1: Build Menu Structure                                                  │
-  │   ────────────────────────────                                                  │
-  │                                                                                  │
-  │   • Group products by category                                                  │
-  │   • Build complete menu JSON                                                    │
-  │   • Include all items, modifiers, prices                                        │
-  │                                                                                  │
-  │   {                                                                             │
-  │     "menus": [{                                                                 │
-  │       "id": "menu-1",                                                           │
-  │       "title": "Main Menu",                                                     │
-  │       "categories": [{                                                          │
-  │         "id": "cat-1",                                                          │
-  │         "title": "Appetizers",                                                  │
-  │         "items": [...]                                                          │
-  │       }]                                                                        │
-  │     }]                                                                          │
-  │   }                                                                             │
-  │                                                                                  │
-  │         ▼                                                                       │
-  │                                                                                  │
-  │   STEP 2: Single API Call                                                       │
-  │   ───────────────────────                                                       │
-  │                                                                                  │
-  │   PUT /eats/stores/{store_id}/menus                                             │
-  │                                                                                  │
-  │   • Entire menu sent at once                                                    │
-  │   • All-or-nothing operation                                                    │
-  │   • Uber validates and applies menu                                             │
-  │                                                                                  │
-  │         ▼                                                                       │
-  │   ┌──────────┐                                                                  │
-  │   │ Progress │ 100% (single operation)                                          │
-  │   └──────────┘                                                                  │
-  │                                                                                  │
-  └─────────────────────────────────────────────────────────────────────────────────┘
+    subgraph Steps["UberEats Menu-Based Publishing"]
+        S1["STEP 1: Build Menu Structure<br/>- Group products by category<br/>- Build complete menu JSON<br/>- Include all items, modifiers, prices<br/>{ menus: [{ id: 'menu-1', title: 'Main Menu', categories: [{ id: 'cat-1', title: 'Appetizers', items: [...] }] }] }"]
+        S2["STEP 2: Single API Call<br/>PUT /eats/stores/{store_id}/menus<br/>- Entire menu sent at once<br/>- All-or-nothing operation<br/>- Uber validates and applies menu"]
+        Pr["Progress: 100% (single operation)"]
+        S1 --> S2 --> Pr
+    end
 
-  Key Characteristics:
-  • Single API call for entire menu
-  • All products processed together
-  • Faster for bulk operations
-  • All-or-nothing success/failure
+    UP --> S1
 ```
+
+Key Characteristics:
+- Single API call for entire menu
+- All products processed together
+- Faster for bulk operations
+- All-or-nothing success/failure
 
 #### UberEats API Flow
 
@@ -472,83 +314,33 @@ public function publishProducts($user, $products, ...): array
 
 ### Notification Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                          NOTIFICATION FLOW DIAGRAM                                   │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph SourceEvent["Source Event"]
+        PP["Phase Progress (10%, 25%)"]
+        PC["Phase Complete"]
+        PE["Phase Error"]
+    end
 
-  Source Event              Service Layer                    Delivery
-  ────────────              ─────────────                    ────────
+    subgraph ServiceLayer["Service Layer"]
+        CTS["CampaignTrackerService<br/>sendTrackingUpdateNotification()<br/>- Check context<br/>- 'phase' → SEND<br/>- 'completion' → SKIP"]
+        CNS["CampaignNotificationService<br/>- campaignProgress()<br/>- campaignStatusChanged()<br/>- campaignError()"]
+        ANB["AppNotificationBuilder<br/>- Checks channels<br/>- Socket: ENABLED<br/>- Email: DISABLED<br/>- Push: DISABLED"]
+    end
 
-  ┌─────────────┐
-  │ Phase       │
-  │ Progress    │───────┐
-  │ (10%, 25%)  │       │
-  └─────────────┘       │
-                        │
-  ┌─────────────┐       │      ┌─────────────────────────┐
-  │ Phase       │       │      │                         │
-  │ Complete    │───────┼─────▶│  CampaignTrackerService │
-  │             │       │      │                         │
-  └─────────────┘       │      │  sendTrackingUpdate-    │
-                        │      │  Notification()         │
-  ┌─────────────┐       │      │                         │
-  │ Phase       │       │      │  • Check context        │
-  │ Error       │───────┘      │  • "phase" → SEND       │
-  │             │              │  • "completion" → SKIP  │
-  └─────────────┘              │                         │
-                               └───────────┬─────────────┘
-                                           │
-                                           │ Phase progress only
-                                           │ (not completion)
-                                           ▼
-                               ┌─────────────────────────┐
-                               │                         │
-                               │ CampaignNotification-   │
-                               │ Service                 │
-                               │                         │
-                               │ • campaignProgress()    │─────┐
-                               │ • campaignStatusChanged()     │
-                               │ • campaignError()       │     │
-                               │                         │     │
-                               └───────────┬─────────────┘     │
-                                           │                   │
-                                           ▼                   │
-                               ┌─────────────────────────┐     │
-                               │                         │     │
-                               │  AppNotificationBuilder │     │
-                               │                         │     │
-                               │  • Checks channels      │     │
-                               │  • Socket: ENABLED ✓    │     │
-                               │  • Email: DISABLED ✗    │     │
-                               │  • Push: DISABLED ✗     │     │
-                               │                         │     │
-                               └───────────┬─────────────┘     │
-                                           │                   │
-                                           ▼                   │
-                               ┌─────────────────────────┐     │
-                               │       WebSocket         │     │
-                               │                         │     │
-                               │  Channel: tenant.{id}.  │     │
-                               │           system        │◀────┘
-                               │                         │
-                               │  Events:                │
-                               │  • campaign.progress    │
-                               │  • campaign.status      │
-                               │  • campaign.error       │
-                               │                         │
-                               └───────────┬─────────────┘
-                                           │
-                                           ▼
-                               ┌─────────────────────────┐
-                               │       FRONTEND          │
-                               │                         │
-                               │  CampaignEdit.tsx       │
-                               │  • Listen to socket     │
-                               │  • Update UI            │
-                               │  • Refresh on complete  │
-                               │                         │
-                               └─────────────────────────┘
+    subgraph Delivery["Delivery"]
+        WS["WebSocket<br/>Channel: tenant.{id}.system<br/>Events: campaign.progress, campaign.status, campaign.error"]
+        FE["FRONTEND<br/>CampaignEdit.tsx<br/>- Listen to socket<br/>- Update UI<br/>- Refresh on complete"]
+    end
+
+    PP --> CTS
+    PC --> CTS
+    PE --> CTS
+    CTS -->|"Phase progress only (not completion)"| CNS
+    CNS --> ANB
+    CNS --> WS
+    ANB --> WS
+    WS --> FE
 ```
 
 ### Notification Events
@@ -634,48 +426,32 @@ useEffect(() => {
 
 ### Tracker State Machine
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                           TRACKER STATE MACHINE                                      │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING: PENDING (0%)
+    PENDING --> IN_PROGRESS: Job starts executing / startTracker()
 
-                                    ┌─────────────┐
-                                    │   PENDING   │
-                                    │   (0%)      │
-                                    └──────┬──────┘
-                                           │
-                                           │ Job starts executing
-                                           │ startTracker()
-                                           ▼
-                                    ┌─────────────┐
-                              ┌────▶│ IN_PROGRESS │◀────┐
-                              │     │   (1-99%)   │     │
-                              │     └──────┬──────┘     │
-                              │            │            │
-                              │            │            │
-              updatePhaseProgress()   ┌────┴────┐      │ Retry on
-                              │       │         │      │ recoverable
-                              │       ▼         ▼      │ error
-                              │  ┌─────────┐ ┌─────────┐
-                              └──│ Phase N │ │ Phase N │──┘
-                                 │ Success │ │ Error   │
-                                 └────┬────┘ └────┬────┘
-                                      │           │
-                                 All phases       │
-                                 complete         │
-                                      │           │
-                              ┌───────┴───────────┼───────────────┐
-                              │                   │               │
-                              ▼                   ▼               ▼
-                       ┌─────────────┐     ┌─────────────┐ ┌─────────────┐
-                       │  COMPLETED  │     │   FAILED    │ │  CANCELLED  │
-                       │   (100%)    │     │  (any %)    │ │  (any %)    │
-                       └─────────────┘     └─────────────┘ └─────────────┘
-                              │                   │
-                              │                   │
-                              ▼                   ▼
-                    🔔 Socket Notification    🔔 Socket Notification
-                       (via finishNotification)   (error message)
+    IN_PROGRESS: IN_PROGRESS (1-99%)
+    IN_PROGRESS --> PhaseSuccess: updatePhaseProgress()
+    IN_PROGRESS --> PhaseError: updatePhaseProgress()
+
+    PhaseSuccess: Phase N Success
+    PhaseError: Phase N Error
+    PhaseError --> IN_PROGRESS: Retry on recoverable error
+
+    PhaseSuccess --> COMPLETED: All phases complete
+    PhaseSuccess --> FAILED
+    PhaseSuccess --> CANCELLED
+    PhaseError --> FAILED
+    PhaseError --> CANCELLED
+
+    COMPLETED: COMPLETED (100%)
+    FAILED: FAILED (any %)
+    CANCELLED: CANCELLED (any %)
+
+    COMPLETED --> [*]: Socket Notification (via finishNotification)
+    FAILED --> [*]: Socket Notification (error message)
 ```
 
 ### Tracker Database Model
@@ -790,122 +566,54 @@ const CACHE_TTL = 300; // 5 minutes
 
 ### Pause Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                                 PAUSE FLOW                                           │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Click["User Action: Click 'Pausar'"]
+    Ctrl["Controller::pause()"]
+    Job["PauseProductsJob"]
+    JS["Jumpseller<br/>Set products to 'not_available'<br/>Individual API calls per product"]
+    US["UberEats<br/>Update menu items status<br/>Single API call"]
+    MP["ManageProductsJob<br/>- Update local statuses<br/>- Update tracker"]
+    CMP["CampaignMarketplaceProduct.status = PAUSED"]
+    CS["Campaign.status = PAUSED (if all paused)"]
+    Notif["Socket Notification: 'Campaign paused'"]
 
-  User Action                    Backend                      Marketplace
-  ───────────                    ───────                      ───────────
-
-  Click "Pausar"
-       │
-       │ POST /campaign/{id}/products/pause
-       ▼
-  ┌──────────────┐
-  │  Controller  │
-  │  ::pause()   │
-  └──────┬───────┘
-         │
-         │ dispatch()
-         ▼
-  ┌──────────────┐
-  │PauseProducts │
-  │    Job       │
-  └──────┬───────┘
-         │
-         ├──────────────────────────┬──────────────────────────┐
-         │                          │                          │
-         ▼                          ▼                          ▼
-  ┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
-  │    Jumpseller    │      │     UberEats     │      │ ManageProducts   │
-  │                  │      │                  │      │     Job          │
-  │ Set products to  │      │ Update menu      │      │                  │
-  │ "not_available"  │      │ items status     │      │ • Update local   │
-  │                  │      │                  │      │   statuses       │
-  │ Individual API   │      │ Single API call  │      │ • Update tracker │
-  │ calls per product│      │                  │      │                  │
-  └──────────────────┘      └──────────────────┘      └──────────────────┘
-         │                          │                          │
-         └──────────────────────────┼──────────────────────────┘
-                                    │
-                                    ▼
-                             ┌──────────────────┐
-                             │ CampaignMarket-  │
-                             │ placeProduct     │
-                             │ .status = PAUSED │
-                             └──────────────────┘
-                                    │
-                                    ▼
-                             ┌──────────────────┐
-                             │ Campaign.status  │
-                             │  = PAUSED        │
-                             │ (if all paused)  │
-                             └──────────────────┘
-                                    │
-                                    ▼
-                             🔔 Socket Notification
-                                "Campaign paused"
+    Click -->|"POST /campaign/{id}/products/pause"| Ctrl
+    Ctrl -->|"dispatch()"| Job
+    Job --> JS
+    Job --> US
+    Job --> MP
+    JS --> CMP
+    US --> CMP
+    MP --> CMP
+    CMP --> CS
+    CS --> Notif
 ```
 
 ### Finish Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                                 FINISH FLOW                                          │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Click["User Action: Click 'Finalizar'"]
+    Ctrl["Controller::finish()"]
+    Job["FinishProductsJob"]
+    JS["Jumpseller<br/>Delete product from marketplace OR archive"]
+    US["UberEats<br/>*** DELETE *** products from menu<br/>deleteProducts()"]
+    MP["ManageProductsJob<br/>- Update local statuses<br/>- Update tracker"]
+    CMP["CampaignMarketplaceProduct.status = FINISHED"]
+    CS["Campaign.status = FINISHED (if all finished)"]
+    Notif["Socket Notification: 'Campaign finished'"]
 
-  User Action                    Backend                      Marketplace
-  ───────────                    ───────                      ───────────
-
-  Click "Finalizar"
-       │
-       │ POST /campaign/{id}/products/finish
-       ▼
-  ┌──────────────┐
-  │  Controller  │
-  │  ::finish()  │
-  └──────┬───────┘
-         │
-         │ dispatch()
-         ▼
-  ┌──────────────┐
-  │FinishProducts│
-  │    Job       │
-  └──────┬───────┘
-         │
-         ├──────────────────────────┬──────────────────────────┐
-         │                          │                          │
-         ▼                          ▼                          ▼
-  ┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
-  │    Jumpseller    │      │     UberEats     │      │ ManageProducts   │
-  │                  │      │                  │      │     Job          │
-  │ Delete product   │      │ *** DELETE ***   │      │                  │
-  │ from marketplace │      │ products from    │      │ • Update local   │
-  │ OR archive       │      │ menu             │      │   statuses       │
-  │                  │      │                  │      │ • Update tracker │
-  │                  │      │ deleteProducts() │      │                  │
-  └──────────────────┘      └──────────────────┘      └──────────────────┘
-         │                          │                          │
-         └──────────────────────────┼──────────────────────────┘
-                                    │
-                                    ▼
-                             ┌──────────────────┐
-                             │ CampaignMarket-  │
-                             │ placeProduct     │
-                             │.status = FINISHED│
-                             └──────────────────┘
-                                    │
-                                    ▼
-                             ┌──────────────────┐
-                             │ Campaign.status  │
-                             │  = FINISHED      │
-                             │(if all finished) │
-                             └──────────────────┘
-                                    │
-                                    ▼
-                             🔔 Socket Notification
-                               "Campaign finished"
+    Click -->|"POST /campaign/{id}/products/finish"| Ctrl
+    Ctrl -->|"dispatch()"| Job
+    Job --> JS
+    Job --> US
+    Job --> MP
+    JS --> CMP
+    US --> CMP
+    MP --> CMP
+    CMP --> CS
+    CS --> Notif
 ```
 
 ### Important: UberEats Finish = DELETE
@@ -938,96 +646,48 @@ public function deleteProducts($user, $products, ...): array
 
 ### Error Handling Layers
 
+```mermaid
+flowchart TD
+    L1["LAYER 1: Product Level<br/>- Individual product errors caught in try/catch<br/>- Status updated to ERRORED<br/>- Error message stored in CampaignMarketplaceProduct.error_message<br/>- Processing CONTINUES with next product"]
+    L2["LAYER 2: Phase Level (Jumpseller only)<br/>- Phase failure marks phase as FAILED in tracker<br/>- Subsequent phases may still execute<br/>- Partial progress is preserved<br/>Example: Categories phase fails, but product_data phase can still run for products with valid categories"]
+    L3["LAYER 3: Marketplace Level<br/>- Marketplace-wide failures (API down, auth expired)<br/>- Entire marketplace operation fails<br/>- Tracker records failure reason<br/>- Notification sent to user"]
+    L4["LAYER 4: Job Level<br/>- Uncaught exceptions trigger job retry<br/>- Maximum 3 retries with exponential backoff<br/>- Failed jobs logged to failed_jobs table<br/>- Tracker marked as FAILED after all retries exhausted<br/>Retry backoff: [60s, 300s, 600s] (1 min, 5 min, 10 min)"]
+
+    L1 --> L2 --> L3 --> L4
 ```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                           ERROR HANDLING LAYERS                                      │
-└─────────────────────────────────────────────────────────────────────────────────────┘
 
-  LAYER 1: Product Level
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  • Individual product errors caught in try/catch
-  • Status updated to ERRORED
-  • Error message stored in CampaignMarketplaceProduct.error_message
-  • Processing CONTINUES with next product
-  
-  try {
-      $service->publishProduct($product);
-      $pushed[] = $product;
-  } catch (Exception $e) {
-      $product->update(['status' => 'ERRORED', 'error_message' => $e->getMessage()]);
-      $failed[] = $product;
-      // Continue processing other products
-  }
-
-
-  LAYER 2: Phase Level (Jumpseller only)
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  • Phase failure marks phase as FAILED in tracker
-  • Subsequent phases may still execute
-  • Partial progress is preserved
-  
-  Example: Categories phase fails, but product_data phase can still run
-           for products with valid categories
-
-
-  LAYER 3: Marketplace Level
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  • Marketplace-wide failures (API down, auth expired)
-  • Entire marketplace operation fails
-  • Tracker records failure reason
-  • Notification sent to user
-
-
-  LAYER 4: Job Level
-  ───────────────────────────────────────────────────────────────────────────────────
-  
-  • Uncaught exceptions trigger job retry
-  • Maximum 3 retries with exponential backoff
-  • Failed jobs logged to failed_jobs table
-  • Tracker marked as FAILED after all retries exhausted
-  
-  Retry backoff: [60s, 300s, 600s] (1 min, 5 min, 10 min)
+```php
+// Layer 1 example
+try {
+    $service->publishProduct($product);
+    $pushed[] = $product;
+} catch (Exception $e) {
+    $product->update(['status' => 'ERRORED', 'error_message' => $e->getMessage()]);
+    $failed[] = $product;
+    // Continue processing other products
+}
 ```
 
 ### Rate Limiting & Retry Strategy
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                          RATE LIMITING FLOW                                          │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    PP["processProducts()"]
+    HL{"hasRequestsLimiter()?"}
+    GD["getNextAllowedRequestDelay()"]
+    Exec1["Execute immediately"]
+    Exec2["Execute immediately"]
+    SleepExec["sleep($delay) → Execute"]
+    Dispatch["Dispatch NEW delayed job"]
+    SameJob["Same job class<br/>-&gt;delay($delay)<br/>Queue: campaigns<br/>Allows worker to process other jobs"]
 
-  processProducts()
-         │
-         ▼
-  ┌─────────────────────────┐
-  │ hasRequestsLimiter()?   │
-  └───────────┬─────────────┘
-              │
-              ├── No ────────────────────────▶ Execute immediately
-              │
-              ▼ Yes
-  ┌─────────────────────────┐
-  │getNextAllowedRequestDelay()│
-  └───────────┬─────────────┘
-              │
-              ├── delay = 0 ─────────────────▶ Execute immediately
-              │
-              ├── delay ≤ 5 seconds ─────────▶ sleep($delay) → Execute
-              │
-              └── delay > 5 seconds ─────────▶ Dispatch NEW delayed job
-                                                      │
-                                                      ▼
-                                              ┌─────────────────────┐
-                                              │ Same job class      │
-                                              │ ->delay($delay)     │
-                                              │ Queue: campaigns    │
-                                              │                     │
-                                              │ Allows worker to    │
-                                              │ process other jobs  │
-                                              └─────────────────────┘
+    PP --> HL
+    HL -->|No| Exec1
+    HL -->|Yes| GD
+    GD -->|delay = 0| Exec2
+    GD -->|delay ≤ 5 seconds| SleepExec
+    GD -->|delay > 5 seconds| Dispatch
+    Dispatch --> SameJob
 ```
 
 ### Error Recovery Patterns

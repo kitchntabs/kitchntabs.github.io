@@ -44,67 +44,16 @@ KitchnTabsWebPrivateAppLoader
 
 ### Data Flow Diagram
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                        TENANT SWITCHING DATA FLOW                            │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────┐                                                         │
-│  │ TenantSwitcher  │  (UI: header dropdown)                                 │
-│  │                 │                                                         │
-│  │ 1. Persist      │  dashStorage.setItem('active_tenant_id', tenantId)     │
-│  │ 2. API Call     │  GET /auth/tenancyAuth  (X-Tenant-Id: {tenantId})      │
-│  │ 3. Persist auth │  AuthPersistenceService.saveAuth(response)             │
-│  │ 4. Update CSS   │  updateDomCssVariables(mode, colors, values)           │
-│  │ 5. Update logos │  dispatch(setPanelSettings({logos}))                    │
-│  │ 6. Dispatch     │  window.dispatchEvent('tenant_switch', detail)         │
-│  └────────┬────────┘                                                         │
-│           │                                                                  │
-│           │  CustomEvent('tenant_switch')                                    │
-│           ▼                                                                  │
-│  ┌──────────────────────────┐                                                │
-│  │ PrivateAppLoader         │                                                │
-│  │                          │                                                │
-│  │ 1. Clear resources/routes│  setResources(null)                            │
-│  │ 2. Increment switchKey   │  setSwitchKey(prev + 1)                        │
-│  │ 3. Update tenantContext  │  setTenantContext(detail.tenantId)              │
-│  └────────┬─────────────────┘                                                │
-│           │                                                                  │
-│           │  useEffect([tenantContext])                                       │
-│           ▼                                                                  │
-│  ┌──────────────────────────┐                                                │
-│  │ Resource Loading         │                                                │
-│  │                          │                                                │
-│  │ tenantContext = null:     │  → KitchnTabsWebPrivateResources (23 res)     │
-│  │ tenantContext = "123":    │  → KitchnTabsWebTenantPrivateResources (4 res)│
-│  │                          │                                                │
-│  │ clearResourceCache()     │                                                │
-│  │ loadResourcesFromManifest│                                                │
-│  │ dispatch(setResources()) │  → Redux store                                │
-│  └────────┬─────────────────┘                                                │
-│           │                                                                  │
-│           │  key={switchKey} forces full remount                             │
-│           ▼                                                                  │
-│  ┌──────────────────────────┐                                                │
-│  │ KitchnTabsWebPrivateApp  │  (new instance)                               │
-│  │                          │                                                │
-│  │ ┌── DashThemeProvider ──┐│                                                │
-│  │ │ Reads tenant settings ││                                                │
-│  │ │ Builds MUI theme      ││                                                │
-│  │ │ Applies CSS variables ││                                                │
-│  │ └───────────────────────┘│                                                │
-│  │                          │                                                │
-│  │ ┌── DASHAdmin ──────────┐│                                                │
-│  │ │ calculateResources →  ││  dispatch(setResources)                        │
-│  │ │ AsyncResources        ││  reads from Redux → renders AdminUI            │
-│  │ └───────────────────────┘│                                                │
-│  │                          │                                                │
-│  │ ┌── AppMaterialMenu ────┐│                                                │
-│  │ │ useSelector(resources) ││  → builds grouped sidebar menu items          │
-│  │ └───────────────────────┘│                                                │
-│  └──────────────────────────┘                                                │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TS["TenantSwitcher (UI: header dropdown)<br/>1. Persist: dashStorage.setItem('active_tenant_id', tenantId)<br/>2. API Call: GET /auth/tenancyAuth (X-Tenant-Id: {tenantId})<br/>3. Persist auth: AuthPersistenceService.saveAuth(response)<br/>4. Update CSS: updateDomCssVariables(mode, colors, values)<br/>5. Update logos: dispatch(setPanelSettings({logos}))<br/>6. Dispatch: window.dispatchEvent('tenant_switch', detail)"] -- "CustomEvent('tenant_switch')" --> PAL["PrivateAppLoader<br/>1. Clear resources/routes: setResources(null)<br/>2. Increment switchKey: setSwitchKey(prev + 1)<br/>3. Update tenantContext: setTenantContext(detail.tenantId)"]
+    PAL -- "useEffect([tenantContext])" --> RL["Resource Loading<br/>tenantContext = null: → KitchnTabsWebPrivateResources (23 res)<br/>tenantContext = '123': → KitchnTabsWebTenantPrivateResources (4 res)<br/>clearResourceCache()<br/>loadResourcesFromManifest<br/>dispatch(setResources()) → Redux store"]
+    RL -- "key={switchKey} forces full remount" --> KWPA["KitchnTabsWebPrivateApp (new instance)"]
+    subgraph KWPA["KitchnTabsWebPrivateApp (new instance)"]
+        DTP["DashThemeProvider<br/>Reads tenant settings<br/>Builds MUI theme<br/>Applies CSS variables"]
+        DA["DASHAdmin<br/>calculateResources → dispatch(setResources)<br/>AsyncResources → reads from Redux → renders AdminUI"]
+        AMM["AppMaterialMenu<br/>useSelector(resources) → builds grouped sidebar menu items"]
+    end
 ```
 
 ---
@@ -368,54 +317,41 @@ The loader calls `clearResourceCache` before each load to ensure stale tenant re
 ```
 User clicks "Tenant X" in TenantSwitcher dropdown
   │
-  ├─ 1.  dashStorage.setItem('active_tenant_id', '123')
-  ├─ 2.  GET /auth/tenancyAuth  { headers: { X-Tenant-Id: '123' } }
-  ├─ 3.  AuthPersistenceService.saveAuth(response)
-  │       └── stores tenantSettings + tenantImages to localStorage
-  ├─ 4.  setAuthEvent({ user, auth, token, roles })
-  ├─ 5.  updateDomCssVariables(currentMode, colors, values)
-  │       ├── reads data-theme attribute → "dark" or "light"
-  │       ├── if colors defined → writes suffixed variables + base aliases
-  │       └── if colors undefined → reads static LESS defaults → resets to defaults
-  ├─ 6.  dispatch(setPanelSettings({ logos }))
-  ├─ 7.  AuthPersistenceService.setTenantSettings(tenantSettings)
-  ├─ 8.  window.dispatchEvent('tenant_switch', { tenantId: '123', ... })
-  │
-  └─ PrivateAppLoader receives event
-       │
-       ├─ 9.  setResources(null)         → loading guard activates
-       ├─ 10. setSwitchKey(prev + 1)     → will force remount
-       ├─ 11. setTenantContext('123')     → triggers resource effect
-       │
-       └─ useEffect([tenantContext]) fires
-            │
-            ├─ 12. import KitchnTabsWebTenantPrivateResources
-            ├─ 13. clearResourceCache(manifest)
-            ├─ 14. loadResourcesFromManifest(manifest) → 4 resources
-            ├─ 15. dispatch(setReduxResources(4 resources))
-            ├─ 16. setResources(resolvedArray)
-            ├─ 17. setRoutes(mergedRoutes)
-            ├─ 18. setIsLoading(false)
-            │
-            └─ Render phase (key change forces full remount)
-                 │
-                 ├─ 19. <KitchnTabsWebPrivateApp key="private-app-1" />
-                 │       (new key → old instance unmounts, new mounts)
-                 │
-                 ├─ 20. DashThemeProvider mounts
-                 │       ├── AuthPersistenceService.getTenantSettings() → reads new colors
-                 │       ├── appTheme(options, { colors, tenantSettings }) → MUI palette
-                 │       └── updateDomCssVariables() on mount effect
-                 │
-                 ├─ 21. DASHAdmin receives customResources (4 items)
-                 │       calculateResources() → dispatch(setResources)
-                 │
-                 ├─ 22. Redux: state.resources.items = [4 items]
-                 │
-                 ├─ 23. AsyncResources re-renders with 4 resources
-                 │
-                 └─ 24. AppMaterialMenu re-renders → shows 4 menu items
-                        with new tenant's theme colors applied
+```mermaid
+flowchart TD
+    Start["User clicks 'Tenant X' in TenantSwitcher dropdown"] --> S1["1. dashStorage.setItem('active_tenant_id', '123')"]
+    S1 --> S2["2. GET /auth/tenancyAuth { headers: { X-Tenant-Id: '123' } }"]
+    S2 --> S3["3. AuthPersistenceService.saveAuth(response)<br/>- stores tenantSettings + tenantImages to localStorage"]
+    S3 --> S4["4. setAuthEvent({ user, auth, token, roles })"]
+    S4 --> S5["5. updateDomCssVariables(currentMode, colors, values)<br/>- reads data-theme attribute → 'dark' or 'light'<br/>- if colors defined → writes suffixed variables + base aliases<br/>- if colors undefined → reads static LESS defaults → resets to defaults"]
+    S5 --> S6["6. dispatch(setPanelSettings({ logos }))"]
+    S6 --> S7["7. AuthPersistenceService.setTenantSettings(tenantSettings)"]
+    S7 --> S8["8. window.dispatchEvent('tenant_switch', { tenantId: '123', ... })"]
+    S8 --> PAL["PrivateAppLoader receives event"]
+    
+    PAL --> S9["9. setResources(null) → loading guard activates"]
+    S9 --> S10["10. setSwitchKey(prev + 1) → will force remount"]
+    S10 --> S11["11. setTenantContext('123') → triggers resource effect"]
+    
+    S11 --> UE["useEffect([tenantContext]) fires"]
+    UE --> S12["12. import KitchnTabsWebTenantPrivateResources"]
+    S12 --> S13["13. clearResourceCache(manifest)"]
+    S13 --> S14["14. loadResourcesFromManifest(manifest) → 4 resources"]
+    S14 --> S15["15. dispatch(setReduxResources(4 resources))"]
+    S15 --> S16["16. setResources(resolvedArray)"]
+    S16 --> S17["17. setRoutes(mergedRoutes)"]
+    S17 --> S18["18. setIsLoading(false)"]
+    
+    S18 --> RP["Render phase (key change forces full remount)"]
+    RP --> S19["19. KitchnTabsWebPrivateApp key='private-app-1'<br/>(new key → old instance unmounts, new mounts)"]
+    
+    S19 --> S20["20. DashThemeProvider mounts<br/>- AuthPersistenceService.getTenantSettings() → reads new colors<br/>- appTheme(options, { colors, tenantSettings }) → MUI palette<br/>- updateDomCssVariables() on mount effect"]
+    
+    S20 --> S21["21. DASHAdmin receives customResources (4 items)<br/>calculateResources() → dispatch(setResources)"]
+    
+    S21 --> S22["22. Redux: state.resources.items = [4 items]"]
+    S22 --> S23["23. AsyncResources re-renders with 4 resources"]
+    S23 --> S24["24. AppMaterialMenu re-renders → shows 4 menu items<br/>with new tenant's theme colors applied"]
 ```
 
 ---
@@ -740,27 +676,16 @@ export const updateDomCssVariables = (
 
 #### Algorithm
 
-```
-updateDomCssVariables("dark", colors, values)
-  │
-  ├─ 1. Find or create <style id="dash-theme-variables">
-  │
-  ├─ 2. ALWAYS move to end of <head> via appendChild()
-  │     └─ Ensures highest CSS cascade priority
-  │
-  ├─ 3. If colors is undefined → read static LESS defaults
-  │     └─ getStaticCssVariables() → iterates all stylesheets
-  │        EXCEPT the dynamic style element → returns compiled :root vars
-  │
-  ├─ 4. Collect all variable keys from colors or static vars
-  │
-  ├─ 5. For each key:
-  │     ├─ Resolve value: colors[key] → staticVars[--key] → getCssVarFromDom(key)
-  │     ├─ Include only current-theme suffixed vars or non-theme vars
-  │     └─ If key ends with --{theme}: also generate base alias
-  │        e.g., --primary-color--dark → also set --primary-color
-  │
-  └─ 6. Write to DOM: themeStyleElement.textContent = `:root { ${styleString} }`
+```mermaid
+flowchart TD
+    Start["updateDomCssVariables('dark', colors, values)"] --> S1["1. Find or create <style id='dash-theme-variables'>"]
+    S1 --> S2["2. ALWAYS move to end of <head> via appendChild()<br/>- Ensures highest CSS cascade priority"]
+    S2 --> S3{"3. If colors is undefined?"}
+    S3 -- "Yes" --> S3a["Read static LESS defaults<br/>getStaticCssVariables() → iterates all stylesheets<br/>EXCEPT the dynamic style element → returns compiled :root vars"]
+    S3a --> S4
+    S3 -- "No" --> S4["4. Collect all variable keys from colors or static vars"]
+    S4 --> S5["5. For each key:<br/>- Resolve value: colors[key] → staticVars[--key] → getCssVarFromDom(key)<br/>- Include only current-theme suffixed vars or non-theme vars<br/>- If key ends with --{theme}: also generate base alias<br/>e.g., --primary-color--dark → also set --primary-color"]
+    S5 --> S6["6. Write to DOM: themeStyleElement.textContent = `:root { ${styleString} }`"]
 ```
 
 #### Helper Functions
@@ -1192,25 +1117,15 @@ The current mode is stored in the `data-theme` attribute on `<html>`:
 
 ### Mode Change Flow
 
-```
-User toggles light/dark mode
-  │
-  ├─ 1. Update: document.documentElement.setAttribute('data-theme', 'light')
-  │
-  ├─ 2. MutationObserver in DashThemeProvider fires
-  │     └─ setCurrentMode('light')
-  │
-  ├─ 3. useEffect([currentMode]) fires → recreateTheme(settings, 'light')
-  │     ├─ appTheme({ colors, currentMode: 'light' })
-  │     │   └─ _color() reads colors["primary-color--light"] instead of --dark
-  │     ├─ createTheme(newThemeOptions)
-  │     └─ updateDomCssVariables('light', colors, values)
-  │         └─ Regenerates base aliases from --light suffixed vars
-  │            e.g., --primary-color = value of --primary-color--light
-  │
-  └─ 4. UI updates:
-        ├─ CSS components: var(--primary-color) now resolves to light value
-        └─ MUI components: palette.primary.main now has light value
+```mermaid
+flowchart TD
+    Start["User toggles light/dark mode"] --> S1["1. Update: document.documentElement.setAttribute('data-theme', 'light')"]
+    S1 --> S2["2. MutationObserver in DashThemeProvider fires<br/>- setCurrentMode('light')"]
+    S2 --> S3["3. useEffect([currentMode]) fires → recreateTheme(settings, 'light')"]
+    S3 --> S3a["appTheme({ colors, currentMode: 'light' })<br/>- _color() reads colors['primary-color--light'] instead of --dark"]
+    S3a --> S3b["createTheme(newThemeOptions)"]
+    S3b --> S3c["updateDomCssVariables('light', colors, values)<br/>- Regenerates base aliases from --light suffixed vars<br/>e.g., --primary-color = value of --primary-color--light"]
+    S3c --> S4["4. UI updates:<br/>- CSS components: var(--primary-color) now resolves to light value<br/>- MUI components: palette.primary.main now has light value"]
 ```
 
 ### Interaction with Tenant Colors

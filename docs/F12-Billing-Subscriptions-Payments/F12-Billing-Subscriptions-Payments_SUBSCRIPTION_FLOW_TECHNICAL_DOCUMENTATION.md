@@ -67,54 +67,17 @@ KitchnTabs uses a **tier-based subscription system** integrated with **Flow.cl**
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          SUBSCRIPTION ARCHITECTURE                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────────────┐    ┌──────────────────────┐                       │
-│  │    Frontend (React)  │    │    Admin Dashboard   │                       │
-│  │    Pricing Page      │    │    (Plan Management) │                       │
-│  └──────────┬───────────┘    └──────────┬───────────┘                       │
-│             │                           │                                    │
-│             │         REST API          │                                    │
-│             ▼                           ▼                                    │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                   Laravel Backend (Dash-Backend)                      │   │
-│  │  ┌────────────────────────────────────────────────────────────────┐  │   │
-│  │  │              TenancySubscriptionController                      │  │   │
-│  │  │  - POST /tenancy/subscriptions/{id}/change-plan                │  │   │
-│  │  │  - POST /tenancy/subscriptions/{id}/cancel                     │  │   │
-│  │  └─────────────────────────────┬──────────────────────────────────┘  │   │
-│  │                                │                                      │   │
-│  │                                ▼                                      │   │
-│  │  ┌────────────────────────────────────────────────────────────────┐  │   │
-│  │  │               TenancySubscriptionService                        │  │   │
-│  │  │  - create(), changePlan(), upgrade(), downgrade(), cancel()    │  │   │
-│  │  │  - validateDowngrade(), sendPlanChangedEmail()                 │  │   │
-│  │  │  - generateReceiptIfNeeded()                                   │  │   │
-│  │  └─────────────────────────────┬──────────────────────────────────┘  │   │
-│  │                                │                                      │   │
-│  │                                ▼                                      │   │
-│  │  ┌────────────────────────────────────────────────────────────────┐  │   │
-│  │  │              FlowPaymentGatewayService                          │  │   │
-│  │  │  - Uses: FlowSubscriptionsTrait                                │  │   │
-│  │  │  - Methods: createSubscription, updateSubscription, cancel     │  │   │
-│  │  └─────────────────────────────┬──────────────────────────────────┘  │   │
-│  │                                │                                      │   │
-│  └────────────────────────────────┼──────────────────────────────────────┘   │
-│                                   │                                          │
-│                                   ▼                                          │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                         Flow.cl API                                   │   │
-│  │  - POST /subscription/create                                         │   │
-│  │  - POST /subscription/changePlan                                     │   │
-│  │  - POST /subscription/changePlanPreview                             │   │
-│  │  - POST /subscription/cancel                                         │   │
-│  │  - POST /plans/create                                                │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Frontend (React)<br/>Pricing Page"] -->|REST API| C
+    B["Admin Dashboard<br/>(Plan Management)"] -->|REST API| C
+    subgraph LB["Laravel Backend (Dash-Backend)"]
+        C["TenancySubscriptionController<br/>- POST /tenancy/subscriptions/{id}/change-plan<br/>- POST /tenancy/subscriptions/{id}/cancel"]
+        D["TenancySubscriptionService<br/>- create(), changePlan(), upgrade(), downgrade(), cancel()<br/>- validateDowngrade(), sendPlanChangedEmail()<br/>- generateReceiptIfNeeded()"]
+        E["FlowPaymentGatewayService<br/>- Uses: FlowSubscriptionsTrait<br/>- Methods: createSubscription, updateSubscription, cancel"]
+        C --> D --> E
+    end
+    E --> F["Flow.cl API<br/>- POST /subscription/create<br/>- POST /subscription/changePlan<br/>- POST /subscription/changePlanPreview<br/>- POST /subscription/cancel<br/>- POST /plans/create"]
 ```
 
 ---
@@ -181,47 +144,23 @@ KitchnTabs uses a **tier-based subscription system** integrated with **Flow.cl**
 
 ### Initial Subscription Creation
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      INITIAL SUBSCRIPTION FLOW                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  STEP 1: Customer selects plan on pricing page                              │
-│           └─▶ Frontend sends: { plan_id, billing_cycle, trial: true/false } │
-│                                                                              │
-│  STEP 2: Backend TenancySubscriptionService::create()                       │
-│           │                                                                  │
-│           ├─▶ Create TenancySubscription record (status: 'pending')         │
-│           │                                                                  │
-│           ├─▶ If trial: Set trial_days_remaining = 30                       │
-│           │                                                                  │
-│           ├─▶ Get payment method from tenancy                               │
-│           │                                                                  │
-│           └─▶ Call gateway->createSubscription()                            │
-│                                                                              │
-│  STEP 3: FlowSubscriptionsTrait::createSubscription()                       │
-│           │                                                                  │
-│           ├─▶ Ensure customer exists in Flow (create if needed)             │
-│           │                                                                  │
-│           ├─▶ Ensure plan exists in Flow (sync if needed)                   │
-│           │                                                                  │
-│           └─▶ POST /subscription/create to Flow                             │
-│               {                                                              │
-│                 "planId": "plan_basic_monthly_clp",                         │
-│                 "customerId": "cus_xxxx",                                   │
-│                 "trial_period_days": 30,                                    │
-│                 "subscription_start": "2025-01-15"                          │
-│               }                                                              │
-│                                                                              │
-│  STEP 4: Flow returns subscriptionId                                        │
-│           └─▶ Store in external_subscription_id                             │
-│                                                                              │
-│  STEP 5: Update subscription status to 'active' or 'trialing'               │
-│                                                                              │
-│  STEP 6: Send welcome email                                                 │
-│           └─▶ TenancySubscriptionWelcome mailable                           │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["STEP 1: Customer selects plan on pricing page"] --> A1["Frontend sends: plan_id, billing_cycle, trial: true/false"]
+    A1 --> B["STEP 2: Backend TenancySubscriptionService::create()"]
+    B --> B1["Create TenancySubscription record (status: 'pending')"]
+    B --> B2["If trial: Set trial_days_remaining = 30"]
+    B --> B3["Get payment method from tenancy"]
+    B --> B4["Call gateway->createSubscription()"]
+    B4 --> C["STEP 3: FlowSubscriptionsTrait::createSubscription()"]
+    C --> C1["Ensure customer exists in Flow (create if needed)"]
+    C --> C2["Ensure plan exists in Flow (sync if needed)"]
+    C --> C3["POST /subscription/create to Flow:<br/>planId: plan_basic_monthly_clp<br/>customerId: cus_xxxx<br/>trial_period_days: 30<br/>subscription_start: 2025-01-15"]
+    C3 --> D["STEP 4: Flow returns subscriptionId"]
+    D --> D1["Store in external_subscription_id"]
+    D1 --> E["STEP 5: Update subscription status to 'active' or 'trialing'"]
+    E --> F["STEP 6: Send welcome email"]
+    F --> F1["TenancySubscriptionWelcome mailable"]
 ```
 
 ### Code: TenancySubscriptionService::create()
@@ -283,70 +222,15 @@ Upgrades occur when a customer moves to a **higher tier** plan. They are **execu
 - Charge: Remaining days on new plan × daily rate  
 - Net Amount: Charge - Credit (charged immediately)
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           UPGRADE FLOW (WITH PRORATION)                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Condition: newPlan.tier > currentPlan.tier                                 │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  1. Controller receives: POST /subscriptions/{id}/change-plan      │    │
-│  │     Body: { "plan_id": 3 }                                          │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  2. (Optional) Preview proration before confirming                  │    │
-│  │     GET /subscriptions/{id}/preview-change?plan_id=3               │    │
-│  │     Response: { net_amount: 5000, type: "charge", currency: "CLP" }│    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  3. TenancySubscriptionService::changePlan()                        │    │
-│  │     - Fetches current plan and new plan                             │    │
-│  │     - Compares tiers: if (newPlan.tier > currentPlan.tier)         │    │
-│  │       → Call upgrade()                                              │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  4. TenancySubscriptionService::upgrade()                           │    │
-│  │     a. Store previousPlan for email notifications                   │    │
-│  │     b. Clear any scheduled_plan_id (cancel pending changes)        │    │
-│  │     c. Clear trial_days_remaining = 0                               │    │
-│  │     d. Update local record: subscription_plan_id = newPlan.id       │    │
-│  │     e. Update status = 'active'                                     │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  5. Sync with Flow Gateway (with automatic proration)               │    │
-│  │                                                                      │    │
-│  │     gateway->updateSubscription() calls:                            │    │
-│  │       POST /subscription/changePlan                                 │    │
-│  │       {                                                              │    │
-│  │         "subscriptionId": "sub_xxx",                                │    │
-│  │         "planId": "premium_monthly"                                 │    │
-│  │         // startDateOfNewPlan omitted → immediate with proration   │    │
-│  │       }                                                              │    │
-│  │                                                                      │    │
-│  │     Flow automatically:                                             │    │
-│  │       - Calculates credit for unused time on old plan              │    │
-│  │       - Calculates charge for remaining time on new plan           │    │
-│  │       - Charges/credits the net difference                         │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  6. Post-Upgrade Actions                                            │    │
-│  │     a. generateReceiptIfNeeded() - Creates internal payment record  │    │
-│  │     b. sendPlanChangedEmail() - Notify TenancyAdmin users          │    │
-│  │     c. sendAdminPlanChangedNotification() - Notify info@kitchntabs │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Cond["Condition: newPlan.tier > currentPlan.tier"] --> S1
+    S1["1. Controller receives: POST /subscriptions/{id}/change-plan<br/>Body: plan_id: 3"] --> S2
+    S2["2. (Optional) Preview proration before confirming<br/>GET /subscriptions/{id}/preview-change?plan_id=3<br/>Response: net_amount: 5000, type: 'charge', currency: 'CLP'"] --> S3
+    S3["3. TenancySubscriptionService::changePlan()<br/>- Fetches current plan and new plan<br/>- Compares tiers: if newPlan.tier > currentPlan.tier<br/>&nbsp;&nbsp;→ Call upgrade()"] --> S4
+    S4["4. TenancySubscriptionService::upgrade()<br/>a. Store previousPlan for email notifications<br/>b. Clear any scheduled_plan_id (cancel pending changes)<br/>c. Clear trial_days_remaining = 0<br/>d. Update local record: subscription_plan_id = newPlan.id<br/>e. Update status = 'active'"] --> S5
+    S5["5. Sync with Flow Gateway (with automatic proration)<br/><br/>gateway->updateSubscription() calls:<br/>POST /subscription/changePlan<br/>subscriptionId: 'sub_xxx', planId: 'premium_monthly'<br/>(startDateOfNewPlan omitted → immediate with proration)<br/><br/>Flow automatically:<br/>- Calculates credit for unused time on old plan<br/>- Calculates charge for remaining time on new plan<br/>- Charges/credits the net difference"] --> S6
+    S6["6. Post-Upgrade Actions<br/>a. generateReceiptIfNeeded() - Creates internal payment record<br/>b. sendPlanChangedEmail() - Notify TenancyAdmin users<br/>c. sendAdminPlanChangedNotification() - Notify info@kitchntabs"]
 ```
 
 ### Code: TenancySubscriptionService::upgrade()
@@ -492,89 +376,18 @@ Downgrades occur when a customer moves to a **lower tier** plan. They are **exec
 - Charge: Remaining days on new plan × daily rate  
 - Net Amount: If credit > charge, difference applied as credit to next billing cycle
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    DOWNGRADE FLOW (WITH PRORATION)                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Condition: newPlan.tier < currentPlan.tier                                 │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  1. Controller receives: POST /subscriptions/{id}/change-plan      │    │
-│  │     Body: { "plan_id": 1 }  (downgrade to Basic)                    │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  2. (Optional) Preview proration before confirming                  │    │
-│  │     GET /subscriptions/{id}/preview-change?plan_id=1               │    │
-│  │     Response: { net_amount: -5000, type: "credit", currency: "CLP"}│    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  3. TenancySubscriptionService::changePlan()                        │    │
-│  │     - Compares tiers: if (newPlan.tier < currentPlan.tier)         │    │
-│  │       → Call downgrade()                                            │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  4. TenancySubscriptionService::validateDowngrade()                 │    │
-│  │                                                                      │    │
-│  │     Check usage limits against new plan:                            │    │
-│  │                                                                      │    │
-│  │     a. Tenant Count Validation:                                     │    │
-│  │        if ($tenancy->tenants()->count() > $newPlan->max_tenants)   │    │
-│  │          → Throw exception: "Please remove X tenants first"        │    │
-│  │                                                                      │    │
-│  │     b. User Count Validation:                                       │    │
-│  │        if ($tenancy->users()->count() > $newPlan->max_users)       │    │
-│  │          → Throw exception: "Please remove X users first"          │    │
-│  │                                                                      │    │
-│  │     c. Feature Validation (future):                                 │    │
-│  │        Check for features used but not in new plan                 │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                     ┌────────┴────────┐                                     │
-│                     │                 │                                     │
-│                     ▼                 ▼                                     │
-│  ┌──────────────────────┐  ┌──────────────────────────────────────────┐    │
-│  │  Validation FAILS    │  │  Validation PASSES                       │    │
-│  │  Return 400 error    │  │                                          │    │
-│  │  with message        │  │  5. Apply downgrade IMMEDIATELY          │    │
-│  └──────────────────────┘  │     subscription_plan_id = newPlan.id    │    │
-│                            │     scheduled_plan_id = null             │    │
-│                            │     status = 'active'                    │    │
-│                            └──────────────────────────────────────────┘    │
-│                                           │                                  │
-│                                           ▼                                  │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  6. Sync with Flow Gateway (with automatic proration)               │    │
-│  │                                                                      │    │
-│  │     gateway->updateSubscription() calls:                            │    │
-│  │       POST /subscription/changePlan                                 │    │
-│  │       {                                                              │    │
-│  │         "subscriptionId": "sub_xxx",                                │    │
-│  │         "planId": "basic_monthly"                                   │    │
-│  │         // startDateOfNewPlan omitted → immediate with proration   │    │
-│  │       }                                                              │    │
-│  │                                                                      │    │
-│  │     Flow automatically:                                             │    │
-│  │       - Calculates credit for unused time on old plan              │    │
-│  │       - Calculates charge for remaining time on new plan           │    │
-│  │       - If credit > charge: applies credit to next billing cycle  │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  7. Post-Downgrade Actions                                          │    │
-│  │     a. generateReceiptIfNeeded() - Creates internal record          │    │
-│  │     b. sendPlanChangedEmail() - Notify TenancyAdmin users          │    │
-│  │     c. sendAdminPlanChangedNotification() - Notify info@kitchntabs │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Cond["Condition: newPlan.tier < currentPlan.tier"] --> S1
+    S1["1. Controller receives: POST /subscriptions/{id}/change-plan<br/>Body: plan_id: 1 (downgrade to Basic)"] --> S2
+    S2["2. (Optional) Preview proration before confirming<br/>GET /subscriptions/{id}/preview-change?plan_id=1<br/>Response: net_amount: -5000, type: 'credit', currency: 'CLP'"] --> S3
+    S3["3. TenancySubscriptionService::changePlan()<br/>- Compares tiers: if newPlan.tier < currentPlan.tier<br/>&nbsp;&nbsp;→ Call downgrade()"] --> S4
+    S4["4. TenancySubscriptionService::validateDowngrade()<br/><br/>Check usage limits against new plan:<br/><br/>a. Tenant Count Validation:<br/>if tenancy.tenants().count() > newPlan.max_tenants<br/>→ Throw exception: 'Please remove X tenants first'<br/><br/>b. User Count Validation:<br/>if tenancy.users().count() > newPlan.max_users<br/>→ Throw exception: 'Please remove X users first'<br/><br/>c. Feature Validation (future):<br/>Check for features used but not in new plan"] --> D{"Validation result"}
+    D -->|FAILS| F1["Return 400 error with message"]
+    D -->|PASSES| S5["5. Apply downgrade IMMEDIATELY<br/>subscription_plan_id = newPlan.id<br/>scheduled_plan_id = null<br/>status = 'active'"]
+    S5 --> S6
+    S6["6. Sync with Flow Gateway (with automatic proration)<br/><br/>gateway->updateSubscription() calls:<br/>POST /subscription/changePlan<br/>subscriptionId: 'sub_xxx', planId: 'basic_monthly'<br/>(startDateOfNewPlan omitted → immediate with proration)<br/><br/>Flow automatically:<br/>- Calculates credit for unused time on old plan<br/>- Calculates charge for remaining time on new plan<br/>- If credit > charge: applies credit to next billing cycle"] --> S7
+    S7["7. Post-Downgrade Actions<br/>a. generateReceiptIfNeeded() - Creates internal record<br/>b. sendPlanChangedEmail() - Notify TenancyAdmin users<br/>c. sendAdminPlanChangedNotification() - Notify info@kitchntabs"]
 ```
 
 ### Code: TenancySubscriptionService::downgrade()
@@ -721,36 +534,11 @@ public function validateDowngrade(Tenancy $tenancy, SubscriptionPlan $newPlan): 
 
 ## Cancellation Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         CANCELLATION FLOW                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Controller: POST /subscriptions/{id}/cancel                        │    │
-│  │  Body: { "at_period_end": true }  // or false for immediate        │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                   ┌──────────┴──────────┐                                   │
-│                   │                     │                                   │
-│                   ▼                     ▼                                   │
-│  ┌────────────────────────┐  ┌────────────────────────────────────────┐    │
-│  │  at_period_end: false  │  │  at_period_end: true                   │    │
-│  │  IMMEDIATE             │  │  SCHEDULED                             │    │
-│  │                        │  │                                        │    │
-│  │  1. Update status =    │  │  1. Update status = 'pending_cancel'  │    │
-│  │     'cancelled'        │  │                                        │    │
-│  │                        │  │  2. Set cancelled_at = null           │    │
-│  │  2. Set cancelled_at = │  │     (will be set at period end)       │    │
-│  │     now()              │  │                                        │    │
-│  │                        │  │  3. Customer retains access until      │    │
-│  │  3. Gateway: cancel(0) │  │     current_period_end                 │    │
-│  │                        │  │                                        │    │
-│  │  4. Access revoked     │  │  4. Gateway: cancel(1) [at_period_end]│    │
-│  │     immediately        │  │                                        │    │
-│  └────────────────────────┘  └────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Controller: POST /subscriptions/{id}/cancel<br/>Body: at_period_end: true (or false for immediate)"] --> D{"at_period_end?"}
+    D -->|false: IMMEDIATE| I["1. Update status = 'cancelled'<br/>2. Set cancelled_at = now()<br/>3. Gateway: cancel(0)<br/>4. Access revoked immediately"]
+    D -->|true: SCHEDULED| S["1. Update status = 'pending_cancel'<br/>2. Set cancelled_at = null (will be set at period end)<br/>3. Customer retains access until current_period_end<br/>4. Gateway: cancel(1) [at_period_end]"]
 ```
 
 ### Code: TenancySubscriptionService::cancelSubscription()
@@ -810,45 +598,12 @@ Reactivation handles the scenario where a customer **cancels** their subscriptio
 
 ### Flow Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         REACTIVATION FLOW                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Controller: POST /tenancy/{id}/resubscribe                         │    │
-│  │  Body: { "plan_id": 3 }                                             │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  TenancySubscriptionService::resubscribe()                          │    │
-│  │                                                                      │    │
-│  │  1. Get existing subscription                                       │    │
-│  │  2. Call canReactivateViaChangePlan()                               │    │
-│  │     - Has external_subscription_id?                                 │    │
-│  │     - Has cancels_at set?                                          │    │
-│  │     - current_period_end > now()?                                  │    │
-│  │     - Flow status != 4 (cancelled)?                                │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                   ┌──────────┴──────────┐                                   │
-│                   │                     │                                   │
-│                   ▼                     ▼                                   │
-│  ┌────────────────────────┐  ┌────────────────────────────────────────┐    │
-│  │  CAN REACTIVATE        │  │  CANNOT REACTIVATE                     │    │
-│  │                        │  │                                        │    │
-│  │  reactivateViaChange   │  │  createNewSubscriptionFor             │    │
-│  │  Plan()                │  │  Reactivation()                        │    │
-│  │                        │  │                                        │    │
-│  │  - gateway->           │  │  - Create new TenancySubscription     │    │
-│  │    updateSubscription  │  │  - Dispatch gateway job               │    │
-│  │  - Clear cancels_at    │  │  - New charge (credit lost)           │    │
-│  │  - Status → ACTIVE     │  │                                        │    │
-│  │  - Credit preserved ✅ │  │  - Credit NOT preserved ⚠️           │    │
-│  └────────────────────────┘  └────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Controller: POST /tenancy/{id}/resubscribe<br/>Body: plan_id: 3"] --> B
+    B["TenancySubscriptionService::resubscribe()<br/><br/>1. Get existing subscription<br/>2. Call canReactivateViaChangePlan()<br/>- Has external_subscription_id?<br/>- Has cancels_at set?<br/>- current_period_end > now()?<br/>- Flow status != 4 (cancelled)?"] --> D{"Can reactivate?"}
+    D -->|"CAN REACTIVATE"| C["reactivateViaChangePlan()<br/><br/>- gateway->updateSubscription<br/>- Clear cancels_at<br/>- Status → ACTIVE<br/>- Credit preserved (yes)"]
+    D -->|"CANNOT REACTIVATE"| N["createNewSubscriptionForReactivation()<br/><br/>- Create new TenancySubscription<br/>- Dispatch gateway job<br/>- New charge (credit lost)<br/>- Credit NOT preserved (warning)"]
 ```
 
 ### Critical Business Rule
@@ -1744,30 +1499,11 @@ $invoiceService->storeReceipt($payment); // Generated immediately
 
 ## New Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  SUBSCRIPTION CREATED                                                    │
-│  └─▶ generateReceiptIfNeeded()                                          │
-│       └─▶ Creates TenancyPayment with status='pending' (NO PDF yet)     │
-└─────────────────────────────────────────────────────────────────────────┘
-                              │
-                              │ (minutes later)
-                              ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  FLOW WEBHOOK RECEIVED (payment confirmed)                               │
-│  └─▶ handleInvoicePaidCallback()                                        │
-│       └─▶ Finds existing pending payment for subscription               │
-│       └─▶ Updates with Flow details + status='succeeded'                │
-│       └─▶ Fires InvoicePaid event                                       │
-└─────────────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  HandleInvoicePaid LISTENER                                              │
-│  └─▶ generateDocument('auto')                                           │
-│       └─▶ Generates Receipt PDF (document_type='receipt')               │
-│  └─▶ Sends PaymentReceivedNotification email                            │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["SUBSCRIPTION CREATED<br/>generateReceiptIfNeeded()<br/>→ Creates TenancyPayment with status='pending' (NO PDF yet)"] -->|"(minutes later)"| B
+    B["FLOW WEBHOOK RECEIVED (payment confirmed)<br/>handleInvoicePaidCallback()<br/>→ Finds existing pending payment for subscription<br/>→ Updates with Flow details + status='succeeded'<br/>→ Fires InvoicePaid event"] --> C
+    C["HandleInvoicePaid LISTENER<br/>generateDocument('auto')<br/>→ Generates Receipt PDF (document_type='receipt')<br/>Sends PaymentReceivedNotification email"]
 ```
 
 ## Testing

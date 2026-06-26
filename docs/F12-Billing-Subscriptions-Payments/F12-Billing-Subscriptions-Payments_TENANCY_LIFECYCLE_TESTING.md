@@ -11,12 +11,40 @@ This document provides a comprehensive testing flow for the TenancyAccount Lifec
 
 The TenancyAccount follows this lifecycle:
 
-```
-ACTIVE → CANCELED → SUSPENDED → SOFT_DELETED → (Permanent Deletion)
-           ↓
-        EXPIRED (alternative path for non-payment)
-           ↓
-       SUSPENDED → SOFT_DELETED → (Permanent Deletion)
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE
+    ACTIVE --> CANCELED : User requests cancellation
+    ACTIVE --> EXPIRED : Non-payment
+    CANCELED --> SUSPENDED : After billing cycle end
+    EXPIRED --> SUSPENDED : After grace period
+    SUSPENDED --> SOFT_DELETED : Ready for deletion
+    SOFT_DELETED --> [*]
+    
+    note right of ACTIVE
+        Normal operating state
+        Full user access
+    end note
+    
+    note right of CANCELED
+        User requested cancellation
+        Full access until cycle end
+    end note
+    
+    note right of EXPIRED
+        Subscription expired due to non-payment
+        Restricted access
+    end note
+    
+    note right of SUSPENDED
+        Access disabled after grace period
+        Read-only: list access only
+    end note
+    
+    note right of SOFT_DELETED
+        Pending permanent deletion
+        No access
+    end note
 ```
 
 ### State Descriptions

@@ -63,39 +63,45 @@ The Campaign Manager is a comprehensive solution for managing product campaigns 
 
 ### High-Level Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND (React-Admin)                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │ CampaignList│  │CampaignEdit │  │ProductTable │  │BatchActions │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ REST API / WebSocket
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              BACKEND (Laravel)                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                        Controllers                                   │   │
-│  │  CampaignController │ CampaignProductController │ TrackerController │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                      │                                      │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                           Job Queue                                  │   │
-│  │  CampaignProcessJob → PublishProductsJob → ManagePublishedProducts  │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                      │                                      │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                     Marketplace Services                             │   │
-│  │  UberService │ JumpsellerService │ MercadoLibreService │ ...        │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         EXTERNAL MARKETPLACES                               │
-│        Uber Eats API │ Jumpseller API │ MercadoLibre API │ ...             │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Frontend["FRONTEND (React-Admin)"]
+        CL["Campaign List"]
+        CE["Campaign Edit"]
+        PT["Product Table"]
+        BA["Batch Actions"]
+    end
+    
+    subgraph Backend["BACKEND (Laravel)"]
+        subgraph Controllers
+            CC["Campaign Controller"]
+            CPC["Campaign Product Controller"]
+            TC["Tracker Controller"]
+        end
+        
+        subgraph Jobs["Job Queue"]
+            CPJ["Campaign Process Job"]
+            PPJ["Publish Products Job"]
+            MPP["Manage Published Products"]
+        end
+        
+        subgraph Services["Marketplace Services"]
+            US["Uber Service"]
+            JS["Jumpseller Service"]
+            MLS["MercadoLibre Service"]
+        end
+    end
+    
+    subgraph Marketplaces["EXTERNAL MARKETPLACES"]
+        UE["Uber Eats API"]
+        JA["Jumpseller API"]
+        MLA["MercadoLibre API"]
+    end
+    
+    Frontend -->|REST API / WebSocket| Controllers
+    Controllers --> Jobs
+    Jobs --> Services
+    Services --> Marketplaces
 ```
 
 ### Technology Stack

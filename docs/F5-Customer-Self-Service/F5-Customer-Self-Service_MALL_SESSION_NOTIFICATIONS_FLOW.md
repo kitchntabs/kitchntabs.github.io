@@ -22,35 +22,18 @@ This document provides comprehensive technical documentation for the notificatio
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                           MALL SESSION NOTIFICATION SYSTEM                               │
-├─────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                          │
-│  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────────────────────┐   │
-│  │   Customer      │     │   Mall Session  │     │        Notification             │   │
-│  │   (Mobile App)  │────▶│   Controller    │────▶│        Builder                  │   │
-│  │                 │     │                 │     │   AppNotificationBuilder        │   │
-│  └─────────────────┘     └─────────────────┘     └──────────────┬──────────────────┘   │
-│                                                                  │                       │
-│                          ┌───────────────────────────────────────┼───────────────────┐  │
-│                          │                                       │                   │  │
-│                          ▼                                       ▼                   ▼  │
-│               ┌─────────────────┐                    ┌──────────────┐    ┌──────────────┐
-│               │   WebSocket     │                    │    Email     │    │    FCM       │
-│               │   (Pusher)      │                    │   (SMTP)     │    │   (Push)     │
-│               └────────┬────────┘                    └──────┬───────┘    └──────┬───────┘
-│                        │                                    │                   │       │
-│         ┌──────────────┼──────────────┐                     │                   │       │
-│         │              │              │                     │                   │       │
-│         ▼              ▼              ▼                     ▼                   ▼       │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    ┌─────────────┐    ┌─────────────┐ │
-│  │  Electron   │ │   React     │ │   Python    │    │   Staff     │    │   Mobile    │ │
-│  │  Desktop    │ │   Browser   │ │   Service   │    │   Email     │    │   Device    │ │
-│  │  (Kitchen)  │ │   (Admin)   │ │   (TTS)     │    │   Inbox     │    │   (FCM)     │ │
-│  └─────────────┘ └─────────────┘ └─────────────┘    └─────────────┘    └─────────────┘ │
-│                                                                                          │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Customer["Customer (Mobile App)"] --> Controller["Mall Session Controller"]
+    Controller --> Builder["Notification Builder<br/>AppNotificationBuilder"]
+    Builder --> WS["WebSocket (Pusher)"]
+    Builder --> Email["Email (SMTP)"]
+    Builder --> FCM["FCM (Push)"]
+    WS --> Electron["Electron Desktop (Kitchen)"]
+    WS --> React["React Browser (Admin)"]
+    WS --> Python["Python Service (TTS)"]
+    Email --> StaffInbox["Staff Email Inbox"]
+    FCM --> MobileDevice["Mobile Device (FCM)"]
 ```
 
 ---
@@ -59,57 +42,24 @@ This document provides comprehensive technical documentation for the notificatio
 
 ### Mall Session Order Creation Flow
 
-```
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                         MALL SESSION ORDER CREATION FLOW                                  │
-└──────────────────────────────────────────────────────────────────────────────────────────┘
-
-  CUSTOMER                   BACKEND                            RECIPIENTS
-  ────────                   ───────                            ──────────
-
-  ┌───────────┐
-  │  Scan QR  │
-  │  Code     │
-  └─────┬─────┘
-        │
-        │  1. Create Session
-        ▼
-  ┌───────────────┐
-  │ Select Items  │
-  │ from Multiple │
-  │ Restaurants   │
-  └───────┬───────┘
-        │
-        │  2. Submit Order
-        ▼
-  ┌───────────────┐         ┌─────────────────────────────────────────────────────────────┐
-  │  MallTabs     │────────▶│                    NOTIFICATION DISPATCH                    │
-  │  Controller   │         │                                                             │
-  │  ._create()   │         │  ┌─────────────────────────────────────────────────────┐   │
-  └───────────────┘         │  │  1. CREATE MASTER TAB (Mall Manager Tenant)          │   │
-                            │  │     └─▶ Socket ONLY (UI refresh)                     │   │
-                            │  │         ❌ No Email, ❌ No FCM Push                   │   │
-                            │  └─────────────────────────────────────────────────────┘   │
-                            │                                                             │
-                            │  ┌─────────────────────────────────────────────────────┐   │
-                            │  │  2. CREATE TENANT TAB (Per Restaurant)               │   │
-                            │  │     └─▶ MallSessionTabCreationNotification           │   │────▶ 🔔 Staff
-                            │  │         ✅ Socket (UI refresh)                       │   │────▶ 🔔 Kitchen
-                            │  │         ✅ FCM Push (mobile notification)            │   │
-                            │  │         ✅ TTS Speech (Python service)               │   │
-                            │  │         ✅ Alarm (frontend sound)                    │   │
-                            │  └─────────────────────────────────────────────────────┘   │
-                            │                                                             │
-                            │  ┌─────────────────────────────────────────────────────┐   │
-                            │  │  3. TAB STATUS CHANGE (TabChannelNotification)       │   │
-                            │  │     CREATED Status:                                  │   │
-                            │  │       • Master Tab: Socket ONLY                      │   │────▶ ❌ Mall Manager
-                            │  │       • Tenant Tab: Socket + Email                   │   │────▶ ✅ Store Staff
-                            │  │     CONFIRMED Status:                                │   │
-                            │  │       • Tenant Tab: Socket + Email + FCM + TTS       │   │────▶ ✅ Kitchen
-                            │  └─────────────────────────────────────────────────────┘   │
-                            │                                                             │
-                            └─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Scan QR Code"] --> B["1. Create Session"]
+    B --> C["Select Items from Multiple Restaurants"]
+    C --> D["2. Submit Order"]
+    D --> E["MallTabsController._create()"]
+    E --> F["NOTIFICATION DISPATCH"]
+    F --> G["1. CREATE MASTER TAB (Mall Manager Tenant)<br/>Socket ONLY (UI refresh)<br/>No Email, No FCM Push"]
+    F --> H["2. CREATE TENANT TAB (Per Restaurant)<br/>MallSessionTabCreationNotification<br/>Socket (UI refresh)<br/>FCM Push (mobile notification)<br/>TTS Speech (Python service)<br/>Alarm (frontend sound)"]
+    H --> H1["Staff"]
+    H --> H2["Kitchen"]
+    F --> I["3. TAB STATUS CHANGE (TabChannelNotification)"]
+    I --> I1["CREATED Status - Master Tab: Socket ONLY"]
+    I1 --> I1R["Mall Manager (not notified)"]
+    I --> I2["CREATED Status - Tenant Tab: Socket + Email"]
+    I2 --> I2R["Store Staff"]
+    I --> I3["CONFIRMED Status - Tenant Tab: Socket + Email + FCM + TTS"]
+    I3 --> I3R["Kitchen"]
 ```
 
 ---
@@ -146,162 +96,62 @@ This document provides comprehensive technical documentation for the notificatio
 
 ### Backend Components
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              BACKEND COMPONENT DIAGRAM                                   │
-├─────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                          │
-│   ┌─────────────────────────────────────────────────────────────────────────────────┐   │
-│   │                            CONTROLLERS LAYER                                     │   │
-│   │                                                                                  │   │
-│   │  ┌─────────────────────┐    ┌─────────────────────┐    ┌────────────────────┐   │   │
-│   │  │ MallTabsController  │    │ MallSessionController│   │ MallStoresController│   │   │
-│   │  │                     │    │                      │   │                     │   │   │
-│   │  │ • _create()         │    │ • getSessionAuth()   │   │ • assistance()      │   │   │
-│   │  │ • update()          │    │ • getNotifications() │   │                     │   │   │
-│   │  └──────────┬──────────┘    └──────────────────────┘   └─────────────────────┘   │   │
-│   │             │                                                                     │   │
-│   └─────────────┼─────────────────────────────────────────────────────────────────────┘   │
-│                 │                                                                         │
-│                 ▼                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────────────────────┐   │
-│   │                              TRAITS LAYER                                        │   │
-│   │                                                                                  │   │
-│   │  ┌──────────────────────────────────────────────────────────────────────────┐   │   │
-│   │  │                     MallTabHelpersTrait                                   │   │   │
-│   │  │                                                                           │   │   │
-│   │  │  • createMasterTab()     - Creates aggregator tab for mall manager       │   │   │
-│   │  │  • createTenantTab()     - Creates individual store tabs                  │   │   │
-│   │  │  • buildProductSummary() - Generates "un Bulgogi, dos Bibimbap" text     │   │   │
-│   │  │  • groupProductsByTenant() - Splits order by restaurant                   │   │   │
-│   │  │                                                                           │   │   │
-│   │  └──────────────────────────────────────────────────────────────────────────┘   │   │
-│   │                                                                                  │   │
-│   └──────────────────────────────────────────────────────────────────────────────────┘   │
-│                 │                                                                         │
-│                 ▼                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────────────────────┐   │
-│   │                            SERVICES LAYER                                        │   │
-│   │                                                                                  │   │
-│   │  ┌──────────────────────────────────────────────────────────────────────────┐   │   │
-│   │  │                   TabsNotificationService                                 │   │   │
-│   │  │                                                                           │   │   │
-│   │  │  • handleStatusChange()          - Main entry point for status changes   │   │   │
-│   │  │  • sendNotification()            - Dispatches TabChannelNotification     │   │   │
-│   │  │  • enrichNotificationDataWithOrderDetails() - Adds order info for email │   │   │
-│   │  │  • speechOrderProducts()         - Generates TTS speech text             │   │   │
-│   │  │                                                                           │   │   │
-│   │  │  KEY LOGIC:                                                               │   │   │
-│   │  │  • Master tabs ($tab->is_master_tab) → Socket only, NO email             │   │   │
-│   │  │  • Tenant CREATED → Socket + Email to staff                              │   │   │
-│   │  │  • Tenant CONFIRMED → Socket + Email + FCM + TTS to kitchen              │   │   │
-│   │  │                                                                           │   │   │
-│   │  └──────────────────────────────────────────────────────────────────────────┘   │   │
-│   │                                                                                  │   │
-│   └──────────────────────────────────────────────────────────────────────────────────┘   │
-│                 │                                                                         │
-│                 ▼                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────────────────────┐   │
-│   │                          NOTIFICATIONS LAYER                                     │   │
-│   │                                                                                  │   │
-│   │  ┌────────────────────────────┐  ┌─────────────────────────────────────────┐   │   │
-│   │  │ MallSessionTabCreation     │  │ TabChannelNotification                  │   │   │
-│   │  │ Notification               │  │                                          │   │   │
-│   │  │                            │  │ Channels:                                │   │   │
-│   │  │ Channels:                  │  │ • socket: true                           │   │   │
-│   │  │ • socket: true             │  │ • mail: true (conditional)              │   │   │
-│   │  │ • push: true (tenant only) │  │ • push: true (CONFIRMED only)           │   │   │
-│   │  │ • mail: false              │  │ • database: true                        │   │   │
-│   │  │                            │  │                                          │   │   │
-│   │  └────────────────────────────┘  └─────────────────────────────────────────┘   │   │
-│   │                                                                                  │   │
-│   │  ┌────────────────────────────┐  ┌─────────────────────────────────────────┐   │   │
-│   │  │ MallStoreAssistance        │  │ MallSessionOrderStatus                  │   │   │
-│   │  │ Notification               │  │ Notification                            │   │   │
-│   │  │                            │  │                                          │   │   │
-│   │  │ Channels:                  │  │ (For customer-facing status updates)    │   │   │
-│   │  │ • socket: true             │  │                                          │   │   │
-│   │  │ • push: true               │  │                                          │   │   │
-│   │  │ • mail: false              │  │                                          │   │   │
-│   │  └────────────────────────────┘  └─────────────────────────────────────────┘   │   │
-│   │                                                                                  │   │
-│   └──────────────────────────────────────────────────────────────────────────────────┘   │
-│                 │                                                                         │
-│                 ▼                                                                         │
-│   ┌─────────────────────────────────────────────────────────────────────────────────┐   │
-│   │                      NOTIFICATION BUILDER (Core)                                 │   │
-│   │                                                                                  │   │
-│   │  ┌──────────────────────────────────────────────────────────────────────────┐   │   │
-│   │  │                    AppNotificationBuilder::send()                         │   │   │
-│   │  │                                                                           │   │   │
-│   │  │  Parameters:                                                              │   │   │
-│   │  │  • notificationClass - Which notification class to use                   │   │   │
-│   │  │  • channel           - WebSocket channel (e.g., "tenant.2.system")       │   │   │
-│   │  │  • scope             - "channel" | "private" | "public"                  │   │   │
-│   │  │  • targets           - ['kitchen', 'staff', 'admin']                     │   │   │
-│   │  │  • targetType        - "role" | "user"                                   │   │   │
-│   │  │  • individual        - ["push", "mail"] for per-user delivery            │   │   │
-│   │  │  • config.channels   - Override notification channels                     │   │   │
-│   │  │  • data              - Notification payload (tts, alarm, speech, etc.)   │   │   │
-│   │  │                                                                           │   │   │
-│   │  └──────────────────────────────────────────────────────────────────────────┘   │   │
-│   │                                                                                  │   │
-│   └──────────────────────────────────────────────────────────────────────────────────┘   │
-│                                                                                          │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Controllers["CONTROLLERS LAYER"]
+        MTC["MallTabsController<br/>_create()<br/>update()"]
+        MSC["MallSessionController<br/>getSessionAuth()<br/>getNotifications()"]
+        MSTC["MallStoresController<br/>assistance()"]
+    end
+
+    subgraph Traits["TRAITS LAYER"]
+        MTHT["MallTabHelpersTrait<br/>createMasterTab() - Creates aggregator tab for mall manager<br/>createTenantTab() - Creates individual store tabs<br/>buildProductSummary() - Generates 'un Bulgogi, dos Bibimbap' text<br/>groupProductsByTenant() - Splits order by restaurant"]
+    end
+
+    subgraph Services["SERVICES LAYER"]
+        TNS["TabsNotificationService<br/>handleStatusChange() - Main entry point for status changes<br/>sendNotification() - Dispatches TabChannelNotification<br/>enrichNotificationDataWithOrderDetails() - Adds order info for email<br/>speechOrderProducts() - Generates TTS speech text<br/><br/>KEY LOGIC:<br/>Master tabs (is_master_tab) - Socket only, NO email<br/>Tenant CREATED - Socket + Email to staff<br/>Tenant CONFIRMED - Socket + Email + FCM + TTS to kitchen"]
+    end
+
+    subgraph Notifications["NOTIFICATIONS LAYER"]
+        MSTCN["MallSessionTabCreationNotification<br/>Channels: socket: true, push: true (tenant only), mail: false"]
+        TCN["TabChannelNotification<br/>Channels: socket: true, mail: true (conditional), push: true (CONFIRMED only), database: true"]
+        MSAN["MallStoreAssistanceNotification<br/>Channels: socket: true, push: true, mail: false"]
+        MSOSN["MallSessionOrderStatusNotification<br/>(For customer-facing status updates)"]
+    end
+
+    subgraph Builder["NOTIFICATION BUILDER (Core)"]
+        ANB["AppNotificationBuilder::send()<br/>Parameters: notificationClass, channel (e.g. tenant.2.system), scope (channel/private/public), targets (kitchen/staff/admin), targetType (role/user), individual (push/mail), config.channels, data (tts, alarm, speech, etc.)"]
+    end
+
+    MTC --> MTHT
+    Traits --> Services
+    Services --> Notifications
+    Notifications --> Builder
 ```
 
 ### Frontend Components
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND COMPONENT DIAGRAM                                  │
-├─────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────────────────────┐ │
-│  │                             ELECTRON DESKTOP APP                                    │ │
-│  │                                                                                     │ │
-│  │  ┌─────────────────────┐    ┌─────────────────────┐    ┌───────────────────────┐  │ │
-│  │  │   React Admin App   │    │    Python Service   │    │   WebSocket Client    │  │ │
-│  │  │   (KitchnTabs)      │    │    (kt_service.py)  │    │   (LaravelEchoContext)│  │ │
-│  │  │                     │    │                     │    │                        │  │ │
-│  │  │  • TabsListView     │    │  • TTS Generation   │    │  • Pusher/Soketi      │  │ │
-│  │  │  • OrderDetails     │◀───│  • Alarm Playback   │◀───│  • Channel Subscribe  │  │ │
-│  │  │  • Notifications    │    │  • Audio Player     │    │  • Event Handling     │  │ │
-│  │  │                     │    │                     │    │                        │  │ │
-│  │  └─────────────────────┘    └─────────────────────┘    └───────────────────────┘  │ │
-│  │                                                                                     │ │
-│  └────────────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────────────────────┐ │
-│  │                               MOBILE APP (Android/iOS)                              │ │
-│  │                                                                                     │ │
-│  │  ┌─────────────────────┐    ┌─────────────────────┐                                │ │
-│  │  │    Capacitor App    │    │   FCM Service       │                                │ │
-│  │  │    (React-Admin)    │    │   (Push Handler)    │                                │ │
-│  │  │                     │    │                     │                                │ │
-│  │  │  • Native Push      │◀───│  • Background Push  │                                │ │
-│  │  │  • WebView UI       │    │  • Notification     │                                │ │
-│  │  │                     │    │    Display          │                                │ │
-│  │  └─────────────────────┘    └─────────────────────┘                                │ │
-│  │                                                                                     │ │
-│  └────────────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                          │
-│  ┌────────────────────────────────────────────────────────────────────────────────────┐ │
-│  │                              MALL CLIENT (Customer PWA)                             │ │
-│  │                                                                                     │ │
-│  │  ┌─────────────────────┐    ┌─────────────────────┐                                │ │
-│  │  │  MallSessionEcho    │    │  MallClientTabsList │                                │ │
-│  │  │  Context            │    │                     │                                │ │
-│  │  │                     │    │  • Order Status     │                                │ │
-│  │  │  • Status Updates   │───▶│  • Progress Bars    │                                │ │
-│  │  │  • WebSocket Events │    │  • Notifications    │                                │ │
-│  │  │                     │    │                     │                                │ │
-│  │  └─────────────────────┘    └─────────────────────┘                                │ │
-│  │                                                                                     │ │
-│  └────────────────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                          │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Electron["ELECTRON DESKTOP APP"]
+        WSClient["WebSocket Client (LaravelEchoContext)<br/>Pusher/Soketi, Channel Subscribe, Event Handling"]
+        PyService["Python Service (kt_service.py)<br/>TTS Generation, Alarm Playback, Audio Player"]
+        ReactAdmin["React Admin App (KitchnTabs)<br/>TabsListView, OrderDetails, Notifications"]
+        WSClient --> PyService
+        PyService --> ReactAdmin
+    end
+
+    subgraph Mobile["MOBILE APP (Android/iOS)"]
+        FCMService["FCM Service (Push Handler)<br/>Background Push, Notification Display"]
+        Capacitor["Capacitor App (React-Admin)<br/>Native Push, WebView UI"]
+        FCMService --> Capacitor
+    end
+
+    subgraph MallClient["MALL CLIENT (Customer PWA)"]
+        MSEchoContext["MallSessionEchoContext<br/>Status Updates, WebSocket Events"]
+        MallClientTabsList["MallClientTabsList<br/>Order Status, Progress Bars, Notifications"]
+        MSEchoContext --> MallClientTabsList
+    end
 ```
 
 ---
@@ -310,130 +160,39 @@ This document provides comprehensive technical documentation for the notificatio
 
 ### Flow 1: Customer Creates Mall Order
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        FLOW 1: CUSTOMER CREATES MALL ORDER                              │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-
-  STEP 1: Customer submits order with items from Restaurant A and Restaurant B
-  ═══════════════════════════════════════════════════════════════════════════
-
-  Customer App                    MallTabsController._create()
-  ────────────                    ─────────────────────────────
-       │
-       │  POST /api/public/mall/tab
-       │  {
-       │    products: [...],
-       │    customer_name: "Francisco",
-       │    table_number: "8"
-       │  }
-       │
-       ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                         BACKEND PROCESSING                               │
-  │                                                                          │
-  │  1. groupProductsByTenant()                                              │
-  │     └─▶ Products split: Restaurant A (2 items), Restaurant B (1 item)   │
-  │                                                                          │
-  │  2. createMasterTab() - Mall Manager Tenant                              │
-  │     ├─▶ Tab created: is_master_tab = true                               │
-  │     ├─▶ Order created with ALL products (aggregated)                    │
-  │     │                                                                    │
-  │     └─▶ NOTIFICATION: MallSessionTabCreationNotification                │
-  │         ├─ Channel: tenant.{mall_manager_id}.system                     │
-  │         ├─ Socket: ✅ (UI refresh only)                                 │
-  │         ├─ Email: ❌                                                     │
-  │         ├─ FCM Push: ❌                                                  │
-  │         ├─ TTS: ❌ (tts='false')                                        │
-  │         └─ Targets: ['kitchen', 'staff']                                │
-  │                                                                          │
-  │  3. createTenantTab() - Restaurant A                                     │
-  │     ├─▶ Tab created: master_tab_id = {master_tab.id}                    │
-  │     ├─▶ Order created with Restaurant A products only                   │
-  │     ├─▶ buildProductSummary() → "un Bulgogi, dos Bibimbap"              │
-  │     │                                                                    │
-  │     └─▶ NOTIFICATION: MallSessionTabCreationNotification                │
-  │         ├─ Channel: tenant.{restaurant_a_id}.system                     │
-  │         ├─ Socket: ✅                                                    │
-  │         ├─ Email: ❌                                                     │
-  │         ├─ FCM Push: ✅ individual: ["push"]                            │
-  │         ├─ TTS: ✅ (tts='true', speech='Nuevo pedido...')               │
-  │         ├─ Alarm: ✅ (alarm='true')                                     │
-  │         ├─ Targets: ['kitchen', 'staff']                                │
-  │         ├─ Title: "Nuevo pedido en la mesa 8"                           │
-  │         └─ Message: "Francisco: un Bulgogi, dos Bibimbap"               │
-  │                                                                          │
-  │  4. createTenantTab() - Restaurant B                                     │
-  │     └─▶ (Same as Restaurant A, different tenant channel)                │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
-
-  STEP 2: Tab Status Change triggers TabChannelNotification
-  ══════════════════════════════════════════════════════════
-
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    TabsNotificationService.handleStatusChange()          │
-  │                                                                          │
-  │  For each tab (master + tenant tabs):                                    │
-  │                                                                          │
-  │  MASTER TAB (is_master_tab = true):                                      │
-  │  ─────────────────────────────────                                       │
-  │  • Status: CREATED                                                       │
-  │  • Channels: socket=✅, mail=❌, push=❌                                  │
-  │  • Recipients: None (socket only for UI)                                 │
-  │  • Reason: Master tabs are aggregators, not operational orders           │
-  │                                                                          │
-  │  TENANT TAB (is_master_tab = false):                                     │
-  │  ────────────────────────────────────                                    │
-  │  • Status: CREATED                                                       │
-  │  • Channels: socket=✅, mail=✅, push=❌                                  │
-  │  • Recipients: staff (for CREATED status)                                │
-  │  • Email includes: order_items, customer info, tenant logo               │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Customer App: POST /api/public/mall/tab<br/>{ products: [...], customer_name: 'Francisco', table_number: '8' }"] --> B["MallTabsController._create() - BACKEND PROCESSING"]
+    B --> C["1. groupProductsByTenant()<br/>Products split: Restaurant A (2 items), Restaurant B (1 item)"]
+    C --> D["2. createMasterTab() - Mall Manager Tenant<br/>Tab created: is_master_tab = true<br/>Order created with ALL products (aggregated)"]
+    D --> D1["NOTIFICATION: MallSessionTabCreationNotification<br/>Channel: tenant.{mall_manager_id}.system<br/>Socket: yes (UI refresh only)<br/>Email: no, FCM Push: no, TTS: no (tts='false')<br/>Targets: ['kitchen', 'staff']"]
+    C --> E["3. createTenantTab() - Restaurant A<br/>Tab created: master_tab_id = {master_tab.id}<br/>Order created with Restaurant A products only<br/>buildProductSummary() -> 'un Bulgogi, dos Bibimbap'"]
+    E --> E1["NOTIFICATION: MallSessionTabCreationNotification<br/>Channel: tenant.{restaurant_a_id}.system<br/>Socket: yes, Email: no<br/>FCM Push: yes individual: ['push']<br/>TTS: yes (tts='true', speech='Nuevo pedido...')<br/>Alarm: yes (alarm='true')<br/>Targets: ['kitchen', 'staff']<br/>Title: 'Nuevo pedido en la mesa 8'<br/>Message: 'Francisco: un Bulgogi, dos Bibimbap'"]
+    C --> F["4. createTenantTab() - Restaurant B<br/>(Same as Restaurant A, different tenant channel)"]
+    D1 --> G["STEP 2: Tab Status Change triggers TabChannelNotification<br/>TabsNotificationService.handleStatusChange()"]
+    E1 --> G
+    F --> G
+    G --> H["MASTER TAB (is_master_tab = true)<br/>Status: CREATED<br/>Channels: socket=yes, mail=no, push=no<br/>Recipients: None (socket only for UI)<br/>Reason: Master tabs are aggregators, not operational orders"]
+    G --> I["TENANT TAB (is_master_tab = false)<br/>Status: CREATED<br/>Channels: socket=yes, mail=yes, push=no<br/>Recipients: staff (for CREATED status)<br/>Email includes: order_items, customer info, tenant logo"]
 ```
 
 ### Flow 2: Staff Confirms Order
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                          FLOW 2: STAFF CONFIRMS ORDER                                   │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Staff as Staff Dashboard
+    participant Tabs as TabsController.updateStatus()
+    participant Service as TabsNotificationService.handleStatusChange()
+    participant Kitchen as Kitchen Staff / Desktop App
 
-  Staff Dashboard                 TabsController.updateStatus()
-  ───────────────                 ─────────────────────────────
-       │
-       │  PUT /api/tabs/{id}
-       │  { status: "CONFIRMED" }
-       │
-       ▼
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    TabsNotificationService.handleStatusChange()          │
-  │                                                                          │
-  │  TENANT TAB - Status: CREATED → CONFIRMED                                │
-  │  ────────────────────────────────────────                                │
-  │                                                                          │
-  │  1. Update tab.status = 'CONFIRMED'                                      │
-  │  2. Update tab.date_confirmed = now()                                    │
-  │  3. Update associated order status                                       │
-  │  4. If has master_tab_id → update master order products                  │
-  │                                                                          │
-  │  5. NOTIFICATION: TabChannelNotification                                 │
-  │     ├─ Channel: tenant.{tenant_id}.system                               │
-  │     ├─ Socket: ✅                                                        │
-  │     ├─ Email: ✅ (full order details with tenant logo)                  │
-  │     ├─ FCM Push: ✅ individual: ["push", "mail"]                        │
-  │     ├─ TTS: ✅ (tts='true', tts_delay=10)                               │
-  │     ├─ Alarm: ✅ (alarm='true')                                         │
-  │     ├─ Targets: ['kitchen'] (CONFIRMED → kitchen only for mall orders)  │
-  │     ├─ Title: "[RESTAURANT] Orden Confirmada"                           │
-  │     └─ Message: Speech text with order items                            │
-  │                                                                          │
-  │  6. Recipients receive:                                                  │
-  │     • Kitchen staff: FCM push + Email + TTS speech                      │
-  │     • Desktop app: WebSocket + Alarm sound + TTS                        │
-  │                                                                          │
-  └─────────────────────────────────────────────────────────────────────────┘
+    Staff->>Tabs: PUT /api/tabs/{id} { status: "CONFIRMED" }
+    Tabs->>Service: handleStatusChange() - TENANT TAB Status CREATED -> CONFIRMED
+    Service->>Service: 1. Update tab.status = 'CONFIRMED'
+    Service->>Service: 2. Update tab.date_confirmed = now()
+    Service->>Service: 3. Update associated order status
+    Service->>Service: 4. If has master_tab_id, update master order products
+    Service->>Kitchen: 5. NOTIFICATION TabChannelNotification<br/>Channel tenant.{tenant_id}.system<br/>Socket yes, Email yes (full order details with tenant logo)<br/>FCM Push yes individual ["push","mail"]<br/>TTS yes (tts='true', tts_delay=10), Alarm yes<br/>Targets ['kitchen'] (CONFIRMED -> kitchen only for mall orders)<br/>Title "[RESTAURANT] Orden Confirmada"<br/>Message Speech text with order items
+    Kitchen->>Kitchen: 6. Recipients receive - Kitchen staff FCM push + Email + TTS speech; Desktop app WebSocket + Alarm sound + TTS
 ```
 
 ---
@@ -515,28 +274,13 @@ if ($isMallOrder && isset($data['new'])) {
 
 ### Targeting Flow Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         ROLE-BASED TARGETING FLOW                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│   Order Type        Status           Target Roles        Delivery            │
-│   ──────────        ──────           ────────────        ────────            │
-│                                                                              │
-│   Mall Order        CREATED    ───▶  ['staff']     ───▶  Socket + Email     │
-│   (tenant tab)                                                               │
-│                                                                              │
-│   Mall Order        CONFIRMED  ───▶  ['kitchen']   ───▶  Socket + Email +   │
-│   (tenant tab)                                           FCM + TTS          │
-│                                                                              │
-│   Mall Order        Other      ───▶  ['kitchen',   ───▶  Socket only        │
-│   (master tab)      Status          'staff']                                │
-│                                                                              │
-│   Regular Order     Any        ───▶  ['kitchen',   ───▶  Per status config  │
-│                                       'staff',                               │
-│                                       'admin']                               │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Order Type & Status"] --> B{Order Type?}
+    B -->|Mall Order - CREATED| C1["(tenant tab)<br/>Target Roles: ['staff']<br/>Delivery: Socket + Email"]
+    B -->|Mall Order - CONFIRMED| C2["(tenant tab)<br/>Target Roles: ['kitchen']<br/>Delivery: Socket + Email + FCM + TTS"]
+    B -->|Mall Order - Other Status| C3["(master tab)<br/>Target Roles: ['kitchen', 'staff']<br/>Delivery: Socket only"]
+    B -->|Regular Order - Any Status| C4["Target Roles: ['kitchen', 'staff', 'admin']<br/>Delivery: Per status config"]
 ```
 
 ---

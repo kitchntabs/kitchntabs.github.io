@@ -7,161 +7,70 @@ The trial registration flow allows guest users to create a new account with a tr
 
 ## Flow Diagram
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                         TRIAL REGISTRATION FLOW                               │
-└──────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────┐
-  │   Guest     │
-  │   User      │
-  └──────┬──────┘
-         │
-         │ 1. POST /api/trial/register
-         │    (email, password, public_id, public_name, name, lastname, etc.)
-         ▼
-  ┌──────────────────────────────────────────────────────────────────┐
-  │              TrialRegistrationController::register()              │
-  │                                                                  │
-  │  - Validate input (unique email on users AND pending_registrations)
-  │  - Verify reCAPTCHA (if enabled)                                │
-  │  - Create PendingRegistration record                            │
-  │  - Generate 64-char verification_token                          │
-  │  - Set expires_at = now + 24 hours                             │
-  │  - Send TrialVerificationMail                                   │
-  └──────────────────────┬───────────────────────────────────────────┘
-                         │
-                         │ Creates PendingRegistration
-                         │ status: 'pending'
-                         ▼
-  ┌──────────────────────────────────────────────────────────────────┐
-  │                    pending_registrations table                    │
-  │                                                                  │
-  │  - id (UUID)                                                    │
-  │  - email, password (hashed), name, lastname                     │
-  │  - public_id, public_name                                       │
-  │  - phone, primary_language, primary_currency, primary_timezone  │
-  │  - verification_token (64-char random string)                   │
-  │  - plan_id (optional, default plan used if null)               │
-  │  - status: 'pending' | 'verified' | 'provisioning' | 'provisioned' | 'failed'
-  │  - expires_at (24 hours from creation)                         │
-  │  - metadata (ip, user_agent, timestamps)                       │
-  └──────────────────────────────────────────────────────────────────┘
-                         │
-                         │ Email sent
-                         ▼
-  ┌──────────────────────────────────────────────────────────────────┐
-  │                    TrialVerificationMail                          │
-  │                                                                  │
-  │  Link: {frontend_url}/trial/verify?id={uuid}&token={token}&lang={lang}
-  │  Expiration: 24 hours from registration                         │
-  └──────────────────────────────────────────────────────────────────┘
-                         │
-                         │ User clicks link
-                         │ 2. GET /api/trial/verify/{id}/{token}
-                         ▼
-  ┌──────────────────────────────────────────────────────────────────┐
-  │           TrialRegistrationController::verifyEmail()             │
-  │                                                                  │
-  │  - Find PendingRegistration by id                               │
-  │  - Check not expired (expires_at > now)                         │
-  │  - Verify token matches (hash_equals)                           │
-  │  - Mark as verified (status: 'verified', email_verified_at: now)│
-  │  - Dispatch TenancyProvisioningJob                              │
-  └──────────────────────┬───────────────────────────────────────────┘
-                         │
-                         │ Job dispatched to Horizon queue
-                         ▼
-  ┌──────────────────────────────────────────────────────────────────┐
-  │                   TenancyProvisioningJob                          │
-  │                                                                  │
-  │  Queue: default (Horizon)                                       │
-  │  Tries: 1                                                       │
-  │  Unique: tenancy-provisioning-{pending_id} (3600s lock)        │
-  │                                                                  │
-  │  Flow:                                                          │
-  │  1. Find PendingRegistration                                    │
-  │  2. Check not already provisioned or expired                    │
-  │  3. Mark as 'provisioning'                                      │
-  │  4. Get subscription plan (from pending or default)             │
-  │  5. Call TenancyProvisioningService::provisionTenancy()        │
-  │  6. Create default ecommerce resources                          │
-  │  7. Mark as 'provisioned' with metadata                        │
-  │  8. Soft delete the pending registration                        │
-  │  9. Send TrialWelcome email                                     │
-  └──────────────────────┬───────────────────────────────────────────┘
-                         │
-                         ▼
-  ┌──────────────────────────────────────────────────────────────────┐
-  │            TenancyProvisioningService::provisionTenancy()        │
-  │                                                                  │
-  │  All operations wrapped in DB::transaction()                    │
-  │                                                                  │
-  │  1. Create Tenancy                                              │
-  │     - public_id, public_name, legal_name, email, slug           │
-  │     - status: 'active'                                          │
-  │     - primary_language, primary_currency, primary_timezone      │
-  │                                                                  │
-  │  2. Create Default Tenant                                       │
-  │     - name: "{tenancy.public_name} - Main"                     │
-  │     - Link primary language & currency                          │
-  │                                                                  │
-  │  3. Create User                                                 │
-  │     - Link to tenancy and tenant                               │
-  │     - email_verified_at: now (already verified)                │
-  │                                                                  │
-  │  4. Assign Roles                                                │
-  │     - TenancyAdmin (level 1, redirect: /tenancy)               │
-  │     - Tenant (level 2)                                         │
-  │                                                                  │
-  │  5. Create Subscription                                         │
-  │     - Link to selected/default plan                            │
-  │     - trial_ends_at: now + plan.trial_days (usually 30 days)   │
-  │     - status: 'on_trial'                                       │
-  │                                                                  │
-  │  6. Associate Payment Gateways                                  │
-  │     - Link all active SystemPaymentGateways                    │
-  │                                                                  │
-  │  7. Sync Plan Addons                                           │
-  │     - Enable marketplaces from plan (UberEats, etc.)          │
-  │     - Enable point of sales from plan                          │
-  └──────────────────────────────────────────────────────────────────┘
-                         │
-                         ▼
-  ┌──────────────────────────────────────────────────────────────────┐
-  │       TenancyProvisioningService::createDefaultResources()       │
-  │                                                                  │
-  │  Creates localized default ecommerce resources:                 │
-  │                                                                  │
-  │  1. Default Category                                            │
-  │     - name: "Categoría Principal" (es) / "Main Category" (en)  │
-  │     - is_primary: true                                         │
-  │                                                                  │
-  │  2. Default Gallery                                             │
-  │     - title: "Galería de Ejemplo" (es) / "Sample Gallery" (en) │
-  │                                                                  │
-  │  3. Default Brand                                               │
-  │     - name: {tenancy.public_name}                              │
-  │     - is_primary: true                                         │
-  │                                                                  │
-  │  4. Default PriceList                                           │
-  │     - name: "Lista de Precios Principal" / "Main Price List"   │
-  │     - currency: primary_currency                               │
-  │     - is_primary: true                                         │
-  │                                                                  │
-  │  5. Default StockType                                           │
-  │     - name: "Bodega Principal" / "Main Warehouse"              │
-  │     - is_primary: true                                         │
-  └──────────────────────────────────────────────────────────────────┘
-                         │
-                         │ Welcome email sent
-                         ▼
-  ┌──────────────────────────────────────────────────────────────────┐
-  │                      Account Ready                               │
-  │                                                                  │
-  │  User can now login at /login with their email/password         │
-  │  They will be redirected to /tenancy (TenancyAdmin dashboard)   │
-  └──────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Guest User"] -->|"1. POST /api/trial/register
+email, password, public_id, public_name, name, lastname, etc."| B["TrialRegistrationController::register
+- Validate input unique email on users AND pending_registrations
+- Verify reCAPTCHA if enabled
+- Create PendingRegistration record
+- Generate 64-char verification_token
+- Set expires_at = now + 24 hours
+- Send TrialVerificationMail"]
+    B -->|"Creates PendingRegistration
+status: pending"| C["pending_registrations table
+- id UUID
+- email, password hashed, name, lastname
+- public_id, public_name
+- phone, primary_language, primary_currency, primary_timezone
+- verification_token 64-char random string
+- plan_id optional, default plan used if null
+- status: pending/verified/provisioning/provisioned/failed
+- expires_at 24 hours from creation
+- metadata ip, user_agent, timestamps"]
+    C -->|"Email sent"| D["TrialVerificationMail
+Link: {frontend_url}/trial/verify?id={uuid}&token={token}&lang={lang}
+Expiration: 24 hours from registration"]
+    D -->|"User clicks link
+2. GET /api/trial/verify/{id}/{token}"| E["TrialRegistrationController::verifyEmail
+- Find PendingRegistration by id
+- Check not expired expires_at > now
+- Verify token matches hash_equals
+- Mark as verified status: verified, email_verified_at: now
+- Dispatch TenancyProvisioningJob"]
+    E -->|"Job dispatched to Horizon queue"| F["TenancyProvisioningJob
+Queue: default Horizon
+Tries: 1
+Unique: tenancy-provisioning-{pending_id} 3600s lock
+Flow:
+1. Find PendingRegistration
+2. Check not already provisioned or expired
+3. Mark as provisioning
+4. Get subscription plan from pending or default
+5. Call TenancyProvisioningService::provisionTenancy
+6. Create default ecommerce resources
+7. Mark as provisioned with metadata
+8. Soft delete the pending registration
+9. Send TrialWelcome email"]
+    F --> G["TenancyProvisioningService::provisionTenancy
+All operations wrapped in DB::transaction
+1. Create Tenancy public_id, public_name, legal_name, email, slug, status: active, primary_language, primary_currency, primary_timezone
+2. Create Default Tenant name: tenancy.public_name - Main, Link primary language & currency
+3. Create User Link to tenancy and tenant, email_verified_at: now already verified
+4. Assign Roles TenancyAdmin level 1 redirect: /tenancy, Tenant level 2
+5. Create Subscription Link to selected/default plan, trial_ends_at: now + plan.trial_days usually 30 days, status: on_trial
+6. Associate Payment Gateways Link all active SystemPaymentGateways
+7. Sync Plan Addons Enable marketplaces from plan UberEats, etc., Enable point of sales from plan"]
+    G --> H["TenancyProvisioningService::createDefaultResources
+Creates localized default ecommerce resources:
+1. Default Category name: Categoría Principal es / Main Category en, is_primary: true
+2. Default Gallery title: Galería de Ejemplo es / Sample Gallery en
+3. Default Brand name: tenancy.public_name, is_primary: true
+4. Default PriceList name: Lista de Precios Principal / Main Price List, is_primary: true
+5. Default StockType name: Bodega Principal / Main Warehouse, is_primary: true"]
+    H -->|"Welcome email sent"| I["Account Ready
+User can now login at /login with their email/password
+They will be redirected to /tenancy TenancyAdmin dashboard"]
 ```
 
 ## Key Files
@@ -246,10 +155,17 @@ Lists available trial plans.
 
 ## PendingRegistration Status Flow
 
-```
-pending → verified → provisioning → provisioned → (soft deleted)
-                 ↘                ↘
-                  → expired        → failed
+```mermaid
+stateDiagram-v2
+    [*] --> pending
+    pending --> verified : email verified
+    pending --> expired : 24 hours pass
+    verified --> provisioning : job dispatched
+    provisioning --> provisioned : success
+    provisioning --> failed : error
+    provisioned --> [*] : soft deleted
+    failed --> [*]
+    expired --> [*]
 ```
 
 | Status | Description |

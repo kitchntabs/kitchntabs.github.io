@@ -60,49 +60,32 @@ Before implementing this system, the mall ordering interface suffered from sever
 
 ## Solution Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         MALL CACHING ARCHITECTURE                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│   ┌────────────────────────────────────────────────────────────────────┐    │
-│   │                      React Components                               │    │
-│   │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │    │
-│   │  │MallStoresList│  │MallProductGrid│ │MallOrderCreateContext   │  │    │
-│   │  └──────┬───────┘  └──────┬───────┘  └────────────┬─────────────┘  │    │
-│   │         │                 │                       │                 │    │
-│   └─────────┼─────────────────┼───────────────────────┼─────────────────┘    │
-│             │                 │                       │                      │
-│             ▼                 ▼                       ▼                      │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                    Custom React Query Hooks                          │   │
-│   │  ┌──────────────────┐  ┌──────────────────┐  ┌─────────────────┐   │   │
-│   │  │  useMallStores   │  │  useMallProducts │  │ useMallPrefetch │   │   │
-│   │  └────────┬─────────┘  └────────┬─────────┘  └────────┬────────┘   │   │
-│   │           │                     │                     │             │   │
-│   └───────────┼─────────────────────┼─────────────────────┼─────────────┘   │
-│               │                     │                     │                  │
-│               ▼                     ▼                     ▼                  │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                      TanStack Query Cache                            │   │
-│   │                                                                      │   │
-│   │  Query Keys:                                                        │   │
-│   │  ┌────────────────────────────────────────────────────────────┐    │   │
-│   │  │ ['mall', 'stores', { mall_id }]                            │    │   │
-│   │  │ ['mall', 'products', { mall_id, tenant_id?, featured? }]   │    │   │
-│   │  └────────────────────────────────────────────────────────────┘    │   │
-│   │                                                                      │   │
-│   │  Cache Config: staleTime=10min, gcTime=15min                        │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                         │
-│                                    ▼                                         │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                         Backend API                                  │   │
-│   │  GET /public/mall/stores?mall_id=X                                  │   │
-│   │  GET /public/mall/products?mall_id=X&tenant_id=Y                    │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Components["React Components"]
+        StoresList["MallStoresList"]
+        ProductGrid["MallProductGrid"]
+        OrderContext["MallOrderCreateContext"]
+    end
+    
+    subgraph Hooks["Custom React Query Hooks"]
+        UseMallStores["useMallStores"]
+        UseMallProducts["useMallProducts"]
+        UseMallPrefetch["useMallPrefetch"]
+    end
+    
+    subgraph Cache["TanStack Query Cache"]
+        QueryKeys["Query Keys<br/>['mall' 'stores' {mall_id}]<br/>['mall' 'products' {mall_id tenant_id? featured?}]<br/><br/>Cache Config: staleTime=10min gcTime=15min"]
+    end
+    
+    subgraph Backend["Backend API"]
+        StoresAPI["GET /public/mall/stores?mall_id=X"]
+        ProductsAPI["GET /public/mall/products?mall_id=X&tenant_id=Y"]
+    end
+    
+    Components --> Hooks
+    Hooks --> Cache
+    Cache --> Backend
 ```
 
 ---
@@ -509,129 +492,64 @@ const AdminPanel: React.FC = () => {
 
 ### Store Selection Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         STORE SELECTION FLOW                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  User clicks store "Pizza Place"
-         │
-         ▼
-  ┌─────────────────────────────────────────────┐
-  │ setSelectedStore({ id: 123, name: "Pizza" })│
-  └──────────────────────┬──────────────────────┘
-                         │
-                         ▼
-  ┌─────────────────────────────────────────────┐
-  │ Context updates selectedTenantId to 123     │
-  └──────────────────────┬──────────────────────┘
-                         │
-                         ▼
-  ┌─────────────────────────────────────────────┐
-  │ useMallProducts({ tenantId: 123 }) called   │
-  └──────────────────────┬──────────────────────┘
-                         │
-         ┌───────────────┴───────────────┐
-         │                               │
-         ▼                               ▼
-  ┌──────────────┐               ┌──────────────┐
-  │ Cache HIT    │               │ Cache MISS   │
-  │ (data exists)│               │ (first load) │
-  └──────┬───────┘               └──────┬───────┘
-         │                               │
-         │                               ▼
-         │                       ┌──────────────┐
-         │                       │ API Request  │
-         │                       │ GET /products│
-         │                       └──────┬───────┘
-         │                               │
-         │                               ▼
-         │                       ┌──────────────┐
-         │                       │ Store in     │
-         │                       │ Cache        │
-         │                       └──────┬───────┘
-         │                               │
-         └───────────────┬───────────────┘
-                         │
-                         ▼
-  ┌─────────────────────────────────────────────┐
-  │ queriedProducts updates (new reference)      │
-  └──────────────────────┬──────────────────────┘
-                         │
-                         ▼
-  ┌─────────────────────────────────────────────┐
-  │ getProductsHash(queriedProducts) calculated  │
-  │ Example: "12,34,56,78,90"                   │
-  └──────────────────────┬──────────────────────┘
-                         │
-         ┌───────────────┴───────────────┐
-         │                               │
-         ▼                               ▼
-  ┌──────────────────┐           ┌──────────────────┐
-  │ Hash UNCHANGED   │           │ Hash CHANGED     │
-  │ Skip update      │           │ Update UI        │
-  └──────────────────┘           └────────┬─────────┘
-                                          │
-                                          ▼
-                                 ┌──────────────────┐
-                                 │ setCarouselPages │
-                                 │ (new products)   │
-                                 └────────┬─────────┘
-                                          │
-                                          ▼
-                                 ┌──────────────────┐
-                                 │ UI Re-renders    │
-                                 │ Shows new products│
-                                 └──────────────────┘
+```mermaid
+flowchart TD
+    Title["STORE SELECTION FLOW"]
+    Click["User clicks store Pizza Place"]
+    SetStore["setSelectedStore id: 123 name: Pizza"]
+    UpdateCtx["Context updates selectedTenantId to 123"]
+    CallHook["useMallProducts tenantId: 123 called"]
+    
+    CacheHit["Cache HIT<br/>data exists"]
+    CacheMiss["Cache MISS<br/>first load"]
+    APIReq["API Request<br/>GET /products"]
+    StoreCache["Store in<br/>Cache"]
+    
+    Queried["queriedProducts updates<br/>new reference"]
+    HashCalc["getProductsHash queriedProducts calculated<br/>Example: 12,34,56,78,90"]
+    
+    HashUnchanged["Hash UNCHANGED<br/>Skip update"]
+    HashChanged["Hash CHANGED<br/>Update UI"]
+    SetPages["setCarouselPages<br/>new products"]
+    Rerender["UI Re-renders<br/>Shows new products"]
+    
+    Title --> Click --> SetStore --> UpdateCtx --> CallHook
+    CallHook --> CacheHit
+    CallHook --> CacheMiss
+    CacheMiss --> APIReq --> StoreCache
+    CacheHit --> Queried
+    StoreCache --> Queried
+    Queried --> HashCalc
+    HashCalc --> HashUnchanged
+    HashCalc --> HashChanged
+    HashChanged --> SetPages --> Rerender
 ```
 
 ### Request Deduplication Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       REQUEST DEDUPLICATION FLOW                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-  │  Component A    │   │  Component B    │   │  Component C    │
-  │ useMallProducts │   │ useMallProducts │   │ useMallProducts │
-  └────────┬────────┘   └────────┬────────┘   └────────┬────────┘
-           │                     │                     │
-           │ Same query key      │ Same query key      │
-           │                     │                     │
-           └──────────┬──────────┴──────────┬──────────┘
-                      │                     │
-                      ▼                     ▼
-           ┌────────────────────────────────────────────┐
-           │           TanStack Query                   │
-           │                                            │
-           │  Detects duplicate query keys              │
-           │  Merges requests into single fetch         │
-           │                                            │
-           └─────────────────────┬──────────────────────┘
-                                 │
-                                 ▼ (SINGLE API CALL)
-           ┌────────────────────────────────────────────┐
-           │              Backend API                   │
-           │    GET /public/mall/products               │
-           └─────────────────────┬──────────────────────┘
-                                 │
-                                 ▼
-           ┌────────────────────────────────────────────┐
-           │              Cache Updated                 │
-           │  All components receive same data          │
-           └────────────────────────────────────────────┘
-                                 │
-           ┌─────────────────────┼─────────────────────┐
-           │                     │                     │
-           ▼                     ▼                     ▼
-  ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-  │  Component A    │   │  Component B    │   │  Component C    │
-  │  Renders data   │   │  Renders data   │   │  Renders data   │
-  └─────────────────┘   └─────────────────┘   └─────────────────┘
-
-  BEFORE: 3 API calls
-  AFTER:  1 API call (67% reduction)
+```mermaid
+flowchart TD
+    Title["REQUEST DEDUPLICATION FLOW"]
+    CompA["Component A<br/>useMallProducts"]
+    CompB["Component B<br/>useMallProducts"]
+    CompC["Component C<br/>useMallProducts"]
+    
+    CompA -->|Same query key| Query["TanStack Query<br/>Detects duplicate query keys<br/>Merges requests into single fetch"]
+    CompB -->|Same query key| Query
+    CompC -->|Same query key| Query
+    
+    Query -->|SINGLE API CALL| API["Backend API<br/>GET /public/mall/products"]
+    API --> CacheUpdate["Cache Updated<br/>All components receive same data"]
+    
+    CacheUpdate --> RenderA["Component A<br/>Renders data"]
+    CacheUpdate --> RenderB["Component B<br/>Renders data"]
+    CacheUpdate --> RenderC["Component C<br/>Renders data"]
+    
+    Title --> CompA
+    Title --> CompB
+    Title --> CompC
+    
+    RenderA --> Summary["BEFORE: 3 API calls<br/>AFTER: 1 API call<br/>67% reduction"]
 ```
 
 ---

@@ -11,32 +11,15 @@ KitchnTabs Mall is a public-facing food court ordering application that allows c
 
 The bootstrap component is the main entry point that determines which application variant to render based on authentication state and URL pattern.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        KitchnTabsMallBootstrap                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                     Decision Logic                                   │    │
-│  │                                                                      │    │
-│  │  1. Check isAuthenticated (Redux auth state)                        │    │
-│  │  2. Check isSessionUrl (matches /:mallSlug/s/:sessionId pattern)    │    │
-│  │                                                                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│           ┌──────────────────┼──────────────────┐                           │
-│           │                  │                  │                           │
-│           ▼                  ▼                  ▼                           │
-│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐               │
-│  │  Authenticated  │ │  Session URL    │ │ Unauthenticated │               │
-│  │  (Admin User)   │ │  (Guest User)   │ │ (Public Pages)  │               │
-│  │                 │ │                 │ │                 │               │
-│  │ KitchnTabs      │ │ MallClient      │ │ KitchnTabs      │               │
-│  │ PrivateApp      │ │ Wrapper +       │ │ PublicApp       │               │
-│  │ (Admin Panel)   │ │ PrivateApp      │ │ (Landing/Login) │               │
-│  └─────────────────┘ └─────────────────┘ └─────────────────┘               │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Root["KitchnTabsMallBootstrap"]
+    Logic["Decision Logic<br/>1. Check isAuthenticated Redux auth state<br/>2. Check isSessionUrl matches /:mallSlug/s/:sessionId pattern"]
+    
+    Root --> Logic
+    Logic --> Auth["Authenticated<br/>Admin User<br/><br/>KitchnTabs<br/>PrivateApp<br/>Admin Panel"]
+    Logic --> Session["Session URL<br/>Guest User<br/><br/>MallClient<br/>Wrapper +<br/>PrivateApp"]
+    Logic --> Public["Unauthenticated<br/>Public Pages<br/><br/>KitchnTabs<br/>PublicApp<br/>Landing/Login"]
 ```
 
 ### URL Pattern Detection
@@ -92,45 +75,19 @@ This component runs **BEFORE** React Router is initialized, so it cannot use `us
 
 ### Component Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           MallClientWrapper                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. URL PARSING                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  parseUrlParams()                                                    │    │
-│  │  - Extract mallSlug and sessionId from pathname                     │    │
-│  │  - Calculate sessionBasePath for React Router                       │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  2. SESSION STORAGE                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  - Store sessionId in localStorage ('mall-session-hash')            │    │
-│  │  - Store mallSlug in localStorage ('mall-slug')                     │    │
-│  │  - Pre-set 'authenticated' = 'true' for React Admin routing         │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  3. API VALIDATION                                                           │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  GET /public/mall/{sessionId}/getSessionAuth                        │    │
-│  │                                                                      │    │
-│  │  Success: Store tenantData, set isValid=true                        │    │
-│  │  Failure: Show error (410=expired, 404=not found, etc.)             │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  4. WEBSOCKET SETUP                                                          │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  MallSessionEchoProvider                                            │    │
-│  │  └── MallEchoBridgeWrapper                                          │    │
-│  │       └── MallEchoBridgeProvider                                    │    │
-│  │            └── KitchnTabsPrivateApp (children)                      │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Root["MallClientWrapper"]
+    
+    Step1["1. URL PARSING<br/>parseUrlParams<br/>- Extract mallSlug and sessionId from pathname<br/>- Calculate sessionBasePath for React Router"]
+    
+    Step2["2. SESSION STORAGE<br/>- Store sessionId in localStorage mall-session-hash<br/>- Store mallSlug in localStorage mall-slug<br/>- Pre-set authenticated = true for React Admin routing"]
+    
+    Step3["3. API VALIDATION<br/>GET /public/mall/{sessionId}/getSessionAuth<br/><br/>Success: Store tenantData set isValid=true<br/>Failure: Show error 410=expired 404=not found etc"]
+    
+    Step4["4. WEBSOCKET SETUP<br/>MallSessionEchoProvider<br/>└── MallEchoBridgeWrapper<br/>└── MallEchoBridgeProvider<br/>└── KitchnTabsPrivateApp children"]
+    
+    Root --> Step1 --> Step2 --> Step3 --> Step4
 ```
 
 ### Session Validation States
@@ -257,118 +214,30 @@ const MallClientAppResources = [
 
 ### Step-by-Step Process
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         CUSTOMER ORDER FLOW                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  STEP 1: QR Code Scan                                                        │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Customer scans QR code → Browser opens URL                         │    │
-│  │  Example: https://mall.example.com/malltest/s/DFJNL                 │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 2: Session Validation                                                  │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  MallClientWrapper validates session with backend API               │    │
-│  │  - Checks session exists and is not expired                         │    │
-│  │  - Retrieves mall configuration, tenant list, checkout flags        │    │
-│  │  - checkout_gateway_enabled: allows online payment                  │    │
-│  │  - checkout_gateway_available: active gateway configured            │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 3: Store Selection                                                     │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Customer sees list of restaurants in the mall                      │    │
-│  │  - Each store shows products, availability, logos                   │    │
-│  │  - Products can be filtered by store/category                       │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 4: Product Selection & Cart                                            │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Customer adds products from one or more stores to cart             │    │
-│  │  - Products grouped by tenant for multi-restaurant orders           │    │
-│  │  - Modifiers and notes can be added                                 │    │
-│  │  - Cart drawer shows "Crear Pedido" button                          │    │
-│  │  - Each cart line has a delete button (remove item)                 │    │
-│  │  - Smart add/merge: re-adding the SAME product with the SAME        │    │
-│  │    modifier selection increments that line's quantity; the same     │    │
-│  │    product with DIFFERENT modifiers becomes a new line              │    │
-│  │    (see MallOrderCreateContext.addToCart / modifiersAreEqual)       │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 5: Customer Data Entry (MallAppMediator)                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Modal prompts for customer name and table number                   │    │
-│  │  - Data stored in localStorage for order creation                   │    │
-│  │  - Triggered by "Crear Pedido" button validation                    │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 6: Order Creation                                                      │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  POST /public/selfservice/{hash}/tab                                │    │
-│  │  - Creates order (brokerable_type=SelfServiceSession)               │    │
-│  │  - Returns order_id and status=CREATED                              │    │
-│  │  - Cart drawer closes, order card displays with action buttons     │    │
-│  │  - Restaurants notified via WebSocket and FCM                       │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 7: Payment (Conditional, based on tenant settings)                     │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Order card / list row shows action buttons:                        │    │
-│  │                                                                      │    │
-│  │  A) If checkout enabled + active gateway:                           │    │
-│  │  ┌──────────────────────────────────────────────────────────────┐   │    │
-│  │  │ Customer clicks "Pagar en línea" (card) / "Pagar" (list)    │   │    │
-│  │  │ Frontend builds return_url =                                 │   │    │
-│  │  │   {appOrigin}/selfservice/{hash}/tab/{orderId}              │   │    │
-│  │  │ POST /public/selfservice/{hash}/checkout/session            │   │    │
-│  │  │   { order_id, amount, return_url }                          │   │    │
-│  │  │ - Resolves tenant's default active CheckoutGateway          │   │    │
-│  │  │ - Creates CheckoutGatewayTransaction (pending)              │   │    │
-│  │  │ - Redirects the SAME tab to the gateway (no _blank)         │   │    │
-│  │  │   (DashTest demo = KitchnTabs-hosted "bank" page)           │   │    │
-│  │  │ - Customer approves/rejects on the gateway page             │   │    │
-│  │  │ - On approval the backend completion tail runs:             │   │    │
-│  │  │     Order.is_paid=true, Payment row created,                │   │    │
-│  │  │     tab auto-confirmed (CREATED → CONFIRMED),               │   │    │
-│  │  │     TabsNotificationService broadcasts to the kiosk         │   │    │
-│  │  │ - Browser is redirected back to the tab-detail page         │   │    │
-│  │  │   (same kiosk SPA, NOT a checkout.kitchntabs.com page)      │   │    │
-│  │  └──────────────────────────────────────────────────────────────┘   │    │
-│  │                                                                      │    │
-│  │  B) If checkout disabled or no gateway:                             │    │
-│  │  ┌──────────────────────────────────────────────────────────────┐   │    │
-│  │  │ "Pagar en línea" button not shown                            │   │    │
-│  │  │ Shows "Confirmar Pedido" (if self-confirm enabled)           │   │    │
-│  │  │ Shows "Cancelar Pedido" to cancel before confirmation        │   │    │
-│  │  │ Kitchen staff confirms order manually (if self-confirm off)  │   │    │
-│  │  └──────────────────────────────────────────────────────────────┘   │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│                              ▼                                               │
-│  STEP 8: Post-Payment State + Real-Time Tracking                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  Once paid (is_paid=true):                                          │    │
-│  │  - Card/list show a green "Pedido Pagado" badge                    │    │
-│  │  - "Pagar" and "Cancelar" buttons are hidden (no double-pay)       │    │
-│  │  Once confirmed (status=CONFIRMED):                                 │    │
-│  │  - Card/list show a "Pedido Confirmado" locked state               │    │
-│  │  - Cancel/modify disabled (kitchen has the order)                  │    │
-│  │  Customer sees order status updates in real-time:                  │    │
-│  │  - Progress bars per restaurant                                    │    │
-│  │  - Toast notifications on status changes                           │    │
-│  │  - WebSocket updates order_status: CREATED → CONFIRMED →           │    │
-│  │           IN_PREPARATION → PREPARED → DELIVERED                    │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Step1["STEP 1: QR Code Scan<br/>Customer scans QR code Browser opens URL<br/>Example: https://mall.example.com/malltest/s/DFJNL"]
+    
+    Step2["STEP 2: Session Validation<br/>MallClientWrapper validates session with backend API<br/>- Checks session exists and is not expired<br/>- Retrieves mall configuration tenant list checkout flags<br/>- checkout_gateway_enabled: allows online payment<br/>- checkout_gateway_available: active gateway configured"]
+    
+    Step3["STEP 3: Store Selection<br/>Customer sees list of restaurants in the mall<br/>- Each store shows products availability logos<br/>- Products can be filtered by store/category"]
+    
+    Step4["STEP 4: Product Selection & Cart<br/>Customer adds products from one or more stores to cart<br/>- Products grouped by tenant for multi-restaurant orders<br/>- Modifiers and notes can be added<br/>- Cart drawer shows Crear Pedido button<br/>- Each cart line has a delete button remove item<br/>- Smart add/merge: re-adding SAME product with SAME<br/>modifier selection increments quantity new modifiers = new line"]
+    
+    Step5["STEP 5: Customer Data Entry<br/>Modal prompts for customer name and table number<br/>- Data stored in localStorage for order creation<br/>- Triggered by Crear Pedido button validation"]
+    
+    Step6["STEP 6: Order Creation<br/>POST /public/selfservice/{hash}/tab<br/>- Creates order brokerable_type=SelfServiceSession<br/>- Returns order_id and status=CREATED<br/>- Cart drawer closes order card displays with action buttons<br/>- Restaurants notified via WebSocket and FCM"]
+    
+    Step7A["STEP 7A: With Checkout Enabled<br/>Customer clicks Pagar en línea or Pagar<br/>Frontend builds return_url<br/>POST /public/selfservice/{hash}/checkout/session<br/>- Resolves tenant's default active CheckoutGateway<br/>- Creates CheckoutGatewayTransaction pending<br/>- Redirects SAME tab to gateway no _blank<br/>- Customer approves/rejects on gateway page<br/>- Backend completion: Order.is_paid=true<br/>- Tab auto-confirmed CREATED → CONFIRMED<br/>- Browser redirected back to tab-detail page"]
+    
+    Step7B["STEP 7B: Without Checkout<br/>Pagar en línea button not shown<br/>Shows Confirmar Pedido if self-confirm enabled<br/>Shows Cancelar Pedido to cancel before confirmation<br/>Kitchen staff confirms order manually if self-confirm off"]
+    
+    Step8["STEP 8: Post-Payment & Real-Time Tracking<br/>Once paid is_paid=true:<br/>- Card/list show green Pedido Pagado badge<br/>- Pagar and Cancelar buttons hidden<br/>Once confirmed status=CONFIRMED:<br/>- Card/list show Pedido Confirmado locked state<br/>- Cancel/modify disabled<br/>Customer sees real-time updates:<br/>- Progress bars per restaurant<br/>- Toast notifications on status changes<br/>- WebSocket updates: CREATED → CONFIRMED →<br/>IN_PREPARATION → PREPARED → DELIVERED"]
+    
+    Step1 --> Step2 --> Step3 --> Step4 --> Step5 --> Step6 --> Step7A
+    Step6 --> Step7B
+    Step7A --> Step8
+    Step7B --> Step8
 ```
 
 > **Cache note (known gap):** the kiosk only invalidates the React-Query cache
@@ -494,48 +363,78 @@ interface ITenantTab {
 
 ## File Structure
 
-```
-apps/kitchntabs-mall/
-├── src/
-│   ├── KitchnTabsMallBootstrap.tsx      # Main entry point
-│   ├── KitchnTabsMallRoutes.tsx         # Route definitions
-│   ├── KitchnTabsMallResources.tsx      # Resource configurations
-│   │
-│   ├── components/
-│   │   └── mall/
-│   │       └── MallClientWrapper.tsx    # Session validation & WebSocket setup
-│   │
-│   ├── contexts/
-│   │   ├── MallSessionEchoContext.tsx   # WebSocket subscription
-│   │   ├── MainAppHookComponent.tsx     # Admin hooks
-│   │   └── PublicSessionAppHookComponent.tsx  # Guest hooks
-│   │
-│   ├── dash-extensions/
-│   │   └── config/
-│   │       ├── DASHMallAuthProvider.tsx       # Admin auth
-│   │       ├── DASHMallClientAuthProvider.tsx # Guest auth
-│   │       ├── DASHMallDataProvider.tsx       # Admin data
-│   │       └── DASHMallClientDataProvider.tsx # Guest data
-│   │
-│   └── core/
-│       ├── KitchnTabsPrivateApp.tsx     # React Admin app
-│       └── KitchnTabsPublicApp.tsx      # Public pages
-
-packages/kt-mall/
-├── src/
-│   ├── components/
-│   │   ├── MallClientTabsList.tsx       # Order list with progress
-│   │   ├── MallClientTabsContext.tsx    # Notification context
-│   │   ├── MallTabsContext.tsx          # Resource context wrapper
-│   │   ├── MallOrderProducts.tsx        # Product selection
-│   │   ├── MallSessionOrderProgress.tsx # Progress display
-│   │   └── MallAppMediator.tsx          # Customer data modal
-│   │
-│   ├── contexts/
-│   │   └── MallEchoBridgeContext.tsx    # Event bridge to package
-│   │
-│   └── schemas/
-│       └── MallTabSchema.tsx            # Form/list schema
+```mermaid
+flowchart TD
+    Root["apps/kitchntabs-mall/"]
+    Src["src/"]
+    Bootstrap["KitchnTabsMallBootstrap.tsx<br/>Main entry point"]
+    Routes["KitchnTabsMallRoutes.tsx<br/>Route definitions"]
+    Resources["KitchnTabsMallResources.tsx<br/>Resource configurations"]
+    Comp["components/"]
+    Mall["mall/"]
+    MallWrapper["MallClientWrapper.tsx<br/>Session validation WebSocket setup"]
+    Ctx["contexts/"]
+    Echo["MallSessionEchoContext.tsx<br/>WebSocket subscription"]
+    MainHook["MainAppHookComponent.tsx<br/>Admin hooks"]
+    PubHook["PublicSessionAppHookComponent.tsx<br/>Guest hooks"]
+    Ext["dash-extensions/"]
+    ExtCfg["config/"]
+    AdminAuth["DASHMallAuthProvider.tsx<br/>Admin auth"]
+    GuestAuth["DASHMallClientAuthProvider.tsx<br/>Guest auth"]
+    AdminData["DASHMallDataProvider.tsx<br/>Admin data"]
+    GuestData["DASHMallClientDataProvider.tsx<br/>Guest data"]
+    Core["core/"]
+    PrivateApp["KitchnTabsPrivateApp.tsx<br/>React Admin app"]
+    PublicApp["KitchnTabsPublicApp.tsx<br/>Public pages"]
+    
+    KtMall["packages/kt-mall/"]
+    KtSrc["src/"]
+    KtComp["components/"]
+    TabsList["MallClientTabsList.tsx<br/>Order list with progress"]
+    TabsCtx["MallClientTabsContext.tsx<br/>Notification context"]
+    MallTabs["MallTabsContext.tsx<br/>Resource context wrapper"]
+    Products["MallOrderProducts.tsx<br/>Product selection"]
+    Progress["MallSessionOrderProgress.tsx<br/>Progress display"]
+    Mediator["MallAppMediator.tsx<br/>Customer data modal"]
+    KtCtx["contexts/"]
+    EchoBridge["MallEchoBridgeContext.tsx<br/>Event bridge to package"]
+    Schema["schemas/"]
+    TabSchema["MallTabSchema.tsx<br/>Form/list schema"]
+    
+    Root --> Src
+    Root --> KtMall
+    Src --> Bootstrap
+    Src --> Routes
+    Src --> Resources
+    Src --> Comp
+    Src --> Ctx
+    Src --> Ext
+    Src --> Core
+    Comp --> Mall
+    Mall --> MallWrapper
+    Ctx --> Echo
+    Ctx --> MainHook
+    Ctx --> PubHook
+    Ext --> ExtCfg
+    ExtCfg --> AdminAuth
+    ExtCfg --> GuestAuth
+    ExtCfg --> AdminData
+    ExtCfg --> GuestData
+    Core --> PrivateApp
+    Core --> PublicApp
+    
+    KtMall --> KtSrc
+    KtSrc --> KtComp
+    KtSrc --> KtCtx
+    KtSrc --> Schema
+    KtComp --> TabsList
+    KtComp --> TabsCtx
+    KtComp --> MallTabs
+    KtComp --> Products
+    KtComp --> Progress
+    KtComp --> Mediator
+    KtCtx --> EchoBridge
+    Schema --> TabSchema
 ```
 
 ---

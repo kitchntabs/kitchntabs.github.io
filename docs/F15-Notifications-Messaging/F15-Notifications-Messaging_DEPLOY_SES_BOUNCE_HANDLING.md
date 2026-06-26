@@ -459,35 +459,33 @@ php artisan migrate:rollback --step=1
 ## Quick Reference Card
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  SES BOUNCE HANDLING - QUICK REFERENCE                      │
-├─────────────────────────────────────────────────────────────┤
-│  Lambda Function:                                           │
-│    kitchntabs-production-ses-bounce-handler                 │
-│                                                             │
-│  SNS Topics:                                                │
-│    - kitchntabs-production-ses-bounces                      │
-│    - kitchntabs-production-ses-complaints                   │
-│                                                             │
-│  Webhook URL:                                               │
-│    POST /api/webhooks/ses/notifications                     │
-│                                                             │
-│  Admin Endpoints:                                           │
-│    GET  /api/webhooks/ses/check-email/{email}              │
-│    POST /api/webhooks/ses/remove-suppression               │
-│    GET  /api/webhooks/ses/statistics                       │
-│                                                             │
-│  Database:                                                  │
-│    Table: email_delivery_status                            │
-│                                                             │
-│  Logs:                                                      │
-│    Lambda: /aws/lambda/...-ses-bounce-handler              │
-│    Laravel: storage/logs/laravel.log                       │
-│                                                             │
-│  Test Addresses:                                            │
-│    bounce@simulator.amazonses.com                          │
-│    complaint@simulator.amazonses.com                       │
-└─────────────────────────────────────────────────────────────┘
+SES BOUNCE HANDLING - QUICK REFERENCE
+
+Lambda Function:
+  kitchntabs-production-ses-bounce-handler
+
+SNS Topics:
+  - kitchntabs-production-ses-bounces
+  - kitchntabs-production-ses-complaints
+
+Webhook URL:
+  POST /api/webhooks/ses/notifications
+
+Admin Endpoints:
+  GET  /api/webhooks/ses/check-email/{email}
+  POST /api/webhooks/ses/remove-suppression
+  GET  /api/webhooks/ses/statistics
+
+Database:
+  Table: email_delivery_status
+
+Logs:
+  Lambda: /aws/lambda/...-ses-bounce-handler
+  Laravel: storage/logs/laravel.log
+
+Test Addresses:
+  bounce@simulator.amazonses.com
+  complaint@simulator.amazonses.com
 ```
 
 ---

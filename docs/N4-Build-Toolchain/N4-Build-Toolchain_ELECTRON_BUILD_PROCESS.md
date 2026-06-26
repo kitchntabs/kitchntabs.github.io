@@ -27,18 +27,15 @@ The build process addresses a critical compatibility issue between **electron-bu
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Build Pipeline                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. Configuration      →  Set environment (production/dev)      │
-│  2. Icon Generation    →  electron-icon-builder                 │
-│  3. Turbo Build        →  Build React app + Electron process    │
-│  4. Build Wrapper      →  build-electron.js (pnpm workaround)   │
-│  5. Electron Builder   →  Package for target platform           │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    S1["1. Configuration<br/>Set environment production/dev"]
+    S2["2. Icon Generation<br/>electron-icon-builder"]
+    S3["3. Turbo Build<br/>Build React app + Electron process"]
+    S4["4. Build Wrapper<br/>build-electron.js pnpm workaround"]
+    S5["5. Electron Builder<br/>Package for target platform"]
+
+    S1 --> S2 --> S3 --> S4 --> S5
 ```
 
 ### Key Components
@@ -126,34 +123,14 @@ external: nativeModules  // This bundles electron-updater, yaml, etc.
 
 ### Execution Flow
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                 build-electron.js Flow                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. BACKUP PHASE                                                │
-│     ├─ Copy package.json → package.json.original-backup         │
-│     ├─ Rename pnpm-workspace.yaml → .build-backup               │
-│     ├─ Rename pnpm-lock.yaml → .build-backup                    │
-│     └─ Rename node_modules → node_modules_build_backup          │
-│                                                                 │
-│  2. SETUP PHASE                                                 │
-│     ├─ Create empty node_modules/                               │
-│     ├─ Create minimal package.json (ZERO dependencies)          │
-│     └─ Create fake yarn.lock (tricks electron-builder)          │
-│                                                                 │
-│  3. BUILD PHASE                                                 │
-│     └─ Run electron-builder from backup node_modules location   │
-│                                                                 │
-│  4. RESTORE PHASE (always runs, even on error)                  │
-│     ├─ Delete fake yarn.lock                                    │
-│     ├─ Delete temporary node_modules                            │
-│     ├─ Restore original node_modules                            │
-│     ├─ Restore original package.json                            │
-│     ├─ Restore pnpm-workspace.yaml                              │
-│     └─ Restore pnpm-lock.yaml                                   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    P1["1. BACKUP PHASE<br/>├─ Copy package.json → package.json.original-backup<br/>├─ Rename pnpm-workspace.yaml → .build-backup<br/>├─ Rename pnpm-lock.yaml → .build-backup<br/>└─ Rename node_modules → node_modules_build_backup"]
+    P2["2. SETUP PHASE<br/>├─ Create empty node_modules/<br/>├─ Create minimal package.json (ZERO dependencies)<br/>└─ Create fake yarn.lock (tricks electron-builder)"]
+    P3["3. BUILD PHASE<br/>└─ Run electron-builder from backup node_modules location"]
+    P4["4. RESTORE PHASE (always runs, even on error)<br/>├─ Delete fake yarn.lock<br/>├─ Delete temporary node_modules<br/>├─ Restore original node_modules<br/>├─ Restore original package.json<br/>├─ Restore pnpm-workspace.yaml<br/>└─ Restore pnpm-lock.yaml"]
+
+    P1 --> P2 --> P3 --> P4
 ```
 
 ### Minimal Package.json Created

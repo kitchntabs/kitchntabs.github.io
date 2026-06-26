@@ -197,10 +197,18 @@ ACTIVE → CANCELED → SUSPENDED → SOFT_DELETED → (Permanent Deletion)
 When a tenancy is registered, it falls into a registration state machine lifecycle
 to monitor the state of the registrations. 
 
-```
-pending → verified → provisioning → provisioned → (soft deleted)
-                 ↘                ↘
-                  → expired        → failed
+```mermaid
+stateDiagram-v2
+    [*] --> pending
+    pending --> verified
+    pending --> expired
+    verified --> provisioning
+    verified --> expired
+    provisioning --> provisioned
+    provisioning --> failed
+    provisioned --> [*]
+    failed --> [*]
+    expired --> [*]
 ```
 
 | Status | Description |

@@ -76,169 +76,99 @@ Modified `resubscribe()` method to:
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    SUBSCRIPTION REACTIVATION ARCHITECTURE                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────────────┐                                                   │
-│  │    TenancyAdmin      │                                                   │
-│  │    Dashboard         │                                                   │
-│  └──────────┬───────────┘                                                   │
-│             │                                                                │
-│             │  POST /tenancy/{id}/resubscribe                               │
-│             ▼                                                                │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                TenancySubscriptionController                          │   │
-│  │                                                                       │   │
-│  │  resubscribe(Request $request, Tenancy $tenancy)                     │   │
-│  │    - Validates plan_id                                                │   │
-│  │    - Calls service->resubscribe()                                    │   │
-│  └───────────────────────────────────┬──────────────────────────────────┘   │
-│                                      │                                       │
-│                                      ▼                                       │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                TenancySubscriptionService                             │   │
-│  │                                                                       │   │
-│  │  resubscribe(Tenancy, SubscriptionPlan)                              │   │
-│  │    │                                                                  │   │
-│  │    ├─▶ canReactivateViaChangePlan()  ──────────┐                     │   │
-│  │    │         │                                  │                     │   │
-│  │    │         ├─ Has external_subscription_id?  │                     │   │
-│  │    │         ├─ Has cancels_at set?            │ Decision            │   │
-│  │    │         ├─ current_period_end > now()?    │ Logic               │   │
-│  │    │         ├─ Gateway supports changePlan?   │                     │   │
-│  │    │         └─ Flow status != 4 (cancelled)?  │                     │   │
-│  │    │                                            │                     │   │
-│  │    │        ┌────────────────────────────┐     │                     │   │
-│  │    │        │          TRUE               │◄────┘                     │   │
-│  │    │        └─────────────┬──────────────┘                           │   │
-│  │    │                      │                                           │   │
-│  │    │                      ▼                                           │   │
-│  │    │        ┌──────────────────────────────────────────────────────┐ │   │
-│  │    ├──YES──▶│ reactivateViaChangePlan()                            │ │   │
-│  │    │        │   - gateway->updateSubscription(plan_id)             │ │   │
-│  │    │        │   - Clear cancels_at, cancelled_at                   │ │   │
-│  │    │        │   - Status → ACTIVE                                  │ │   │
-│  │    │        │   - Restore soft-deleted users                       │ │   │
-│  │    │        │   - Fire TenancyAccountReactivated event             │ │   │
-│  │    │        └──────────────────────────────────────────────────────┘ │   │
-│  │    │                                                                  │   │
-│  │    │        ┌────────────────────────────┐                           │   │
-│  │    │        │          FALSE              │                           │   │
-│  │    │        └─────────────┬──────────────┘                           │   │
-│  │    │                      │                                           │   │
-│  │    │                      ▼                                           │   │
-│  │    │        ┌──────────────────────────────────────────────────────┐ │   │
-│  │    └──NO───▶│ createNewSubscriptionForReactivation()               │ │   │
-│  │             │   - this->create(tenancy, plan)                      │ │   │
-│  │             │   - Dispatch CreateGatewaySubscriptionJob            │ │   │
-│  │             │   - Restore soft-deleted users                       │ │   │
-│  │             │   - Fire TenancyAccountReactivated event             │ │   │
-│  │             └──────────────────────────────────────────────────────┘ │   │
-│  │                                                                       │   │
-│  └───────────────────────────────────────────────────────────────────────┘   │
-│                                      │                                       │
-│                                      ▼                                       │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                FlowPaymentGatewayService                              │   │
-│  │                                                                       │   │
-│  │  updateSubscription() ──▶ POST /subscription/changePlan              │   │
-│  │  createSubscription() ──▶ POST /subscription/create                  │   │
-│  │  getSubscriptionFromFlow() ──▶ GET /subscription/{id}                │   │
-│  │                                                                       │   │
-│  └───────────────────────────────────────────────────────────────────────┘   │
-│                                      │                                       │
-│                                      ▼                                       │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                         Flow.cl API                                   │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["TenancyAdmin Dashboard"] -->|"POST /tenancy/{id}/resubscribe"| B["TenancySubscriptionController
+resubscribe(Request, Tenancy)
+- Validates plan_id
+- Calls service->resubscribe()"]
+    B --> C["TenancySubscriptionService
+resubscribe(Tenancy, SubscriptionPlan)"]
+    C --> D{"canReactivateViaChangePlan()
+- Has external_subscription_id?
+- Has cancels_at set?
+- current_period_end > now()?
+- Gateway supports changePlan?
+- Flow status != 4 (cancelled)?"}
+    D -->|"YES"| E["reactivateViaChangePlan()
+- gateway->updateSubscription(plan_id)
+- Clear cancels_at, cancelled_at
+- Status → ACTIVE
+- Restore soft-deleted users
+- Fire TenancyAccountReactivated event"]
+    D -->|"NO"| F["createNewSubscriptionForReactivation()
+- this->create(tenancy, plan)
+- Dispatch CreateGatewaySubscriptionJob
+- Restore soft-deleted users
+- Fire TenancyAccountReactivated event"]
+    E --> G["FlowPaymentGatewayService
+updateSubscription() → POST /subscription/changePlan
+createSubscription() → POST /subscription/create
+getSubscriptionFromFlow() → GET /subscription/{id}"]
+    F --> G
+    G --> H["Flow.cl API"]
 ```
 
 ---
 
 ## Entity-Relationship Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                  REACTIVATION-RELATED ENTITIES                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+erDiagram
+    Tenancy {
+        UUID id PK
+        string public_name
+        string email
+        enum status
+        enum billing_state
+        string payment_gateway
+        string primary_currency
+        timestamp suspended_at
+        timestamp marked_for_deletion_at
+    }
+    TenancySubscription {
+        bigint id PK
+        UUID tenancy_id FK
+        bigint subscription_plan_id FK
+        enum status
+        enum subscription_state
+        string external_subscription_id "Maps to Flow subscription ID"
+        string external_customer_id
+        string payment_gateway
+        timestamp current_period_start
+        timestamp current_period_end "Key for reactivation check"
+        timestamp cancelled_at
+        timestamp cancels_at "Set when at_period_end=1"
+        string cancellation_reason
+        timestamp trial_ends_at
+        int failed_payment_attempts
+        json metadata
+    }
+    SubscriptionPlan {
+        bigint id PK
+        string name
+        string slug
+        string flow_plan_id "Maps to Flow plan ID"
+        string billing_cycle
+        json prices
+        json features
+        json limits
+        boolean is_active
+    }
+    FlowSubscriptionExternal {
+        string subscriptionId "Maps to external_subscription_id"
+        string planId
+        string customerId
+        int status "1=active, 4=cancelled"
+        boolean cancel_at_period_end "Key indicator"
+        timestamp period_start
+        timestamp period_end
+        decimal balance "Credit from proration"
+    }
 
-┌──────────────────────────────────────┐
-│              Tenancy                  │
-├──────────────────────────────────────┤
-│ PK: id (UUID)                        │
-│     public_name                      │
-│     email                            │
-│ ★   status (enum)                    │◄─────────────────┐
-│ ★   billing_state (enum)             │                  │
-│     payment_gateway                  │                  │
-│     primary_currency                 │                  │
-│     suspended_at                     │                  │
-│     marked_for_deletion_at           │                  │
-└──────────────┬───────────────────────┘                  │
-               │                                          │
-               │ 1:N (One tenancy, many subscriptions)    │ Status transitions:
-               ▼                                          │ - ACTIVE
-┌──────────────────────────────────────┐                  │ - CANCELED
-│        TenancySubscription           │                  │ - SUSPENDED
-├──────────────────────────────────────┤                  │ - SOFT_DELETED
-│ PK: id                               │                  │
-│ FK: tenancy_id                       │                  │
-│ FK: subscription_plan_id ────────────┼──────────┐       │
-│                                      │          │       │
-│ ★   status (enum)                    │          │       │
-│ ★   subscription_state (enum)        │◄─────────┼───────┘
-│                                      │          │
-│ ★   external_subscription_id ────────┼──────────┼──────▶ Flow subscription ID
-│     external_customer_id             │          │
-│     payment_gateway                  │          │
-│                                      │          │
-│ ★   current_period_start             │          │
-│ ★   current_period_end               │◄─────────┼────── Key for reactivation check
-│ ★   cancelled_at                     │          │
-│ ★   cancels_at                       │◄─────────┼────── Set when at_period_end=1
-│ ★   cancellation_reason              │          │
-│                                      │          │
-│     trial_ends_at                    │          │
-│     failed_payment_attempts          │          │
-│     metadata (JSON)                  │          │
-└──────────────────────────────────────┘          │
-                                                  │
-                                                  ▼
-                               ┌──────────────────────────────────────┐
-                               │        SubscriptionPlan              │
-                               ├──────────────────────────────────────┤
-                               │ PK: id                               │
-                               │     name                             │
-                               │     slug                             │
-                               │ ★   flow_plan_id ────────────────────┼──▶ Flow plan ID
-                               │     billing_cycle                    │
-                               │     prices (JSON)                    │
-                               │     features (JSON)                  │
-                               │     limits (JSON)                    │
-                               │     is_active                        │
-                               └──────────────────────────────────────┘
-
-┌──────────────────────────────────────┐
-│     Flow.cl Subscription (External)  │
-├──────────────────────────────────────┤
-│     subscriptionId                   │◄────── Maps to external_subscription_id
-│     planId                           │
-│     customerId                       │
-│ ★   status (1=active, 4=cancelled)   │◄────── Used in reactivation check
-│ ★   cancel_at_period_end (0 or 1)    │◄────── Key indicator
-│     period_start                     │
-│     period_end                       │
-│ ★   balance                          │◄────── Credit from proration
-└──────────────────────────────────────┘
-
-Legend:
-★ = Key fields for reactivation logic
-PK = Primary Key
-FK = Foreign Key
+    Tenancy ||--o{ TenancySubscription : "1:N (one tenancy, many subscriptions)"
+    TenancySubscription }o--|| SubscriptionPlan : "references"
+    TenancySubscription ||--|| FlowSubscriptionExternal : "maps to external_subscription_id"
 ```
 
 ---
@@ -247,198 +177,66 @@ FK = Foreign Key
 
 ### Subscription Status Transitions
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    SUBSCRIPTION STATUS STATE MACHINE                         │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                              ┌───────────────┐
-                              │    PENDING    │
-                              │               │
-                              │ (Awaiting     │
-                              │  gateway job) │
-                              └───────┬───────┘
-                                      │
-                                      │ Gateway subscription created
-                                      ▼
-    ┌─────────────────────────────────────────────────────────────────┐
-    │                                                                  │
-    │                           TRIALING                               │
-    │                                                                  │
-    │  (Optional trial period - subscription active, no charges yet)  │
-    │                                                                  │
-    └──────────────────────────────┬──────────────────────────────────┘
-                                   │
-                                   │ Trial ends / First payment
-                                   ▼
-    ┌─────────────────────────────────────────────────────────────────┐
-    │                                                                  │
-    │                            ACTIVE                                │◄──────┐
-    │                                                                  │       │
-    │  (Subscription active and paid)                                 │       │
-    │                                                                  │       │
-    └───────────┬─────────────────────────────┬───────────────────────┘       │
-                │                             │                                │
-                │ Payment failed              │ User cancels                   │
-                ▼                             ▼                                │
-    ┌───────────────────┐         ┌───────────────────────────────┐           │
-    │                   │         │                                │           │
-    │     PAST_DUE      │         │   ACTIVE (cancel scheduled)   │           │
-    │                   │         │                                │           │
-    │  (Grace period    │         │  cancels_at = period_end      │           │
-    │   for payment)    │         │  cancelled_at = now()          │           │
-    │                   │         │                                │           │
-    └─────────┬─────────┘         └─────────────┬─────────────────┘           │
-              │                                 │                              │
-              │ Max retries                     │ Period ends                  │
-              │ exceeded                        ▼                              │
-              │                   ┌────────────────────────────────┐           │
-              │                   │                                 │           │
-              │                   │         CANCELLED               │           │
-              │                   │                                 │           │
-              │                   │  (No longer active in gateway) │           │
-              │                   │                                 │           │
-              │                   └────────────────┬───────────────┘           │
-              │                                    │                           │
-              └────────────────────┬───────────────┘                           │
-                                   │                                           │
-                                   │ Resubscribe                               │
-                                   │                                           │
-                                   ▼                                           │
-                    ┌──────────────────────────────────┐                       │
-                    │                                   │                       │
-                    │     REACTIVATION DECISION         │                       │
-                    │                                   │                       │
-                    │  Can use changePlan?              │                       │
-                    │      │                            │                       │
-                    │      ├── YES ────────────────────►│───────────────────────┘
-                    │      │   (via changePlan)         │   Status → ACTIVE
-                    │      │                            │   Credit preserved
-                    │      │                            │
-                    │      └── NO ─────────────────────►│ New subscription created
-                    │          (new subscription)       │   Status → PENDING → ACTIVE
-                    │                                   │
-                    └──────────────────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING: PENDING (Awaiting gateway job)
+    PENDING --> TRIALING : Gateway subscription created
+    TRIALING: TRIALING (Optional trial period - subscription active, no charges yet)
+    TRIALING --> ACTIVE : Trial ends / First payment
+    ACTIVE: ACTIVE (Subscription active and paid)
+    ACTIVE --> PAST_DUE : Payment failed
+    ACTIVE --> ACTIVE_CANCEL_SCHEDULED : User cancels
+    ACTIVE_CANCEL_SCHEDULED: ACTIVE (cancel scheduled) - cancels_at = period_end, cancelled_at = now()
+    PAST_DUE: PAST_DUE (Grace period for payment)
+    PAST_DUE --> REACTIVATION_DECISION : Max retries exceeded
+    ACTIVE_CANCEL_SCHEDULED --> CANCELLED : Period ends
+    CANCELLED: CANCELLED (No longer active in gateway)
+    CANCELLED --> REACTIVATION_DECISION : Resubscribe
+    REACTIVATION_DECISION: REACTIVATION DECISION (Can use changePlan?)
+    REACTIVATION_DECISION --> ACTIVE : YES (via changePlan) - Credit preserved
+    REACTIVATION_DECISION --> PENDING : NO (new subscription) - Status → PENDING → ACTIVE
 ```
 
 ### Flow.cl Subscription Status Mapping
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    FLOW.CL STATUS MAPPING                                    │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌────────────────────┐      ┌────────────────────────────────────────────┐
-│   Flow Status      │      │              Local Status                   │
-├────────────────────┤      ├────────────────────────────────────────────┤
-│                    │      │                                            │
-│  status = 1        │─────▶│  ACTIVE                                    │
-│  (Active)          │      │  Subscription is live and billing          │
-│                    │      │                                            │
-├────────────────────┤      ├────────────────────────────────────────────┤
-│                    │      │                                            │
-│  status = 1        │─────▶│  ACTIVE (but scheduled for cancellation)  │
-│  cancel_at_period  │      │  cancels_at = period_end                  │
-│  _end = 1          │      │  ★ CAN REACTIVATE VIA changePlan ★        │
-│                    │      │                                            │
-├────────────────────┤      ├────────────────────────────────────────────┤
-│                    │      │                                            │
-│  status = 2        │─────▶│  PAST_DUE                                  │
-│  (Past Due)        │      │  Payment failed, retrying                  │
-│                    │      │                                            │
-├────────────────────┤      ├────────────────────────────────────────────┤
-│                    │      │                                            │
-│  status = 4        │─────▶│  CANCELLED                                 │
-│  (Cancelled)       │      │  Truly cancelled, cannot use changePlan   │
-│                    │      │  ✗ MUST CREATE NEW SUBSCRIPTION ✗         │
-│                    │      │                                            │
-└────────────────────┘      └────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    A["status = 1 (Active)"] --> A2["ACTIVE
+Subscription is live and billing"]
+    B["status = 1, cancel_at_period_end = 1"] --> B2["ACTIVE (but scheduled for cancellation)
+cancels_at = period_end
+CAN REACTIVATE VIA changePlan"]
+    C["status = 2 (Past Due)"] --> C2["PAST_DUE
+Payment failed, retrying"]
+    D["status = 4 (Cancelled)"] --> D2["CANCELLED
+Truly cancelled, cannot use changePlan
+MUST CREATE NEW SUBSCRIPTION"]
 ```
 
 ---
 
 ## Reactivation Decision Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│               REACTIVATION METHOD DECISION FLOWCHART                         │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                              ┌───────────────────────┐
-                              │   Resubscribe Called  │
-                              │   (tenancy, plan)     │
-                              └───────────┬───────────┘
-                                          │
-                                          ▼
-                              ┌───────────────────────┐
-                              │ Get current           │
-                              │ subscription          │
-                              └───────────┬───────────┘
-                                          │
-                                          ▼
-                         ┌────────────────────────────────┐
-                         │ Has external_subscription_id?  │
-                         └────────────────┬───────────────┘
-                                          │
-                         ┌────────────────┴────────────────┐
-                         │                                 │
-                        NO                                YES
-                         │                                 │
-                         ▼                                 ▼
-           ┌─────────────────────────┐        ┌───────────────────────┐
-           │   CREATE NEW            │        │ Has cancels_at set?   │
-           │   SUBSCRIPTION          │        │ (at_period_end=1)     │
-           └─────────────────────────┘        └───────────┬───────────┘
-                                                          │
-                                         ┌────────────────┴────────────────┐
-                                         │                                 │
-                                        NO                                YES
-                                         │                                 │
-                                         ▼                                 ▼
-                           ┌─────────────────────────┐   ┌───────────────────────────┐
-                           │   CREATE NEW            │   │ current_period_end        │
-                           │   SUBSCRIPTION          │   │ > now()?                  │
-                           └─────────────────────────┘   │ (Still within period)     │
-                                                         └───────────┬───────────────┘
-                                                                     │
-                                                    ┌────────────────┴────────────────┐
-                                                    │                                 │
-                                                   NO                                YES
-                                                    │                                 │
-                                                    ▼                                 ▼
-                                      ┌─────────────────────────┐   ┌────────────────────────┐
-                                      │   CREATE NEW            │   │ Gateway supports       │
-                                      │   SUBSCRIPTION          │   │ updateSubscription?    │
-                                      │   (Period expired)      │   └───────────┬────────────┘
-                                      └─────────────────────────┘               │
-                                                                   ┌────────────┴────────────┐
-                                                                   │                         │
-                                                                  NO                        YES
-                                                                   │                         │
-                                                                   ▼                         ▼
-                                                     ┌─────────────────────────┐   ┌─────────────────────┐
-                                                     │   CREATE NEW            │   │ Query Flow API:     │
-                                                     │   SUBSCRIPTION          │   │ getSubscriptionFrom │
-                                                     └─────────────────────────┘   │ Flow()              │
-                                                                                   └───────────┬─────────┘
-                                                                                               │
-                                                                           ┌───────────────────┴───────────────────┐
-                                                                           │                                       │
-                                                                  status = 4                              status != 4
-                                                                  (Cancelled)                             (Still active)
-                                                                           │                                       │
-                                                                           ▼                                       ▼
-                                                             ┌─────────────────────────┐         ┌─────────────────────────────┐
-                                                             │   CREATE NEW            │         │   REACTIVATE VIA            │
-                                                             │   SUBSCRIPTION          │         │   changePlan                │
-                                                             │   (Flow sub cancelled)  │         │                             │
-                                                             └─────────────────────────┘         │   ★ CREDIT PRESERVED ★      │
-                                                                                                 │                             │
-                                                                                                 │   - gateway->               │
-                                                                                                 │     updateSubscription()   │
-                                                                                                 │   - Clear cancels_at       │
-                                                                                                 │   - Status → ACTIVE        │
-                                                                                                 └─────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Resubscribe Called (tenancy, plan)"] --> B["Get current subscription"]
+    B --> C{"Has external_subscription_id?"}
+    C -->|NO| D1["CREATE NEW SUBSCRIPTION"]
+    C -->|YES| E{"Has cancels_at set? (at_period_end=1)"}
+    E -->|NO| D2["CREATE NEW SUBSCRIPTION"]
+    E -->|YES| F{"current_period_end > now()? (Still within period)"}
+    F -->|NO| D3["CREATE NEW SUBSCRIPTION (Period expired)"]
+    F -->|YES| G{"Gateway supports updateSubscription?"}
+    G -->|NO| D4["CREATE NEW SUBSCRIPTION"]
+    G -->|YES| H["Query Flow API: getSubscriptionFromFlow()"]
+    H --> I{"Flow status"}
+    I -->|"status = 4 (Cancelled)"| D5["CREATE NEW SUBSCRIPTION (Flow sub cancelled)"]
+    I -->|"status != 4 (Still active)"| J["REACTIVATE VIA changePlan
+CREDIT PRESERVED
+- gateway->updateSubscription()
+- Clear cancels_at
+- Status → ACTIVE"]
 ```
 
 ---

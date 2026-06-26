@@ -32,23 +32,20 @@ Both features follow a similar multi-step AI pipeline architecture and integrate
 
 ### High-Level Flow
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Frontend UI   │────▶│   Backend API   │────▶│   OpenAI API    │
-│  (React/MUI)    │     │   (Laravel)     │     │  (GPT-4/Whisper)│
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-         │                       │                       │
-         │                       ▼                       │
-         │              ┌─────────────────┐              │
-         │              │ Product Service │              │
-         │              │ (Resolution)    │              │
-         │              └─────────────────┘              │
-         │                       │                       │
-         ▼                       ▼                       │
-┌─────────────────┐     ┌─────────────────┐              │
-│ TabManager      │◀────│ Actions Array   │◀─────────────┘
-│ Context         │     │ (Structured)    │
-└─────────────────┘     └─────────────────┘
+```mermaid
+flowchart LR
+    FE["Frontend UI<br/>React/MUI"]
+    BE["Backend API<br/>Laravel"]
+    OPENAI["OpenAI API<br/>GPT-4/Whisper"]
+    PROD["Product Service<br/>Resolution"]
+    TAB["TabManager<br/>Context"]
+    ACTIONS["Actions Array<br/>Structured"]
+    
+    FE --> BE --> OPENAI
+    BE --> PROD
+    PROD --> ACTIONS
+    ACTIONS --> TAB
+    OPENAI --> ACTIONS
 ```
 
 ### Technology Stack
@@ -441,67 +438,30 @@ const renderAnalysisDrawer = () => (
 
 ### Voice Agent Pipeline
 
-```
-┌──────────────────┐
-│ 1. Audio Capture │  Capacitor VoiceRecorder
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 2. Transcription │  OpenAI Whisper-1 (Spanish)
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 3. Action        │  GPT-4-turbo-preview
-│    Extraction    │  Extract actions from text
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 4. Product       │  Elasticsearch/Database
-│    Resolution    │  Match names to products
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 5. AI            │  GPT-4-turbo-preview
-│    Enhancement   │  Suggest modifiers, validate
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 6. Apply to      │  TabManagerContext
-│    Order         │  handleVoiceActions()
-└──────────────────┘
+```mermaid
+flowchart TD
+    Step1["1. Audio Capture<br/>Capacitor VoiceRecorder"]
+    Step2["2. Transcription<br/>OpenAI Whisper-1 Spanish"]
+    Step3["3. Action Extraction<br/>GPT-4-turbo-preview<br/>Extract actions from text"]
+    Step4["4. Product Resolution<br/>Elasticsearch/Database<br/>Match names to products"]
+    Step5["5. AI Enhancement<br/>GPT-4-turbo-preview<br/>Suggest modifiers validate"]
+    Step6["6. Apply to Order<br/>TabManagerContext<br/>handleVoiceActions"]
+    
+    Step1 --> Step2 --> Step3 --> Step4 --> Step5 --> Step6
 ```
 
 ### Image Agent Pipeline
 
-```
-┌──────────────────┐
-│ 1. Image Capture │  Capacitor Camera / Gallery
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 2. Vision        │  GPT-4o (Vision)
-│    Analysis      │  Analyze image content
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 3. Action        │  GPT-4-turbo-preview
-│    Extraction    │  Extract actions from analysis
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 4. Product       │  Elasticsearch/Database
-│    Resolution    │  Match names to products
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 5. Modifier      │  GPT-4-turbo-preview
-│    Enhancement   │  Match modifiers to options
-└────────┬─────────┘
-         ▼
-┌──────────────────┐
-│ 6. Apply to      │  TabManagerContext
-│    Order         │  handleVoiceActions()
-└──────────────────┘
+```mermaid
+flowchart TD
+    Step1["1. Image Capture<br/>Capacitor Camera Gallery"]
+    Step2["2. Vision Analysis<br/>GPT-4o Vision<br/>Analyze image content"]
+    Step3["3. Action Extraction<br/>GPT-4-turbo-preview<br/>Extract actions from analysis"]
+    Step4["4. Product Resolution<br/>Elasticsearch/Database<br/>Match names to products"]
+    Step5["5. Modifier Enhancement<br/>GPT-4-turbo-preview<br/>Match modifiers to options"]
+    Step6["6. Apply to Order<br/>TabManagerContext<br/>handleVoiceActions"]
+    
+    Step1 --> Step2 --> Step3 --> Step4 --> Step5 --> Step6
 ```
 
 ---

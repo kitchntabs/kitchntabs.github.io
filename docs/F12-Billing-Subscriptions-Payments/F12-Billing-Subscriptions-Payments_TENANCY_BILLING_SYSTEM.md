@@ -45,34 +45,27 @@ The DASH Tenancy & Billing System provides multi-tenant infrastructure with subs
 
 ## 2. Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        TENANCY & BILLING ARCHITECTURE                       │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Controllers   │────▶│    Services     │────▶│     Models      │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-        │                       │                       │
-        │                       │                       │
-        ▼                       ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ TenancyController│    │ TenancyService  │     │    Tenancy      │
-│ TenancySubscription│  │ TenancySubscription│  │ TenancySubscription│
-│   Controller    │     │   Service       │     │ SubscriptionPlan│
-│ TenancyPayment  │     │                 │     │ TenancyPayment  │
-│   Controller    │     │                 │     │ TenancyPaymentMethod│
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │ PaymentGateway      │
-                    │    Contract         │
-                    ├─────────────────────┤
-                    │ InternalGateway     │
-                    │ (future) Stripe     │
-                    │ (future) PayPal     │
-                    └─────────────────────┘
+```mermaid
+flowchart TD
+    Title["TENANCY & BILLING ARCHITECTURE"]
+    
+    Controllers["Controllers"]
+    Services["Services"]
+    Models["Models"]
+    
+    TenancyCtrl["TenancyController<br/>TenancySubscription Controller<br/>TenancyPayment Controller"]
+    TenancyServ["TenancyService<br/>TenancySubscription Service"]
+    TenancyModels["Tenancy<br/>TenancySubscription<br/>SubscriptionPlan<br/>TenancyPayment<br/>TenancyPaymentMethod"]
+    
+    PaymentGateway["PaymentGateway Contract<br/>InternalGateway<br/>future Stripe<br/>future PayPal"]
+    
+    Title --> Controllers
+    Title --> Services
+    Title --> Models
+    Controllers --> TenancyCtrl
+    Services --> TenancyServ
+    Models --> TenancyModels
+    Controllers --> Services --> PaymentGateway
 ```
 
 ### Directory Structure

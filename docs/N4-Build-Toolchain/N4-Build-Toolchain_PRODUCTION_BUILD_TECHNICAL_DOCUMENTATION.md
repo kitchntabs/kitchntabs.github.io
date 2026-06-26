@@ -14,129 +14,68 @@ The system consists of three main repositories:
 
 ## Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                         PRODUCTION BUILD & DEPLOYMENT PIPELINE                           │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─────────────────────────────────────────────────────────────────────────────────────┐
-  │                           PHASE 1: BUILD ORCHESTRATION                              │
-  │                           (kitchntabs-ci-cdk)                                       │
-  │                                                                                     │
-  │   pnpm deploy:prod                                                                  │
-  │         │                                                                           │
-  │         ├───────────────────────────┐                                               │
-  │         │                           │                                               │
-  │         ▼                           ▼                                               │
-  │   ┌───────────────────┐      ┌───────────────────┐                                  │
-  │   │  BUILD FRONTEND   │      │   VERSION BUMP    │                                  │
-  │   │  (dash-frontend)  │      │  (dash-backend)   │                                  │
-  │   └─────────┬─────────┘      └─────────┬─────────┘                                  │
-  │             │                          │                                            │
-  │             ▼                          ▼                                            │
-  │   ┌───────────────────┐      ┌───────────────────┐                                  │
-  │   │  apps/kitchntabs/ │      │  npm version      │                                  │
-  │   │  dist/            │      │  minor            │                                  │
-  │   └─────────┬─────────┘      │  git commit       │                                  │
-  │             │                └─────────┬─────────┘                                  │
-  │             │                          │                                            │
-  │             └──────────┬───────────────┘                                            │
-  │                        ▼                                                            │
-  │              ┌───────────────────┐                                                  │
-  │              │  UPDATE IMAGE_    │                                                  │
-  │              │  VERSION in .env  │                                                  │
-  │              └─────────┬─────────┘                                                  │
-  │                        │                                                            │
-  │                        ▼                                                            │
-  │              ┌───────────────────┐                                                  │
-  │              │  pnpm bk:production│                                                 │
-  │              │  (CDK Deploy)      │                                                 │
-  │              └───────────────────┘                                                  │
-  └─────────────────────────────────────────────────────────────────────────────────────┘
-                                        │
-                                        ▼
-  ┌─────────────────────────────────────────────────────────────────────────────────────┐
-  │                           PHASE 2: DOCKER BUILD                                     │
-  │                           (dash-backend)                                            │
-  │                                                                                     │
-  │   docker.build.sh --envFile kitchntabs --env production --public {frontend_dist}    │
-  │         │                                                                           │
-  │         ├─► Source .env.kitchntabs.production                                       │
-  │         │                                                                           │
-  │         ├─► Copy frontend dist → ./public/                                          │
-  │         │                                                                           │
-  │         ├─► docker build with ARM64 platform                                        │
-  │         │     └─► Dockerfile                                                        │
-  │         │           ├─► PHP 8.2-fpm-bullseye base                                   │
-  │         │           ├─► Install dependencies (nginx, supervisor, redis, etc.)      │
-  │         │           ├─► Copy application code                                       │
-  │         │           ├─► Copy config templates (nginx, supervisor, php-fpm)          │
-  │         │           └─► Set entrypoint.sh as CMD                                    │
-  │         │                                                                           │
-  │         ├─► Tag with latest + commit hash (e.g., 3d7c68b)                           │
-  │         │                                                                           │
-  │         └─► Push to ECR: kitchntabs-production:latest + :3d7c68b                    │
-  │                                                                                     │
-  └─────────────────────────────────────────────────────────────────────────────────────┘
-                                        │
-                                        ▼
-  ┌─────────────────────────────────────────────────────────────────────────────────────┐
-  │                           PHASE 3: CDK INFRASTRUCTURE DEPLOY                        │
-  │                           (kitchntabs-ci-cdk)                                       │
-  │                                                                                     │
-  │   stackMgr.js bk production                                                         │
-  │         │                                                                           │
-  │         ├─► Load .env.production + .env.bk.production                               │
-  │         │                                                                           │
-  │         ├─► Check CDK bootstrap                                                     │
-  │         │                                                                           │
-  │         ├─► cdk synth (generate CloudFormation)                                     │
-  │         │     └─► config/backend/production.ts                                      │
-  │         │                                                                           │
-  │         ├─► cdk diff (show changes)                                                 │
-  │         │                                                                           │
-  │         └─► cdk deploy                                                              │
-  │               │                                                                     │
-  │               ├─► VPC + Security Groups                                             │
-  │               ├─► ECS Cluster (Fargate)                                             │
-  │               ├─► ALB + Target Group (/api/healthz)                                 │
-  │               ├─► Task Definition (ARM64, 256 CPU, 2GB RAM)                         │
-  │               ├─► Fargate Service (FARGATE_SPOT)                                    │
-  │               ├─► CloudWatch Log Group (14 days retention)                          │
-  │               └─► Auto Scaling (CPU-based, 1-2 tasks)                               │
-  │                                                                                     │
-  └─────────────────────────────────────────────────────────────────────────────────────┘
-                                        │
-                                        ▼
-  ┌─────────────────────────────────────────────────────────────────────────────────────┐
-  │                           PHASE 4: CONTAINER RUNTIME                                │
-  │                           (ECS Fargate Task)                                        │
-  │                                                                                     │
-  │   entrypoint.sh executes on container start                                         │
-  │         │                                                                           │
-  │         ├─► Download RDS CA Bundle                                                  │
-  │         │                                                                           │
-  │         ├─► Copy environment file (.env.kitchntabs.production → .env)               │
-  │         │                                                                           │
-  │         ├─► Detect ECS/Fargate platform → set PLATFORM=fargate                      │
-  │         │                                                                           │
-  │         ├─► replace_env_vars() for config templates:                                │
-  │         │     ├─► redis.conf → /opt/redis-stable/redis.conf                         │
-  │         │     ├─► custom-supervisor.conf → /etc/supervisor/conf.d/                  │
-  │         │     ├─► nginx.conf → /etc/nginx/nginx.conf                                │
-  │         │     ├─► api.nginx.conf → /etc/nginx/servers/                              │
-  │         │     ├─► php.dash.ini.conf → /usr/local/etc/php/php.ini                    │
-  │         │     └─► php-fpm-custom.conf → /usr/local/etc/php-fpm-custom.conf          │
-  │         │                                                                           │
-  │         ├─► Start supervisord (horizon, schedule:run, reverb)                       │
-  │         │                                                                           │
-  │         ├─► Start nginx                                                             │
-  │         │                                                                           │
-  │         ├─► Start php-fpm                                                           │
-  │         │                                                                           │
-  │         └─► exec tail -f /dev/null (keep-alive)                                     │
-  │                                                                                     │
-  └─────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["pnpm deploy:prod
+PHASE 1: BUILD ORCHESTRATION"] --> B["BUILD FRONTEND (dash-frontend)"]
+    A --> C["VERSION BUMP (dash-backend)
+npm version minor
+git commit"]
+    B --> B2["apps/kitchntabs/dist/"]
+    C --> C2["Update package.json version
+Update composer.json version"]
+    B2 --> D["UPDATE IMAGE_VERSION in .env"]
+    C2 --> D
+    D --> E["pnpm bk:production
+CDK Deploy"]
+    E --> F["PHASE 2: DOCKER BUILD
+docker.build.sh"]
+    F --> F1["Source .env.kitchntabs.production"]
+    F --> F2["Copy frontend dist → ./public/"]
+    F --> F3["docker build ARM64 platform
+- PHP 8.2-fpm-bullseye base
+- Install dependencies
+- Copy application code
+- Copy config templates
+- Set entrypoint.sh as CMD"]
+    F1 --> F4["Tag with latest + commit hash
+Push to ECR"]
+    F2 --> F4
+    F3 --> F4
+    F4 --> G["PHASE 3: CDK INFRASTRUCTURE DEPLOY
+stackMgr.js bk production"]
+    G --> G1["Load .env.production + .env.bk.production"]
+    G --> G2["Check CDK bootstrap"]
+    G --> G3["cdk synth → CloudFormation"]
+    G --> G4["cdk diff"]
+    G --> G5["cdk deploy:
+- VPC + Security Groups
+- ECS Cluster Fargate
+- ALB + Target Group
+- Task Definition ARM64
+- Fargate Service FARGATE_SPOT
+- CloudWatch Log Group 14d
+- Auto Scaling CPU-based 1-2 tasks"]
+    G1 --> H["PHASE 4: CONTAINER RUNTIME
+entrypoint.sh"]
+    G2 --> H
+    G3 --> H
+    G4 --> H
+    G5 --> H
+    H --> H1["Download RDS CA Bundle"]
+    H --> H2["Copy env file"]
+    H --> H3["Detect ECS/Fargate platform"]
+    H --> H4["replace_env_vars config templates"]
+    H --> H5["Start supervisord horizon/schedule:run/reverb"]
+    H --> H6["Start nginx"]
+    H --> H7["Start php-fpm"]
+    H1 --> H8["Keep-alive: tail -f /dev/null"]
+    H2 --> H8
+    H3 --> H8
+    H4 --> H8
+    H5 --> H8
+    H6 --> H8
+    H7 --> H8
 ```
 
 ---
@@ -318,63 +257,39 @@ The entrypoint executes when the Fargate task starts and configures all services
 
 #### Runtime Configuration Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                           ENTRYPOINT.SH EXECUTION FLOW                                   │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-
-  1. SECURITY SETUP
-     │
-     ├─► Download RDS CA Bundle → /tmp/rds-combined-ca-bundle.pem
-     └─► Copy to ~/.postgresql/root.crt (for PostgreSQL SSL)
-
-  2. ENVIRONMENT SETUP
-     │
-     ├─► Copy .env.kitchntabs.production → .env
-     ├─► Export all variables from .env
-     └─► Detect ECS metadata → set PLATFORM=fargate
-
-  3. CONFIG TEMPLATE PROCESSING (replace_env_vars)
-     │
-     ├─► redis.conf
-     │     Template: docker/app/redis.conf
-     │     Output:   /opt/redis-stable/redis.conf
-     │
-     ├─► supervisor config
-     │     Template: docker/app/custom-supervisor.conf
-     │     Output:   /etc/supervisor/conf.d/custom-supervisor.conf
-     │
-     ├─► nginx.conf
-     │     Template: docker/nginx/nginx.conf
-     │     Output:   /etc/nginx/nginx.conf
-     │
-     ├─► api.nginx.conf
-     │     Template: docker/nginx/api.nginx.conf
-     │     Output:   /etc/nginx/servers/nginx.www.conf
-     │
-     ├─► php.ini
-     │     Template: docker/app/php.dash.ini.conf
-     │     Output:   /usr/local/etc/php/php.ini
-     │
-     └─► php-fpm.conf
-           Template: docker/app/php-fpm-custom.conf
-           Output:   /usr/local/etc/php-fpm-custom.conf
-
-  4. SERVICE STARTUP
-     │
-     ├─► supervisord -c /etc/supervisor/supervisord.conf
-     │     └─► Starts: horizon, schedule:run, reverb
-     │
-     ├─► nginx -c /etc/nginx/nginx.conf
-     │     └─► Listens on ports 80, 443
-     │
-     └─► php-fpm --fpm-config /usr/local/etc/php-fpm-custom.conf
-           └─► PHP FastCGI Process Manager
-
-  5. KEEP-ALIVE
-     │
-     └─► exec tail -f /dev/null
-           └─► Prevents container exit
+```mermaid
+flowchart TD
+    A["entrypoint.sh starts"] --> B["1. SECURITY SETUP"]
+    B --> B1["Download RDS CA Bundle → /tmp/rds-combined-ca-bundle.pem"]
+    B1 --> B2["Copy to ~/.postgresql/root.crt PostgreSQL SSL"]
+    B2 --> C["2. ENVIRONMENT SETUP"]
+    C --> C1["Copy .env.kitchntabs.production → .env"]
+    C1 --> C2["Export all variables from .env"]
+    C2 --> C3["Detect ECS metadata → set PLATFORM=fargate"]
+    C3 --> D["3. CONFIG TEMPLATE PROCESSING replace_env_vars"]
+    D --> D1["redis.conf: docker/app/redis.conf → /opt/redis-stable/redis.conf"]
+    D --> D2["supervisor config: docker/app/custom-supervisor.conf → /etc/supervisor/conf.d/custom-supervisor.conf"]
+    D --> D3["nginx.conf: docker/nginx/nginx.conf → /etc/nginx/nginx.conf"]
+    D --> D4["api.nginx.conf: docker/nginx/api.nginx.conf → /etc/nginx/servers/nginx.www.conf"]
+    D --> D5["php.ini: docker/app/php.dash.ini.conf → /usr/local/etc/php/php.ini"]
+    D --> D6["php-fpm.conf: docker/app/php-fpm-custom.conf → /usr/local/etc/php-fpm-custom.conf"]
+    D1 --> E["4. SERVICE STARTUP"]
+    D2 --> E
+    D3 --> E
+    D4 --> E
+    D5 --> E
+    D6 --> E
+    E --> E1["supervisord -c /etc/supervisor/supervisord.conf
+Starts: horizon, schedule:run, reverb"]
+    E --> E2["nginx -c /etc/nginx/nginx.conf
+Listens on ports 80, 443"]
+    E --> E3["php-fpm --fpm-config /usr/local/etc/php-fpm-custom.conf
+PHP FastCGI Process Manager"]
+    E1 --> F["5. KEEP-ALIVE"]
+    E2 --> F
+    E3 --> F
+    F --> F1["exec tail -f /dev/null
+Prevents container exit"]
 ```
 
 ---
@@ -466,58 +381,38 @@ The application uses a **dual-logging strategy** to ensure comprehensive observa
 1. **ECS awslogs Driver** - Captures all stdout/stderr from the container (primary method)
 2. **CloudWatch Agent** - Collects application-specific log files for detailed monitoring
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                           LOGGING FLOW TO CLOUDWATCH                                     │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-
-  ┌────────────────────────────────────────────────────────────────────────┐
-  │                        ECS FARGATE TASK                                │
-  │                                                                        │
-  │   METHOD 1: STDOUT/STDERR (ECS awslogs driver)                        │
-  │   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐              │
-  │   │   Laravel    │   │    Nginx     │   │  Supervisor  │              │
-  │   │   App Logs   │   │ access/error │   │   Managed    │              │
-  │   └──────┬───────┘   └──────┬───────┘   └──────┬───────┘              │
-  │          │                  │                  │                       │
-  │          ▼                  ▼                  ▼                       │
-  │   ┌──────────────────────────────────────────────────────────────┐    │
-  │   │                       STDERR / STDOUT                        │    │
-  │   │   (All services configured to log to /dev/stdout, /dev/stderr)│    │
-  │   └──────────────────────────────────────────────────────────────┘    │
-  │                                │                                       │
-  │                                │ awslogs driver                        │
-  │                                ▼                                       │
-  │   ┌──────────────────────────────────────────────────────────────┐    │
-  │   │  CloudWatch Log Group: kitchntabs-bk-production-loggroup     │    │
-  │   │  Stream Prefix: kitchntabs-bk-production                     │    │
-  │   └──────────────────────────────────────────────────────────────┘    │
-  │                                                                        │
-  │   METHOD 2: FILE-BASED (CloudWatch Agent)                             │
-  │   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐              │
-  │   │ laravel.log  │   │ horizon.log  │   │ reverb.log   │              │
-  │   │ notifs.log   │   │ artisan.log  │   │ nginx/*.log  │              │
-  │   └──────┬───────┘   └──────┬───────┘   └──────┬───────┘              │
-  │          │                  │                  │                       │
-  │          ▼                  ▼                  ▼                       │
-  │   ┌──────────────────────────────────────────────────────────────┐    │
-  │   │              CLOUDWATCH AGENT (onPremise mode)               │    │
-  │   │   Config: /opt/aws/amazon-cloudwatch-agent/etc/              │    │
-  │   └──────────────────────────────────────────────────────────────┘    │
-  │                                │                                       │
-  │                                ▼                                       │
-  │   ┌──────────────────────────────────────────────────────────────┐    │
-  │   │  Separate CloudWatch Log Groups per log type:                │    │
-  │   │  • KT-bk-production-log-group-laravel                        │    │
-  │   │  • KT-bk-production-log-group-horizon                        │    │
-  │   │  • KT-bk-production-log-group-reverb                         │    │
-  │   │  • KT-bk-production-log-group-artisan                        │    │
-  │   │  • KT-bk-production-log-group-nginx                          │    │
-  │   │  • KT-bk-production-log-group-notifications                  │    │
-  │   │  • KT-bk-production-log-group-build                          │    │
-  │   └──────────────────────────────────────────────────────────────┘    │
-  │                                                                        │
-  └────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph TASK["ECS FARGATE TASK"]
+        subgraph METHOD1["METHOD 1: STDOUT/STDERR ECS awslogs driver"]
+            L["Laravel App Logs"]
+            N["Nginx access/error"]
+            S["Supervisor Managed"]
+        end
+        subgraph METHOD2["METHOD 2: FILE-BASED CloudWatch Agent"]
+            LL["laravel.log, notifs.log"]
+            HL["horizon.log, artisan.log"]
+            NL["reverb.log, nginx/*.log"]
+        end
+        L --> STDOUT["STDERR / STDOUT
+All services configured to log to /dev/stdout, /dev/stderr"]
+        N --> STDOUT
+        S --> STDOUT
+        LL --> CWA["CLOUDWATCH AGENT onPremise mode
+Config: /opt/aws/amazon-cloudwatch-agent/etc/"]
+        HL --> CWA
+        NL --> CWA
+    end
+    STDOUT --> CW1["CloudWatch Log Group: kitchntabs-bk-production-loggroup
+Stream Prefix: kitchntabs-bk-production"]
+    CWA --> CW2["Separate CloudWatch Log Groups per log type:
+- KT-bk-production-log-group-laravel
+- KT-bk-production-log-group-horizon
+- KT-bk-production-log-group-reverb
+- KT-bk-production-log-group-artisan
+- KT-bk-production-log-group-nginx
+- KT-bk-production-log-group-notifications
+- KT-bk-production-log-group-build"]
 ```
 
 ### CloudWatch Agent Configuration

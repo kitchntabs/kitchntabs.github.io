@@ -9,35 +9,12 @@ This document explains how internationalization (i18n) is integrated across the 
 
 ### 1. Translation Flow
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   i18n ARCHITECTURE                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │  KitchnTabsPrivateApp.tsx                          │     │
-│  │  - Loads translations (es.json, en.json)           │     │
-│  │  - Creates polyglotI18nProvider                    │     │
-│  │  - Configures availableLocales                     │     │
-│  └────────────────────┬───────────────────────────────┘     │
-│                       │                                      │
-│                       ▼                                      │
-│  ┌────────────────────────────────────────────────────┐     │
-│  │  React Admin <Admin> Component                     │     │
-│  │  - i18nProvider prop                               │     │
-│  │  - Provides i18n context to all children          │     │
-│  └────────────────────┬───────────────────────────────┘     │
-│                       │                                      │
-│           ┌───────────┼───────────┐                          │
-│           │           │           │                          │
-│           ▼           ▼           ▼                          │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐              │
-│  │  React     │ │ Dash Auto  │ │  Custom    │              │
-│  │  Admin     │ │  Admin     │ │ Components │              │
-│  │ Components │ │ Components │ │            │              │
-│  └────────────┘ └────────────┘ └────────────┘              │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A["KitchnTabsPrivateApp.tsx<br/>- Loads translations es.json, en.json<br/>- Creates polyglotI18nProvider<br/>- Configures availableLocales"] --> B["React Admin Admin Component<br/>- i18nProvider prop<br/>- Provides i18n context to all children"]
+    B --> C["React Admin Components"]
+    B --> D["Dash Auto Admin Components"]
+    B --> E["Custom Components"]
 ```
 
 ## Components

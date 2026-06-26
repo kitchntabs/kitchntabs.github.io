@@ -40,51 +40,13 @@ The Dash Framework uses a sophisticated internationalization (i18n) system that 
 
 ### High-Level Component Flow
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           DASH I18N ARCHITECTURE                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                        APPLICATION ENTRY                              │   │
-│  │                                                                       │   │
-│  │   ┌─────────────────────────────────────────────────────────────┐    │   │
-│  │   │  I18nBridgeProvider (from dash-admin)                       │    │   │
-│  │   │  - Wraps entire application                                  │    │   │
-│  │   │  - Provides context for i18nProvider and locale              │    │   │
-│  │   └───────────────────────────┬─────────────────────────────────┘    │   │
-│  │                               │                                       │   │
-│  │   ┌───────────────────────────▼─────────────────────────────────┐    │   │
-│  │   │  I18nBridgeSetter                                            │    │   │
-│  │   │  - Sets the actual i18n provider on context                  │    │   │
-│  │   │  - Called early in render cycle                              │    │   │
-│  │   └───────────────────────────┬─────────────────────────────────┘    │   │
-│  │                               │                                       │   │
-│  └───────────────────────────────┼───────────────────────────────────────┘   │
-│                                  │                                           │
-│         ┌────────────────────────┴────────────────────────┐                  │
-│         │                                                 │                  │
-│         ▼                                                 ▼                  │
-│  ┌─────────────────────────┐                    ┌─────────────────────────┐ │
-│  │   PRIVATE APP           │                    │   PUBLIC APP            │ │
-│  │   (React Admin based)   │                    │   (Lightweight)         │ │
-│  │                         │                    │                         │ │
-│  │  polyglotI18nProvider   │                    │ createSimpleI18nProvider│ │
-│  │  - Full RA integration  │                    │ - No RA dependency      │ │
-│  │  - ra-i18n-polyglot     │                    │ - dash-boilerplate      │ │
-│  └─────────────────────────┘                    └─────────────────────────┘ │
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                        CONSUMING COMPONENTS                           │   │
-│  │                                                                       │   │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐   │   │
-│  │  │ AppMaterialMenu │  │  LangSwitcher   │  │ Custom Components   │   │   │
-│  │  │ useI18nBridge() │  │ useLocaleState()│  │ useI18nBridge()     │   │   │
-│  │  └─────────────────┘  └─────────────────┘  └─────────────────────┘   │   │
-│  │                                                                       │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    APP["APPLICATION ENTRY<br/>I18nBridgeProvider<br/>I18nBridgeSetter"] --> FORK{App Type?}
+    FORK -->|Private| PRIVATE["PRIVATE APP<br/>(React Admin based)<br/>polyglotI18nProvider<br/>Full RA integration<br/>ra-i18n-polyglot"]
+    FORK -->|Public| PUBLIC["PUBLIC APP<br/>(Lightweight)<br/>createSimpleI18nProvider<br/>No RA dependency<br/>dash-boilerplate"]
+    PRIVATE --> CONSUMING["CONSUMING COMPONENTS<br/>AppMaterialMenu useI18nBridge()<br/>LangSwitcher useLocaleState()<br/>Custom Components useI18nBridge()"]
+    PUBLIC --> CONSUMING
 ```
 
 ### Package Dependencies
@@ -387,32 +349,19 @@ const LangSwitcher = () => {
 
 ### 6.2 State Flow on Language Change
 
-```
-User clicks language
-         │
-         ▼
-┌─────────────────────────┐
-│     setLocale()         │  ─────▶  Redux state updated
-│  (useLocaleState hook)  │         (state.settings.locale)
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│  changeBridgedLocale()  │  ─────▶  i18nProvider.changeLocale()
-│  (useBridgedChangeLocale)│        + setLocale() in context
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│  Context locale state   │  ─────▶  All components using useI18nBridge()
-│     changes             │          re-render with new locale
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│    localStorage         │  ─────▶  'dash-user-locale' persisted
-│      updated            │
-└─────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant Component
+    participant I18nBridge as I18n Bridge
+    participant Provider
+    participant Storage as Local Storage
+    
+    Component->>I18nBridge: useI18nBridge()
+    I18nBridge->>Provider: Get locale
+    Provider->>Storage: Check saved locale
+    Storage-->>Provider: locale value
+    Provider-->>I18nBridge: {locale, i18nProvider, t()}
+    I18nBridge-->>Component: Provide i18n context
 ```
 
 ### 6.3 Redux Hooks for Locale
@@ -477,38 +426,14 @@ const MyBootstrap: React.FC = () => {
 
 **Flow Diagram:**
 
-```
-URL: /page?lang=en
-         │
-         ▼
-┌─────────────────────────────┐
-│  useUrlLocaleDetection()    │
-│  in Bootstrap component     │
-└───────────┬─────────────────┘
-            │
-            ├─────────────▶ Redux: dispatch(switchLanguage('en'))
-            │
-            ├─────────────▶ localStorage.setItem('dash-user-locale', 'en')
-            │
-            ▼
-┌─────────────────────────────┐
-│  Emit CustomEvent           │
-│  'dash:locale-change'       │
-│  { detail: { locale: 'en' }}│
-└───────────┬─────────────────┘
-            │
-            ▼
-┌─────────────────────────────┐
-│  I18nBridgeProvider listens │
-│  Updates context locale     │
-│  Calls provider.changeLocale│
-└───────────┬─────────────────┘
-            │
-            ▼
-┌─────────────────────────────┐
-│  All components re-render   │
-│  with new locale            │
-└─────────────────────────────┘
+```mermaid
+flowchart TD
+    A["Message File (CSV/XLSX)"] --> B["Define i18n Object"]
+    B --> C["Create Provider Component"]
+    C --> D["Wrap App with Provider"]
+    D --> E["Components use useI18nBridge()"]
+    E --> F["Access t() function"]
+    F --> G["Render translated strings"]
 ```
 
 **Custom Event Details:**
@@ -918,13 +843,13 @@ const WelcomeMessage = () => {
 **Causes & Solutions:**
 
 1. **Provider not set on context**
-   ```tsx
-   // Ensure I18nBridgeSetter runs early
-   <I18nBridgeProvider>
-       <I18nBridgeSetter provider={i18nProvider} />  // ← Must be here
-       <RestOfApp />
-   </I18nBridgeProvider>
-   ```
+```mermaid
+graph LR
+    A["Locale Change"] --> B["Update Context"]
+    B --> C["Trigger Re-render"]
+    C --> D["Components Re-mount"]
+    D --> E["New Translations Applied"]
+```
 
 2. **Wrong context being used**
    ```tsx
@@ -934,14 +859,13 @@ const WelcomeMessage = () => {
    ```
 
 3. **Missing translation key**
-   ```typescript
-   // Check key exists in translation file
-   const translations = {
-       menu: {
-           home: "Home",  // ← Key must exist
-       },
-   };
-   ```
+```mermaid
+stateDiagram-v2
+    [*] --> Default: App starts
+    Default --> Selected: User picks locale
+    Selected --> Persisted: Save to localStorage
+    Persisted --> Default: On page reload
+```
 
 #### Language Not Switching
 
@@ -950,20 +874,21 @@ const WelcomeMessage = () => {
 **Causes & Solutions:**
 
 1. **Not updating bridge context locale**
-   ```tsx
-   const changeLocale = (newLocale: string) => {
-       setLocale(newLocale);              // Redux
-       changeBridgedLocale(newLocale);    // Bridge context ← Don't forget!
-   };
-   ```
+```mermaid
+graph TD
+    A["Namespace (e.g., 'menu')"] --> B["Locale Folder (e.g., 'en')"]
+    B --> C["CSV File (menu_en.csv)"]
+    C --> D["Key-Value pairs"]
+```
 
 2. **Component not using currentLocale in dependencies**
-   ```tsx
-   // Include currentLocale in useEffect dependencies
-   useEffect(() => {
-       // Rebuild translated content
-   }, [currentLocale]);  // ← Required for re-render
-   ```
+```mermaid
+flowchart TD
+    A["1. Define i18n object"] --> B["2. Create I18nProvider"]
+    B --> C["3. Wrap App"]
+    C --> D["4. Use useI18nBridge()"]
+    D --> E["5. Call t(key)"]
+```
 
 #### Menu Not Updating on Language Change
 
@@ -971,13 +896,11 @@ const WelcomeMessage = () => {
 
 **Solution:** Ensure `currentLocale` is in useEffect dependencies:
 
-```tsx
-const { locale: currentLocale } = useI18nBridge();
-
-useEffect(() => {
-    const menuItems = buildTranslatedMenu();
-    setItems(menuItems);
-}, [currentLocale]);  // ← Menu rebuilds when this changes
+```mermaid
+graph LR
+    A["Change Locale"] -->|Trigger| B["Provider Updates"]
+    B -->|Notify| C["Components"]
+    C -->|Re-render| D["New Language"]
 ```
 
 ### 10.2 Debugging Tips
