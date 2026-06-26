@@ -142,26 +142,26 @@ class SubscriptionWelcome extends Mailable
 ### Blade Template Usage
 
 ```blade
-{{-- resources/views/emails/subscription-welcome.blade.php --}}
+{% raw %}{{-- resources/views/emails/subscription-welcome.blade.php --}}{% endraw %}
 @extends('layouts.emails')
 
 @section('content')
-    <h1>{{ __('emails.subscription_welcome') }}, {{ $name }}!</h1>
+    {% raw %}<h1>{{ __('emails.subscription_welcome') }}, {{ $name }}!</h1>{% endraw %}
     
-    <p>{{ __('emails.thank_you_subscribing') }} <strong>{{ $tenancyName }}</strong>.</p>
+    {% raw %}<p>{{ __('emails.thank_you_subscribing') }} <strong>{{ $tenancyName }}</strong>.</p>{% endraw %}
     
     <table>
         <tr>
-            <td>{{ __('emails.plan_label') }}:</td>
-            <td>{{ $planName }}</td>
+            {% raw %}<td>{{ __('emails.plan_label') }}:</td>{% endraw %}
+            {% raw %}<td>{{ $planName }}</td>{% endraw %}
         </tr>
         <tr>
-            <td>{{ __('emails.price_label') }}:</td>
-            <td>{{ $planPrice }}</td>
+            {% raw %}<td>{{ __('emails.price_label') }}:</td>{% endraw %}
+            {% raw %}<td>{{ $planPrice }}</td>{% endraw %}
         </tr>
     </table>
     
-    <a href="{{ $loginUrl }}">{{ __('emails.access_account_button') }}</a>
+    {% raw %}<a href="{{ $loginUrl }}">{{ __('emails.access_account_button') }}</a>{% endraw %}
 @endsection
 ```
 

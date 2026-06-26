@@ -190,7 +190,7 @@ The unsubscribe link is automatically added to the email footer:
 ```blade
 @if(isset($unsubscribeUrl))
 <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,0,0,0.1);">
-    <a href="{{ $unsubscribeUrl }}" style="color: #666; text-decoration: none; font-size: 12px;">
+    {% raw %}<a href="{{ $unsubscribeUrl }}" style="color: #666; text-decoration: none; font-size: 12px;">{% endraw %}
         Unsubscribe from these emails
     </a>
 </div>
@@ -323,7 +323,7 @@ For standalone templates:
 ```blade
 @if(isset($unsubscribeUrl))
 <div style="text-align: center; margin-top: 20px;">
-    <a href="{{ $unsubscribeUrl }}" style="color: #999; font-size: 12px;">
+    {% raw %}<a href="{{ $unsubscribeUrl }}" style="color: #999; font-size: 12px;">{% endraw %}
         Unsubscribe from these emails
     </a>
 </div>

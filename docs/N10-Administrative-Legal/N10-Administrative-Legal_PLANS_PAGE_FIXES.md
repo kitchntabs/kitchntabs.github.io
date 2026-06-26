@@ -130,7 +130,7 @@ const handleCurrencyChange = (
 ```typescript
 {/* Currency Selector */}
 {currencies && currencies.length > 1 && (
-    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
+    {% raw %}<Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>{% endraw %}
         <ToggleButtonGroup
             value={selectedCurrency}
             exclusive

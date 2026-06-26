@@ -304,7 +304,7 @@ Every time you make API calls, send the **Access Token** via _header_ instead of
 For example, if you perform a **GET** request to the `/users/me` resource, it would be like this:
 
 ```curl
-curl -H 'Authorization: Bearer {{YOUR_ACCESS_TOKEN}}' \
+{% raw %}curl -H 'Authorization: Bearer {{YOUR_ACCESS_TOKEN}}' \{% endraw %}
 https://api.mercadolibre.com/users/me
 ```
 
@@ -852,7 +852,7 @@ payment = payment_response["response"]
 print(payment)
 ```
 ```go
-accessToken := "{{ACCESS_TOKEN}}"
+{% raw %}accessToken := "{{ACCESS_TOKEN}}"{% endraw %}
 
 cfg, err := config.New(accessToken)
 if err != nil {

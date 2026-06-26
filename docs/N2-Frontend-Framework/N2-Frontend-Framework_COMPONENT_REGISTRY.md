@@ -359,7 +359,7 @@ const TenantThemeEdit: React.FC = ({ method, tenant }) => {
 
     // DashAutoFormTabs internally uses AttributeToInput → useComponentRegistry()
     return <section>
-        {schema && <DashAutoFormTabs schema={schema} resourceConfig={null} options={{ mode: method }} />}
+        {% raw %}{schema && <DashAutoFormTabs schema={schema} resourceConfig={null} options={{ mode: method }} />}{% endraw %}
     </section>;
 };
 ```

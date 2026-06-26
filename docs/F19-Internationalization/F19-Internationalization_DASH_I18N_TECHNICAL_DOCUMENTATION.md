@@ -151,7 +151,7 @@ export const I18nBridgeProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     return (
-        <I18nBridgeContext.Provider value={{ i18nProvider, locale, setI18nProvider, setLocale }}>
+        {% raw %}<I18nBridgeContext.Provider value={{ i18nProvider, locale, setI18nProvider, setLocale }}>{% endraw %}
             {children}
         </I18nBridgeContext.Provider>
     );

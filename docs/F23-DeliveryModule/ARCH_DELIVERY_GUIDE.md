@@ -1175,18 +1175,15 @@ const OrderMapView: React.FC<IDashAutoAdminCustomFieldComponent> = () => {
     }
     
     return (
-```jsx
-        <Box sx={{ width: '100%', height: '100%', p: 2 }}>
-            <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
+        {% raw %}<Box sx={{ width: '100%', height: '100%', p: 2 }}>{% endraw %}
+            {% raw %}<Paper elevation={3} sx={{ p: 2, mb: 2 }}>{% endraw %}
                 <Typography id="distance-text" variant="body1">
                     Loading route information...
                 </Typography>
             </Paper>
             <Box 
                 ref={mapRef} 
-```
-                ref={mapRef} 
-                sx={{ 
+                {% raw %}sx={{ {% endraw %}
                     width: '100%', 
                     height: 400, 
                     borderRadius: 1,
@@ -1295,24 +1292,20 @@ const TrackingUrlButton = () => {
             <Dialog open={open} onClose={handleClose} maxWidth="md">
                 <DialogTitle>Order Tracking URL</DialogTitle>
                 <DialogContent>
-```jsx
-                    <Typography variant="body2" sx={{ mb: 2 }}>
+                    {% raw %}<Typography variant="body2" sx={{ mb: 2 }}>{% endraw %}
                         Share this link with the customer to track their order:
                     </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    {% raw %}<Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>{% endraw %}
                         <TextField
                             fullWidth
                             value={trackingUrl}
-```
-                            value={trackingUrl}
-                            InputProps={{
+                            {% raw %}InputProps={{{% endraw %}
                                 readOnly: true,
                             }}
                             variant="outlined"
                             size="small"
                         />
-```jsx
-                        <IconButton onClick={handleCopy} sx={{ ml: 1 }}>
+                        {% raw %}<IconButton onClick={handleCopy} sx={{ ml: 1 }}>{% endraw %}
                             <ContentCopyIcon />
                         </IconButton>
                     </Box>
@@ -1326,8 +1319,6 @@ const TrackingUrlButton = () => {
                 </DialogActions>
             </Dialog>
         </>
-    );
-```
     );
 };
 
@@ -1443,15 +1434,12 @@ const AssignDriverButton = () => {
                 <DialogContent>
                     {!verificationCode ? (
                         <>
-```jsx
-                            <Typography variant="body2" sx={{ mb: 2 }}>
+                            {% raw %}<Typography variant="body2" sx={{ mb: 2 }}>{% endraw %}
                                 Select a driver to assign to this order:
                             </Typography>
-                            <FormControl fullWidth sx={{ mb: 2 }}>
+                            {% raw %}<FormControl fullWidth sx={{ mb: 2 }}>{% endraw %}
                                 <InputLabel>Driver</InputLabel>
                                 <Select
-                                    value={selectedDriver}
-```
                                     value={selectedDriver}
                                     onChange={(e) => setSelectedDriver(e.target.value)}
                                     label="Driver"
@@ -1465,29 +1453,23 @@ const AssignDriverButton = () => {
                             </FormControl>
                         </>
                     ) : (
-```jsx
-                        <Box sx={{ textAlign: 'center', py: 2 }}>
-                            <Typography variant="h6" sx={{ mb: 2 }}>
+                        {% raw %}<Box sx={{ textAlign: 'center', py: 2 }}>{% endraw %}
+                            {% raw %}<Typography variant="h6" sx={{ mb: 2 }}>{% endraw %}
                                 Driver Assigned Successfully
                             </Typography>
-                            <Typography variant="body2" sx={{ mb: 2 }}>
+                            {% raw %}<Typography variant="body2" sx={{ mb: 2 }}>{% endraw %}
                                 The driver will need this verification code to access the order details:
                             </Typography>
                             <Chip
                                 label={verificationCode}
-```
-                                label={verificationCode}
                                 color="primary"
                                 size="large"
-```jsx
-                                sx={{ fontSize: '1.5rem', py: 3, px: 2 }}
+                                {% raw %}sx={{ fontSize: '1.5rem', py: 3, px: 2 }}{% endraw %}
                             />
-                            <Typography variant="caption" sx={{ display: 'block', mt: 2 }}>
+                            {% raw %}<Typography variant="caption" sx={{ display: 'block', mt: 2 }}>{% endraw %}
                                 Please provide this code to the driver
                             </Typography>
                         </Box>
-                    )}
-```
                     )}
                 </DialogContent>
                 <DialogActions>
@@ -1666,24 +1648,21 @@ const DeliveryDashboard = () => {
     if (error) return <Error error="Failed to load active orders" />;
     
     return (
-```jsx
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h4" sx={{ mb: 3 }}>
+        {% raw %}<Box sx={{ p: 3 }}>{% endraw %}
+            {% raw %}<Typography variant="h4" sx={{ mb: 3 }}>{% endraw %}
                 Delivery Dashboard
             </Typography>
             
             <Grid container spacing={3}>
                 <Grid item xs={12} md={8}>
-                    <Paper elevation={3} sx={{ height: '70vh', p: 2 }}>
-                        <Typography variant="h6" sx={{ mb: 2 }}>
+                    {% raw %}<Paper elevation={3} sx={{ height: '70vh', p: 2 }}>{% endraw %}
+                        {% raw %}<Typography variant="h6" sx={{ mb: 2 }}>{% endraw %}
                             Active Deliveries Map
                         </Typography>
                         
                         <Box 
                             ref={mapRef} 
-```
-                            ref={mapRef} 
-                            sx={{ 
+                            {% raw %}sx={{ {% endraw %}
                                 width: '100%', 
                                 height: 'calc(100% - 40px)',
                                 borderRadius: 1,
@@ -1702,19 +1681,13 @@ const DeliveryDashboard = () => {
                 </Grid>
                 
                 <Grid item xs={12} md={4}>
-```jsx
-                    <Card sx={{ mb: 3 }}>
+                    {% raw %}<Card sx={{ mb: 3 }}>{% endraw %}
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
                                 Active Deliveries: {activeOrders.length}
-```
-                                Active Deliveries: {activeOrders.length}
                             </Typography>
-```jsx
-                            <Box sx={{ display: 'flex', gap: 1 }}>
+                            {% raw %}<Box sx={{ display: 'flex', gap: 1 }}>{% endraw %}
                                 <Chip 
-                                    icon={<LocalShippingIcon />} 
-```
                                     icon={<LocalShippingIcon />} 
                                     label={`Assigned: ${activeOrders.filter(o => o.delivery_status === 'assigned').length}`} 
                                     color="warning" 
@@ -1730,9 +1703,8 @@ const DeliveryDashboard = () => {
                         </CardContent>
                     </Card>
                     
-```jsx
-                    <Paper elevation={3} sx={{ maxHeight: 'calc(70vh - 100px)', overflow: 'auto' }}>
-                        <Typography variant="h6" sx={{ p: 2, pb: 1 }}>
+                    {% raw %}<Paper elevation={3} sx={{ maxHeight: 'calc(70vh - 100px)', overflow: 'auto' }}>{% endraw %}
+                        {% raw %}<Typography variant="h6" sx={{ p: 2, pb: 1 }}>{% endraw %}
                             Active Orders
                         </Typography>
                         <Divider />
@@ -1750,8 +1722,6 @@ const DeliveryDashboard = () => {
                                                 <Avatar>
                                                     {order.delivery_status === 'assigned' 
                                                         ? <RestaurantIcon /> 
-                                                        : <LocalShippingIcon />}
-```
                                                         : <LocalShippingIcon />}
                                                 </Avatar>
                                             </ListItemAvatar>
@@ -1772,12 +1742,9 @@ const DeliveryDashboard = () => {
                                                             label={order.delivery_status === 'assigned' ? 'Assigned' : 'In Transit'} 
                                                             color={order.delivery_status === 'assigned' ? 'warning' : 'primary'} 
                                                             variant="outlined"
-```jsx
-                                                            sx={{ mt: 1 }}
+                                                            {% raw %}sx={{ mt: 1 }}{% endraw %}
                                                         />
                                                     </>
-                                                }
-```
                                                 }
                                             />
                                         </ListItem>
@@ -1933,25 +1900,19 @@ const PublicTrackingPage = () => {
     
     if (loading) {
         return (
-```jsx
-            <Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>
+            {% raw %}<Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>{% endraw %}
                 <CircularProgress />
-                <Typography variant="h6" sx={{ mt: 2 }}>
+                {% raw %}<Typography variant="h6" sx={{ mt: 2 }}>{% endraw %}
                     Loading order tracking...
                 </Typography>
             </Container>
-        );
-```
         );
     }
     
     if (error) {
         return (
-```jsx
-            <Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>
+            {% raw %}<Container maxWidth="md" sx={{ py: 5, textAlign: 'center' }}>{% endraw %}
                 <Typography variant="h5" color="error" gutterBottom>
-                    {error}
-```
                     {error}
                 </Typography>
                 <Typography variant="body1">
@@ -1964,28 +1925,22 @@ const PublicTrackingPage = () => {
     const activeStep = getStepFromStatus(order.status);
     
     return (
-```jsx
-        <Container maxWidth="md" sx={{ py: 5 }}>
-            <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        {% raw %}<Container maxWidth="md" sx={{ py: 5 }}>{% endraw %}
+            {% raw %}<Paper elevation={3} sx={{ p: 3, mb: 4 }}>{% endraw %}
+                {% raw %}<Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>{% endraw %}
                     <Box>
                         <Typography variant="h4" gutterBottom>
                             Order #{order.id} Tracking
                         </Typography>
                         <Typography variant="subtitle1">
                             Tracking Number: {order.tracking_number}
-```
-                            Tracking Number: {order.tracking_number}
                         </Typography>
                     </Box>
                     {order.status === 'delivered' && (
                         <CheckCircleIcon 
                             color="success" 
-```jsx
-                            sx={{ ml: 'auto', fontSize: 40 }} 
+                            {% raw %}sx={{ ml: 'auto', fontSize: 40 }} {% endraw %}
                         />
-                    )}
-```
                     )}
                 </Box>
                 
@@ -1993,12 +1948,9 @@ const PublicTrackingPage = () => {
                     {steps.map((step, index) => (
                         <Step key={step.label}>
                             <StepLabel StepIconComponent={() => (
-```jsx
-                                <Box sx={{ textAlign: 'center' }}>
+                                {% raw %}<Box sx={{ textAlign: 'center' }}>{% endraw %}
                                     {index <= activeStep ? (
-                                        <Box sx={{ color: 'primary.main' }}>
-                                            {step.icon}
-```
+                                        {% raw %}<Box sx={{ color: 'primary.main' }}>{% endraw %}
                                             {step.icon}
                                         </Box>
                                     ) : step.icon}
@@ -2014,8 +1966,7 @@ const PublicTrackingPage = () => {
             <Grid container spacing={4}>
                 <Grid item xs={12} md={7}>
                     <Paper elevation={3}>
-```jsx
-                        <Box sx={{ p: 2 }}>
+                        {% raw %}<Box sx={{ p: 2 }}>{% endraw %}
                             <Typography variant="h6" gutterBottom>
                                 Delivery Map
                             </Typography>
@@ -2023,18 +1974,13 @@ const PublicTrackingPage = () => {
                         <Divider />
                         <Box 
                             ref={mapRef} 
-```
-                            ref={mapRef} 
-                            sx={{ 
+                            {% raw %}sx={{ {% endraw %}
                                 width: '100%', 
                                 height: 350,
                             }}
                         />
-```jsx
-                        <Box sx={{ p: 2 }}>
+                        {% raw %}<Box sx={{ p: 2 }}>{% endraw %}
                             <Typography variant="body2" color="textSecondary">
-                                {order.shipping_address.address}
-```
                                 {order.shipping_address.address}
                             </Typography>
                         </Box>
@@ -2042,8 +1988,7 @@ const PublicTrackingPage = () => {
                 </Grid>
                 
                 <Grid item xs={12} md={5}>
-```jsx
-                    <Card sx={{ mb: 3 }}>
+                    {% raw %}<Card sx={{ mb: 3 }}>{% endraw %}
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
                                 Delivery Info
@@ -2052,8 +1997,6 @@ const PublicTrackingPage = () => {
                                 <ListItem>
                                     <ListItemText 
                                         primary="Estimated Preparation Time" 
-                                        secondary={`${order.preparation_time} minutes`} 
-```
                                         secondary={`${order.preparation_time} minutes`} 
                                     />
                                 </ListItem>
@@ -2080,8 +2023,7 @@ const PublicTrackingPage = () => {
                     </Card>
                     
                     <Paper elevation={3}>
-```jsx
-                        <Box sx={{ p: 2 }}>
+                        {% raw %}<Box sx={{ p: 2 }}>{% endraw %}
                             <Typography variant="h6" gutterBottom>
                                 Order Status Updates
                             </Typography>
@@ -2093,8 +2035,6 @@ const PublicTrackingPage = () => {
                                     <ListItemText 
                                         primary={(() => {
                                             switch(history.status) {
-                                                case 'paid': return 'Order Confirmed';
-```
                                                 case 'paid': return 'Order Confirmed';
                                                 case 'assigned': return 'Preparing Your Order';
                                                 case 'withdrawed': return 'Out for Delivery';

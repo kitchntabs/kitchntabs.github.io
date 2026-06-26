@@ -140,7 +140,7 @@ When `sidebarPosition` is `"top"` or `"bottom"`, the sidebar forces `effectiveNa
 [DomainHeader.tsx](file:///Users/farandal/DASH-PW-PROJECT/dash-frontend/packages/dash-admin/src/default-theme/DomainHeader.tsx) renders a burger icon visible only on small/medium screens:
 
 ```tsx
-<Box sx={{ display: { xs: 'flex', sm: 'flex', md: 'none' } }}>
+{% raw %}<Box sx={{ display: { xs: 'flex', sm: 'flex', md: 'none' } }}>{% endraw %}
     <IconButton onClick={() => NavEventManager.toggleExpanded()}>
         <MenuOpenIcon />
     </IconButton>

@@ -127,13 +127,13 @@ Displays discount in receipt when present:
     <div>
         <span>Descuento 
             @if($tab['discount_type'] === 'percentage')
-                ({{ $tab['discount_value'] }}%)
+                {% raw %}({{ $tab['discount_value'] }}%){% endraw %}
             @endif
         </span>
-        <span style="color: #dc3545;">-{{ $tab['discount_amount'] }}</span>
+        {% raw %}<span style="color: #dc3545;">-{{ $tab['discount_amount'] }}</span>{% endraw %}
     </div>
     @if(!empty($tab['discount_reason']))
-        <small>{{ $tab['discount_reason'] }}</small>
+        {% raw %}<small>{{ $tab['discount_reason'] }}</small>{% endraw %}
     @endif
 @endif
 ```

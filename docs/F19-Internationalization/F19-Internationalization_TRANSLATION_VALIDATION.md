@@ -40,7 +40,7 @@ const getProductImage = (product: any) => {
     <Avatar
         src={getProductImage(item.product)}
         alt={item.product.name}
-        sx={{ width: 56, height: 56, mr: 2 }}
+        {% raw %}sx={{ width: 56, height: 56, mr: 2 }}{% endraw %}
     >
         {!getProductImage(item.product) && <FastfoodIcon />}
     </Avatar>

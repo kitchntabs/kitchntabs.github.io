@@ -324,7 +324,7 @@ const fullResourceConfig: IDashAutoAdminResourceConfig = {
         rowClick: false,                   // Disable row click
     },
     dataGridWrapper: (props) => (
-        <TableContainer sx={{ maxHeight: 800 }}>
+        {% raw %}<TableContainer sx={{ maxHeight: 800 }}>{% endraw %}
             {props.children}
         </TableContainer>
     ),
@@ -643,7 +643,7 @@ const StatusSelectorView: React.FC<StatusSelectorProps> = ({ attribute }) => {
     };
     
     return (
-        <span style={{ color: statusColors[value] || 'gray' }}>
+        {% raw %}<span style={{ color: statusColors[value] || 'gray' }}>{% endraw %}
             {value || '-'}
         </span>
     );
@@ -805,7 +805,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     });
     
     return (
-        <SettingsContext.Provider value={{
+        {% raw %}<SettingsContext.Provider value={{{% endraw %}
             currencies: data?.currencies || [],
             languages: data?.languages || [],
             isLoading,

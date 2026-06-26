@@ -27,7 +27,7 @@ https://api.rebill.com/v3/plans
 curl -X POST  https://api.rebill.com/v3/plans \
   -H "accept: application/json" \
   -H "content-type: application/json" \
-  -H "x-api-key: {{API_KEY}}" \
+  {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
   -d '{
   "name": [
     {
@@ -63,7 +63,7 @@ curl -X POST  https://api.rebill.com/v3/plans \
 
 Copy
 Copied!
-Replace {{API_KEY}} with your actual secret key, or log in so that your sandbox secret key is automatically populated.
+{% raw %}Replace {{API_KEY}} with your actual secret key, or log in so that your sandbox secret key is automatically populated.{% endraw %}
 
 Customize the plan details in the request body as necessary for your specific offering.
 
@@ -112,7 +112,7 @@ https://api.rebill.com/v3/payment-links
 curl -X POST  https://api.rebill.com/v3/payment-links \
   -H "accept: application/json" \
   -H "content-type: application/json" \
-  -H "x-api-key: {{API_KEY}}" \
+  {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
   -d '{
         "title": [
           {
@@ -138,7 +138,7 @@ curl -X POST  https://api.rebill.com/v3/payment-links \
 
 Copy
 Copied!
-Replace {{API_KEY}} with your actual secret key, or log in so that your sandbox secret key is automatically populated.
+{% raw %}Replace {{API_KEY}} with your actual secret key, or log in so that your sandbox secret key is automatically populated.{% endraw %}
 
 Replace {planId} in the request body with the actual ID of the plan you created in Step 1.
 
@@ -448,7 +448,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Response
 id
@@ -528,7 +528,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Query Parameters
 offset
@@ -584,7 +584,7 @@ GET
 https://api.rebill.com/v3/members
 curl -X GET 'https://api.rebill.com/v3/members?limit=10&offset=0&role=admin&status=active' \
         -H 'accept: application/json' \
-        -H 'x-api-key: {{API_KEY}}'
+        {% raw %}-H 'x-api-key: {{API_KEY}}'{% endraw %}
 
 Copy
 Copied!
@@ -626,7 +626,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Query Parameters
 id
@@ -644,7 +644,7 @@ GET
 https://api.rebill.com/v3/members/{memberId}
 curl -X GET 'https://api.rebill.com/v3/members/{memberId}' \
         -H 'accept: application/json' \
-        -H 'x-api-key: {{API_KEY}}'
+        {% raw %}-H 'x-api-key: {{API_KEY}}'{% endraw %}
 
 Copy
 Copied!
@@ -674,7 +674,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 members
@@ -688,7 +688,7 @@ https://api.rebill.com/v3/members/invite
 curl -X POST 'https://api.rebill.com/v3/members/invite' \
       -H 'accept: application/json' \
       -H 'Content-Type: application/json' \
-      -H 'x-api-key: {{API_KEY}}' \
+      {% raw %}-H 'x-api-key: {{API_KEY}}' \{% endraw %}
       -d '{
         "members": [
           { "email": "user@example.com", "role": "MANAGER" },
@@ -714,7 +714,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Query Parameters
 memberId
@@ -734,7 +734,7 @@ https://api.rebill.com/v3/members/{memberId}/role
 curl -X PATCH 'https://api.rebill.com/v3/members/{memberId}/role' \
         -H 'accept: application/json' \
         -H 'Content-Type: application/json' \
-        -H 'x-api-key: {{API_KEY}}' \
+        {% raw %}-H 'x-api-key: {{API_KEY}}' \{% endraw %}
         -d '{
           "role": "ADMIN"
         }'
@@ -757,7 +757,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Query Parameters
 memberId
@@ -770,7 +770,7 @@ PATCH
 https://api.rebill.com/v3/members/{memberId}/deactivate
 curl -X PATCH 'https://api.rebill.com/v3/members/{memberId}/deactivate' \
         -H 'accept: application/json' \
-        -H 'x-api-key: {{API_KEY}}'
+        {% raw %}-H 'x-api-key: {{API_KEY}}'{% endraw %}
 
 Copy
 Copied!
@@ -790,7 +790,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Query Parameters
 memberId
@@ -803,7 +803,7 @@ PATCH
 https://api.rebill.com/v3/members/{memberId}/activate
 curl -X PATCH 'https://api.rebill.com/v3/members/{memberId}/activate' \
         -H 'accept: application/json' \
-        -H 'x-api-key: {{API_KEY}}'
+        {% raw %}-H 'x-api-key: {{API_KEY}}'{% endraw %}
 
 Copy
 Copied!
@@ -823,7 +823,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Query Parameters
 memberId
@@ -836,7 +836,7 @@ DELETE
 https://api.rebill.com/v3/members/invite/{memberId}
 curl -X DELETE 'https://api.rebill.com/v3/members/invite/{memberId}' \
         -H 'accept: application/json' \
-        -H 'x-api-key: {{API_KEY}}'
+        {% raw %}-H 'x-api-key: {{API_KEY}}'{% endraw %}
 
 
 
@@ -852,7 +852,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -869,7 +869,7 @@ Production-ready request
 GET
 https://api.rebill.com/v3/addresses/:id
 curl -X GET "https://api.rebill.com/v3/addresses/:id" \
-      -H "x-api-key: {{API_KEY}}"
+      {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -897,7 +897,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Response
 addresses
@@ -908,7 +908,7 @@ Production-ready request
 GET
 https://api.rebill.com/v3/addresses
 curl -X GET "https://api.rebill.com/v3/addresses" \
-    -H "x-api-key: {{API_KEY}}"
+    {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -950,7 +950,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 content-type
 string
@@ -1008,7 +1008,7 @@ https://api.rebill.com/v3/addresses
 curl --request POST \
       --url "https://api.rebill.com/v3/addresses" \
       --header 'content-type: application/json' \
-      --header 'x-api-key: {{API_KEY}}' \
+      {% raw %}--header 'x-api-key: {{API_KEY}}' \{% endraw %}
       --data '{
       "country": "AR",
       "state": "Buenos Aires",
@@ -1046,7 +1046,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 content-type
 string
@@ -1126,7 +1126,7 @@ https://api.rebill.com/v3/addresses/:id
 curl --request PATCH \
 --url "https://api.rebill.com/v3/addresses/test_addr_a5695db8d23e441193e13125f9264cda" \
 --header 'content-type: application/json' \
---header 'x-api-key: {{API_KEY}}' \
+{% raw %}--header 'x-api-key: {{API_KEY}}' \{% endraw %}
 --data '{
 "lineOne": "Av. Cordoba 1235",
 "lineTwo": "Office"
@@ -1159,7 +1159,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -1176,7 +1176,7 @@ Production-ready request
 GET
 https://api.rebill.com/v3/cards/:id
 curl -X GET "https://api.rebill.com/v3/cards/:id" \
-    -H "x-api-key: {{API_KEY}}"
+    {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -1206,7 +1206,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 customerId
@@ -1223,7 +1223,7 @@ Production-ready request
 GET
 https://api.rebill.com/v3/cards?customerId=:customerId
 curl -X GET "https://api.rebill.com/v3/cards?customerId=:customerId" \
-    -H "x-api-key: {{API_KEY}}"
+    {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -1281,7 +1281,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 customerId
@@ -1322,7 +1322,7 @@ Production-ready request
 POST
 https://api.rebill.com/v3/cards/:customerId
 curl -X POST "https://api.rebill.com/v3/cards/:customerId" \
-    -H "x-api-key: {{API_KEY}}" \
+    {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
     -H "Content-Type: application/json" \
     -d '{
       "card": {
@@ -1412,7 +1412,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}} API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}} API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 These are the essential fields you need to process a card payment:
@@ -1487,7 +1487,7 @@ POST
 https://api.rebill.com/v3/checkout
 curl --location 'https://api.rebill.com/v3/checkout' \
 --header 'Content-Type: application/json' \
---header 'x-api-key: {{API_KEY}}' \
+{% raw %}--header 'x-api-key: {{API_KEY}}' \{% endraw %}
 --data-raw '{
   "transaction": {
       "quantity": 1,
@@ -1550,7 +1550,7 @@ POST
 https://api.rebill.com/v3/checkout
 curl --location 'https://api.rebill.com/v3/checkout' \
 --header 'Content-Type: application/json' \
---header 'x-api-key: {{API_KEY}}' \
+{% raw %}--header 'x-api-key: {{API_KEY}}' \{% endraw %}
 --data-raw '{
   "subscription": {
       "quantity": 1,
@@ -1613,7 +1613,7 @@ POST
 https://api.rebill.com/v3/checkout
 curl --location 'https://api.rebill.com/v3/checkout' \
 --header 'Content-Type: application/json' \
---header 'x-api-key: {{API_KEY}}' \
+{% raw %}--header 'x-api-key: {{API_KEY}}' \{% endraw %}
 --data-raw '{
   "transaction": {
       "quantity": 1,
@@ -1677,7 +1677,7 @@ POST
 https://api.rebill.com/v3/checkout
 curl --location 'https://api.rebill.com/v3/checkout' \
 --header 'Content-Type: application/json' \
---header 'x-api-key: {{API_KEY}}' \
+{% raw %}--header 'x-api-key: {{API_KEY}}' \{% endraw %}
 --data-raw '{
   "subscription": {
       "name": [
@@ -1773,7 +1773,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}} API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}} API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Body Parameters
 transaction
@@ -1819,7 +1819,7 @@ https://api.rebill.com/v3/checkout/request
 curl -X POST  https://api.rebill.com/v3/checkout/request \
       -H "accept: application/json" \
       -H "content-type: application/json" \
-      -H "x-api-key: {{API_KEY}}" \
+      {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
       -d '{
             "transaction": {
               "amount": 1000,
@@ -1918,7 +1918,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}} API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}} API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Response
 The API returns detailed information about the APM checkout request:
@@ -1954,7 +1954,7 @@ GET
 https://api.rebill.com/v3/checkout/request/:checkoutRequestId
 curl -X GET https://api.rebill.com/v3/checkout/request/:checkoutRequestId \
 -H "accept: application/json" \
--H "x-api-key: {{API_KEY}}"
+{% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -1990,7 +1990,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Response
 The API returns a unique device identifier:
@@ -2014,7 +2014,7 @@ Get device ID for Argentina
 GET
 https://api.rebill.com/v3/checkout/deviceId/:countryCode
 curl --location 'https://api.rebill.com/v3/checkout/deviceId/AR' \
---header 'x-api-key: {{API_KEY}}'
+{% raw %}--header 'x-api-key: {{API_KEY}}'{% endraw %}
 
 Copy
 Copied!
@@ -2035,7 +2035,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 id
@@ -2115,7 +2115,7 @@ Fetch coupon details
 GET
 https://api.rebill.com/v3/coupons/:id
 curl -X GET https://api.rebill.com/v3/coupons/:id \
--H "x-api-key: {{API_KEY}}"
+{% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -2155,7 +2155,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 name
@@ -2292,7 +2292,7 @@ https://api.rebill.com/v3/coupons
 curl -X POST https://api.rebill.com/v3/coupons \
   -H "accept: application/json" \
   -H "content-type: application/json" \
-  -H "x-api-key: {{API_KEY}}" \
+  {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
   -d '{
     "name": "Multi-currency 3-5 OFF",
     "description": "Applies $3 USD or €5 EUR discount",
@@ -2362,7 +2362,7 @@ https://api.rebill.com/v3/coupons
 curl -X POST https://api.rebill.com/v3/coupons \
   -H "accept: application/json" \
   -H "content-type: application/json" \
-  -H "x-api-key: {{API_KEY}}" \
+  {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
   -d '{
     "name": "10% OFF Descount",
     "description": "10% OFF Descount",
@@ -2416,7 +2416,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 filters
@@ -2441,7 +2441,7 @@ POST
 https://api.rebill.com/v3/coupons/search
 curl -X POST https://api.rebill.com/v3/coupons/search \
       -H "accept: application/json" \
-      -H "x-api-key: {{API_KEY}}" \
+      {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
       -H "Content-Type: application/json" \
       -d '{
         "filters": {
@@ -2558,7 +2558,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 id
@@ -2696,7 +2696,7 @@ https://api.rebill.com/v3/coupons/:id
 curl -X PUT https://api.rebill.com/v3/coupons/:id \
 -H "accept: application/json" \
 -H "content-type: application/json" \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -d '{
 "availableUses": 50,
 "expirationDate": "2024-11-26T00:00:00Z"
@@ -2740,7 +2740,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Path Parameters
 id
@@ -2755,7 +2755,7 @@ Archive a coupon
 PUT
 https://api.rebill.com/v3/coupons/:id/archive
 curl -X PUT https://api.rebill.com/v3/coupons/:id/archive \
--H "x-api-key: {{API_KEY}}"
+{% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -2773,7 +2773,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Path Parameters
 id
@@ -2787,7 +2787,7 @@ https://api.rebill.com/v3/coupons/:id/unarchive
 curl -X PUT https://api.rebill.com/v3/coupons/:id/unarchive \
 -H "accept: application/json" \
 -H "content-type: application/json" \
--H "x-api-key: {{API_KEY}}"
+{% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -2805,7 +2805,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Path Parameters
 id
@@ -2819,7 +2819,7 @@ https://api.rebill.com/v3/coupons/:id
 curl -X DELETE https://api.rebill.com/v3/coupons/:id \
 -H "accept: application/json" \
 -H "content-type: application/json" \
--H "x-api-key: {{API_KEY}}"
+{% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -2836,7 +2836,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Fetch a customer's complete profile including payment methods, addresses and KYC data.
 
@@ -2889,7 +2889,7 @@ Get customer profile
 GET
 https://api.rebill.com/v3/customers/:id
 curl -X GET https://api.rebill.com/v3/customers/:id \
-        -H "x-api-key: {{API_KEY}}" \
+        {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
         -H "accept: application/json"
 
 Copy
@@ -2948,7 +2948,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 firstName
@@ -3009,7 +3009,7 @@ Create customer with complete profile
 POST
 https://api.rebill.com/v3/customers
 curl -X POST https://api.rebill.com/v3/customers \
-        -H "x-api-key: {{API_KEY}}" \
+        {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
         -H "Content-Type: application/json" \
         -d '{
           "firstName": "Dario",
@@ -3094,7 +3094,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Body Parameters
 pagination
@@ -3125,7 +3125,7 @@ List customers with filters
 POST
 https://api.rebill.com/v3/customers/search
 curl -X POST https://api.rebill.com/v3/customers/search \
-        -H "x-api-key: {{API_KEY}}" \
+        {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
         -H "Content-Type: application/json" \
         -d '{
           "pagination": {
@@ -3272,7 +3272,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}} API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}} API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Update customer profile fields. Only included fields are updated.
 
@@ -3346,8 +3346,8 @@ Update customer profile
 PATCH
 https://api.rebill.com/v3/customers/:id
 curl -X PATCH https://api.rebill.com/v3/customers/:id \
-        -H "x-api-key: {{API_KEY}}" \
-        -H "x-api-key: {{API_KEY}}" \
+        {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
+        {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
         -H "Content-Type: application/json" \
         -d '{
           "firstName": "John",
@@ -3423,7 +3423,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 List all KYC documents for a customer.
 
@@ -3444,7 +3444,7 @@ Get customer KYC documents
 GET
 https://api.rebill.com/v3/customers/:id/identifications
 curl -X GET https://api.rebill.com/v3/customers/:id/identifications \
-        -H "x-api-key: {{API_KEY}}" \
+        {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
         -H "accept: application/json"
 
 Copy
@@ -3603,7 +3603,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -3633,7 +3633,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 name
@@ -3700,7 +3700,7 @@ Create a monthly subscription plan with local pricing
 POST
 https://api.rebill.com/v3/plans
 curl -X POST https://api.rebill.com/v3/plans \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -H "content-type: application/json" \
 -d '{
   "name": [
@@ -3792,7 +3792,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Search Parameters
 pagination
@@ -3841,7 +3841,7 @@ Search active plans with local currency support
 POST
 https://api.rebill.com/v3/plans/search
 curl -X POST https://api.rebill.com/v3/plans/search \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -H "content-type: application/json" \
 -d '{
   "pagination": {
@@ -3982,7 +3982,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -4050,7 +4050,7 @@ Update plan pricing and frequency
 PUT
 https://api.rebill.com/v3/plans/:id
 curl -X PUT https://api.rebill.com/v3/plans/:id \
-    -H "x-api-key: {{API_KEY}}" \
+    {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
     -H "content-type: application/json" \
     -d '{
       "name": [
@@ -4128,7 +4128,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -4150,7 +4150,7 @@ Archive a plan
 PATCH
 https://api.rebill.com/v3/plans/:id/archive
 curl -X PATCH https://api.rebill.com/v3/plans/:id/archive \
-    -H "x-api-key: {{API_KEY}}" \
+    {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
     -H "content-type: application/json"
 
 Copy
@@ -4164,7 +4164,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -4184,7 +4184,7 @@ Reactivate an archived plan
 PATCH
 https://api.rebill.com/v3/plans/:id/unarchive
 curl -X PATCH https://api.rebill.com/v3/plans/:id/unarchive \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -H "content-type: application/json"
 
 Products
@@ -4303,7 +4303,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -4328,7 +4328,7 @@ GET
 https://api.rebill.com/v3/products/:id
 curl -X GET https://api.rebill.com/v3/products/:id \
 -H "accept: application/json" \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -H "content-type: application/json"
 
 Copy
@@ -4375,7 +4375,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 name
@@ -4442,7 +4442,7 @@ https://api.rebill.com/v3/products
 curl -X POST https://api.rebill.com/v3/products \
 -H "accept: application/json" \
 -H "content-type: application/json" \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -d '{
   "name": [
     {
@@ -4510,7 +4510,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Search Parameters
 pagination
@@ -4549,7 +4549,7 @@ https://api.rebill.com/v3/products/search
 curl -X POST https://api.rebill.com/v3/products/search \
 -H "accept: application/json" \
 -H "content-type: application/json" \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -d '{
   "pagination": {
     "limit": 10,
@@ -4657,7 +4657,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -4727,7 +4727,7 @@ https://api.rebill.com/v3/products/:id
 curl -X PUT https://api.rebill.com/v3/products/:id \
 -H "accept: application/json" \
 -H "content-type: application/json" \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -d '{
   "name": [
     {
@@ -4830,7 +4830,7 @@ PATCH
 https://api.rebill.com/v3/products/:id/archive
 curl -X PATCH https://api.rebill.com/v3/products/:id/archive \
 -H "accept: application/json" \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -H "content-type: application/json"
 
 Copy
@@ -4870,7 +4870,7 @@ PATCH
 https://api.rebill.com/v3/products/:id/unarchive
 curl -X PATCH https://api.rebill.com/v3/products/:id/unarchive \
 -H "accept: application/json" \
--H "x-api-key: {{API_KEY}}" \
+{% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
 -H "content-type: application/json"
 
 Copy
@@ -5071,7 +5071,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -5089,7 +5089,7 @@ GET
 https://api.rebill.com/v3/payments/:id
 curl -X GET https://api.rebill.com/v3/payments/:id 
       -H "accept: application/json" \
-      -H "x-api-key: {{API_KEY}}"
+      {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -5176,7 +5176,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Request Body Parameters
 filters
@@ -5205,7 +5205,7 @@ POST
 https://api.rebill.com/v3/payments/search
 curl -X POST https://api.rebill.com/v3/payments/search \
       -H "accept: application/json" \
-      -H "x-api-key: {{API_KEY}}" \
+      {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
       -H "content-type: application/json" \
       -d '{
         "filters": {
@@ -5322,7 +5322,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 paymentId
@@ -5340,7 +5340,7 @@ POST
 https://api.rebill.com/v3/refunds/:paymentId
 curl -X POST 'https://api.rebill.com/v3/refunds/:paymentId' \
       -H 'accept: application/json' \
-      -H 'x-api-key: {{API_KEY}}'
+      {% raw %}-H 'x-api-key: {{API_KEY}}'{% endraw %}
 
 Copy
 Copied!
@@ -5364,7 +5364,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Path Parameters
 id
@@ -5585,7 +5585,7 @@ GET
 https://api.rebill.com/v3/subscriptions/:id
 curl -X GET https://api.rebill.com/v3/subscriptions/:id \
       -H "accept: application/json" \
-      -H "x-api-key: {{API_KEY}}"
+      {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -5662,7 +5662,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Body Parameters
 pagination
@@ -5848,7 +5848,7 @@ https://api.rebill.com/v3/subscriptions/search
 curl -X POST https://api.rebill.com/v3/subscriptions/search \
       -H "accept: application/json" \
       -H "content-type: application/json" \
-      -H "x-api-key: {{API_KEY}}" \
+      {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
       -d '{
       "pagination": {
         "limit": 10,
@@ -5954,7 +5954,7 @@ https://api.rebill.com/v3/subscriptions/:id/pay
 curl -X POST https://api.rebill.com/v3/subscriptions/:id/pay \
       -H "accept: application/json" \
       -H "content-type: application/json" \
-      -H "x-api-key: {{API_KEY}}" \
+      {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
       -d '{
         "nextChargeDate":"2024-03-04T18:58:24.433Z"
       }'
@@ -5975,7 +5975,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Path Parameters
 id
@@ -5989,7 +5989,7 @@ https://api.rebill.com/v3/subscriptions/:id/request-card-change
 curl -X POST https://api.rebill.com/v3/subscriptions/:id/request-card-change \
       -H "accept: application/json" \
       -H "content-type: application/json" \
-      -H "x-api-key: {{API_KEY}}"
+      {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -6007,7 +6007,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -6293,7 +6293,7 @@ https://api.rebill.com/v3/subscriptions/:id
 curl -X PATCH https://api.rebill.com/v3/subscriptions/:id \
       -H "accept: application/json" \
       -H "content-type: application/json" \
-      -H "x-api-key: {{API_KEY}}" \
+      {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
       -d '{
           "status": "paused",
           "amount": 15500,
@@ -6378,7 +6378,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Path Parameters
 id
@@ -6599,7 +6599,7 @@ https://api.rebill.com/v3/subscriptions/:id/plan
 curl -X PATCH https://api.rebill.com/v3/subscriptions/:id/plan \
       -H "accept: application/json" \
       -H "content-type: application/json" \
-      -H "x-api-key: {{API_KEY}}" \
+      {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
       -d '{
         "planId": "plan_new_647838573cf58d61bc659f6525f528ba"
       }'
@@ -6681,7 +6681,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Path Parameters
 id
@@ -6711,7 +6711,7 @@ GET
 https://api.rebill.com/v3/webhooks/:id
 curl -X GET https://api.rebill.com/v3/webhooks/:id \
       -H "accept: application/json" \
-      -H "x-api-key: {{API_KEY}}"
+      {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -6737,7 +6737,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Body Parameters
 url
@@ -6773,7 +6773,7 @@ https://api.rebill.com/v3/webhooks
 curl -X POST https://api.rebill.com/v3/webhooks \
       -H "accept: application/json" \
       -H "content-type: application/json" \
-      -H "x-api-key: {{API_KEY}}" \
+      {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
       -d '{
       "url": "https://hook.us1.make.com/1gh9w22g24qdrvll62n0ed7x6z3h53n4",
       "events": ["payment.created"]
@@ -6803,7 +6803,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Optional Body Parameters
 order
@@ -6853,7 +6853,7 @@ https://api.rebill.com/v3/webhooks/search
 curl -X POST https://api.rebill.com/v3/webhooks/search \
       -H "accept: application/json" \
       -H "content-type: application/json" \
-      -H "x-api-key: {{API_KEY}}" \
+      {% raw %}-H "x-api-key: {{API_KEY}}" \{% endraw %}
       -d '{
         "order": "DESC",
         "sort": "created_at",
@@ -6894,7 +6894,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Response
 response
@@ -6906,7 +6906,7 @@ PUT
 https://api.rebill.com/v3/webhooks/retry-settings/reset-defaults
 curl -X PUT https://api.rebill.com/v3/webhooks/retry-settings/reset-defaults \
       -H "accept: application/json" \
-        -H "x-api-key: {{API_KEY}}"
+        {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!
@@ -6939,7 +6939,7 @@ Headers
 x-api-key
 string
 required
-API key for authentication. Format: x-api-key: {{API_KEY}}
+{% raw %}API key for authentication. Format: x-api-key: {{API_KEY}}{% endraw %}
 
 Required Path Parameters
 id
@@ -6965,7 +6965,7 @@ DELETE
 https://api.rebill.com/v3/webhooks/:id
 curl -X DELETE https://api.rebill.com/v3/webhooks/:id \
       -H "accept: application/json" \
-      -H "x-api-key: {{API_KEY}}"
+      {% raw %}-H "x-api-key: {{API_KEY}}"{% endraw %}
 
 Copy
 Copied!

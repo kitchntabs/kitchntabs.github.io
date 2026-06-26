@@ -215,10 +215,10 @@ referenceFilters: [
 showLayout(render) {
     return (
         <Grid container spacing={2}>
-            <Grid size={{ xs: 12 }}>
+            {% raw %}<Grid size={{ xs: 12 }}>{% endraw %}
                 {render("tab.resource.layout.products")}
             </Grid>
-            <Grid size={{ xs: 12 }}>
+            {% raw %}<Grid size={{ xs: 12 }}>{% endraw %}
                 {render("tab.resource.layout.order")}
             </Grid>
         </Grid>

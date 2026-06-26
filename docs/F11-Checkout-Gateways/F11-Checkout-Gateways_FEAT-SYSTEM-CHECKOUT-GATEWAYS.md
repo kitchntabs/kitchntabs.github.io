@@ -668,7 +668,7 @@ $tenantDisplayName = data_get_safe($rawTenant, 'display_name', config('app.name'
 ```
 ```blade
 @if(!empty($tenantHorizontalLogo))
-    <img src="{{ $tenantHorizontalLogo }}" alt="{{ $tenantDisplayName }} Logo" style="max-height: 60px;">
+    {% raw %}<img src="{{ $tenantHorizontalLogo }}" alt="{{ $tenantDisplayName }} Logo" style="max-height: 60px;">{% endraw %}
 @endif
 ```
 
