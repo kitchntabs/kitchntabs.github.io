@@ -1,15 +1,17 @@
+# Electron + Python Service Build & Binding System
 
-# Electron + Python Service Build System Documentation
+How the desktop app is built and how the three Python sidecar services get
+compiled for each target CPU and **bound into** the packaged Electron app.
 
-> ## ⚠️ Corrections — verified against the repo on 2026-08-21
+> **Two repos are involved**
+> - **`kitchntabs-frontend-refactored`** (the apps repo) — Electron shell, React
+>   apps, build scripts (`build_config.js`, `build-python-service.js`,
+>   `build-electron.js`, `electron-builder.config.js`).
+> - **`dash-python-service`** — the three Python services and their
+>   cross-compilation pipeline (`build-docker.js`, `docker/Dockerfile.linux-*`).
 >
-> This document predates the `apps/dash` → **`apps/kitchntabs-app`** rename and the
-> `CUSTOM_MODE=kitchntabs.<env>` → **`kitchntabs-app.<env>`** change, and names
-> several `release:electron:kitchntabs:*` scripts that now point at a removed app.
->
-> See the full verified correction table in
-> [N4-Build-Toolchain_ELECTRON_BUILD_AND_CONFIG_SYSTEM.md](./N4-Build-Toolchain_ELECTRON_BUILD_AND_CONFIG_SYSTEM.md)
-> before following any path, mode or script name below.
+> Paths below are relative to whichever repo owns the file. The apps repo folder
+> has historically also been called `dash-frontend`.
 
 ---
 
@@ -25,599 +27,362 @@ This document explains how these components are built and packaged together.
 
 ---
 
-## Architecture Diagram
+## 1. The three Python services
+
+The desktop build ships **three** PyInstaller one-file executables, not one:
+
+| Service | Role |
+|---|---|
+| `kt_service` | Main WebSocket client (Laravel Reverb/Pusher) → dispatches print/speech/events |
+| `print_service` | Thermal (ESC/POS) printing, called directly for a print job |
+| `tts_service` | Text-to-speech (gTTS + platform audio playback), headless CLI |
+
+All three are produced from `dash-python-service/src/*.py` and end up in the
+packaged app under `resources/python-service/`.
 
 ```mermaid
 flowchart TD
-    subgraph EA["ELECTRON APPLICATION"]
-        subgraph EM["Electron Main (Node.js)"]
-            E1["- Window mgmt"]
-            E2["- IPC handlers"]
-            E3["- Auto-updater"]
-            E4["- Spawns Python"]
+    subgraph EA["Packaged Electron app"]
+        EM["Electron Main (Node.js)<br/>window mgmt · IPC · spawns services"]
+        RF["React renderer (Vite bundle)"]
+        subgraph SV["resources/python-service/"]
+            K["kt_service"]
+            P["print_service"]
+            T["tts_service"]
         end
-        
-        subgraph RF["React Frontend (Vite Bundle)"]
-            R1["- UI Components"]
-            R2["- React-Admin"]
-            R3["- State mgmt"]
-            R4["- API calls"]
-        end
-        
-        subgraph PS["Python Service (kt_service)"]
-            P1["- WebSocket client"]
-            P2["- Thermal printing"]
-            P3["- Audio playback"]
-            P4["- Event handling"]
-        end
-        
-        EM -- "IPC / Process Spawn" --> PS
+        EM -- "spawn + args" --> K
+        EM -- "spawn + args" --> P
+        EM -- "spawn + args" --> T
+        RF -- "IPC" --> EM
     end
 ```
 
 ---
 
-## Build Pipeline
+## 2. Two separate problems: **build** vs **bind**
 
-### Complete Build Flow
+The single most important thing to understand:
+
+1. **Build** — PyInstaller **cannot cross-compile**. A binary built on macOS is
+   a Mach-O file; a Raspberry Pi needs a Linux **ELF** file. So Linux ARM
+   binaries are produced in Docker (`dash-python-service/build-docker.js`),
+   *separately* and *ahead of* the Electron build, and cached in
+   `dash-python-service/kt_service_builds/<arch>/`.
+2. **Bind** — the Electron packager (`electron-builder.config.js`) copies the
+   right per-arch binaries into the app. On Linux it does this in an `afterPack`
+   hook that **prefers the Docker-built binary and silently falls back to the
+   host-native binary** if the Docker one is missing.
+
+> ⚠️ **The classic failure** (see §8): if you build a Debian/arm64 `.deb` on a
+> Mac but never ran the Docker build for that arch, the bind step falls back to
+> the **Mac Mach-O** `kt_service`/`print_service`. On the Pi the shell can't exec
+> a Mach-O file and tries to interpret it as a script, producing:
+> ```
+> /opt/kitchntabs/resources/python-service/kt_service: 1: Syntax error: "(" unexpected
+> ```
+
+---
+
+## 3. The Electron release pipeline
+
+A full release script (e.g. `release:electron:kitchntabs-app:debian:arm64:production`)
+chains these steps:
 
 ```mermaid
 flowchart TD
-    Start["pnpm release:electron:kitchntabs:development"] --> S1["1. CONFIG GENERATION (build_config.js)<br/>- Creates build_config.json with CUSTOM_MODE, platform, etc."]
-    S1 --> S2["2. PYTHON SERVICE BUILD (build-python-service.js)<br/>- Reads build_config.json<br/>- Calls ../dash-python-service/build-service.js<br/>- Copies config.{CUSTOM_MODE}.yaml → config.yaml<br/>- Runs PyInstaller to create standalone executable<br/>- Output: dash-python-service/kt_service/kt_service"]
-    S2 --> S3["3. ICON GENERATION (electron-icon-builder)<br/>- Creates icons/mac/icon.icns, icons/win/icon.ico, icons/png/*"]
-    S3 --> S4["4. FRONTEND BUILD (turbo build)<br/>- Builds React app with Vite<br/>- Injects environment variables from .env.{CUSTOM_MODE}<br/>- Output: apps/dash/dist/"]
-    S4 --> S5["5. ELECTRON PACKAGING (build-electron.js → electron-builder)<br/>- Hides pnpm workspace files (workaround)<br/>- Builds Electron main/preload with Vite<br/>- Packages app with electron-builder<br/>- Copies Python service as extraResource<br/>- Output: release/*.zip, release/*.deb, release/*.exe"]
+    A["1. build_config.js<br/>writes build_config.json (MODE/CUSTOM_MODE/PLATFORM/…)"]
+    B["2. turbo build --filter=kitchntabs-app<br/>React app → apps/kitchntabs-app/dist/"]
+    C["3. build-python-service.js<br/>host-native services + prepares config.yaml"]
+    D["4. electron-icon-builder<br/>icons/{mac,win,png}"]
+    E["5. vite build -c electron.vite.config.mts<br/>main + preload → dist-electron/"]
+    F["6. build-electron.js → electron-builder<br/>package + afterPack binds per-arch binaries"]
+    A --> B --> C --> D --> E --> F
 ```
+
+Representative script (arm64 production):
+
+```jsonc
+"release:electron:kitchntabs-app:debian:arm64:production":
+  "cross-env VITE_PAGE_TRANSITIONS=false DISABLE_GPU=true pnpm config:electron:kitchntabs-app:production
+   && turbo build --filter=kitchntabs-app --no-cache
+   && node build-python-service.js
+   && electron-icon-builder --input=./assets/logo-squared.png --output=./
+   && vite build -c electron.vite.config.mts
+   && cross-env AWS_PROFILE=kitchntabs NODE_OPTIONS=--max-old-space-size=8096
+      node build-electron.js --config electron-builder.config.js --linux deb --arm64 --publish always"
 ```
+
+- `VITE_PAGE_TRANSITIONS=false` / `DISABLE_GPU=true` are Raspberry-Pi
+  performance flags (disable animations; disable Electron GPU accel). They are
+  set on the ARM `.deb` scripts only.
+- `--publish always` uploads the `.deb` to the S3 release bucket (needs
+  `AWS_PROFILE`).
+
+### `build-python-service.js` (step 3)
+
+Runs from the apps repo. It:
+- Verifies/builds the **host-native** services in `dash-python-service/kt_service/`
+  (used for macOS/Windows packaging and as the afterPack fallback on Linux).
+  For a Linux-ARM target on a non-ARM host it reports `Needs Linux ARM: false`
+  and does **not** try to build ARM natively — those come from Docker (§4).
+- Prepares the runtime config: copies `config.<CUSTOM_MODE>.yaml`
+  → `apps/kitchntabs-app/config.yaml` (bundled into the app) **and**
+  → `dash-python-service/config.<CUSTOM_MODE>.yaml`.
+
+### `build-electron.js` (step 6)
+
+Thin wrapper around `electron-builder` that works around pnpm-workspace
+incompatibilities: it temporarily hides `pnpm-lock.yaml` / `pnpm-workspace.yaml`
+and swaps in a minimal `package.json`, runs the packager, then restores
+everything. It also loads AWS credentials when `AWS_PROFILE` is set.
 
 ---
 
-## Key Scripts & Files
+## 4. Building the Linux binaries — `dash-python-service/build-docker.js`
 
-### 1. Build Configuration (`build_config.js`)
+Produces Linux ELF binaries for each target arch inside Docker, then extracts
+them to `kt_service_builds/<arch>/`.
 
-**Location:** `dash-frontend/build_config.js`
+### Host-aware: native vs QEMU
 
-**Purpose:** Generates `build_config.json` based on environment variables.
+The script compares each **target platform** to the **Docker host platform** and
+only uses QEMU when they differ:
 
-**Environment Variables:**
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `MODE` | Build mode | `development`, `production` |
-| `CUSTOM_MODE` | Configuration profile | `kitchntabs.ngrok`, `kitchntabs.production` |
-| `TARGET_TYPE` | Target platform type | `desktop`, `mobile`, `web` |
-| `PLATFORM` | Specific platform | `electron`, `android`, `ios` |
+| Docker host | Target | Path |
+|---|---|---|
+| Mac M1 (`linux/arm64`) | `arm64` | **native** — default builder, no QEMU |
+| Mac M1 (`linux/arm64`) | `armv7l` | QEMU + `docker-container` builder |
+| Windows/Intel (`linux/amd64`) | `x64` | **native** |
+| Windows/Intel (`linux/amd64`) | `arm64` / `armv7l` | QEMU + `docker-container` builder |
 
-**Output (`build_config.json`):**
-```json
-{
-  "mode": "development",
-  "customMode": "kitchntabs.ngrok",
-  "targetType": "desktop",
-  "platform": "electron",
-  "buildId": "build-1764378809420-sjy42z",
-  "timestamp": "2025-11-29T01:13:29.420Z",
-  "customModeConfig": {
-    "apiBaseUrl": "https://api.kitchntabs.com",
-    "environment": "development",
-    "debugMode": true
-  }
-}
-```
+- **Native** builds use Docker Desktop's built-in `docker` driver
+  (`desktop-linux`). Fast and reliable; no emulation.
+- **Emulated** builds register QEMU (`multiarch/qemu-user-static`) and use a
+  `docker-container` buildx builder named `kt-builder` (required for
+  `--platform <foreign> --load`).
 
----
+This matters because a Mac M1 building for a 64-bit Pi (arm64 → arm64) needs **no
+emulation at all** — earlier versions of the script forced the fragile
+`docker-container` path even for native builds.
 
-### 2. Python Service Build (`build-python-service.js`)
+### Commands
 
-**Location:** `dash-frontend/build-python-service.js`
-
-**Purpose:** Orchestrates the Python service build from the frontend project.
-
-**Workflow:**
-1. Reads `build_config.json` to get `CUSTOM_MODE`
-2. Calls `dash-python-service/build-service.js`
-3. Verifies the executable was created
-
----
-
-### 3. Python Service Builder (`build-service.js`)
-
-**Location:** `dash-python-service/build-service.js`
-
-**Purpose:** Builds the Python service using PyInstaller.
-
-**Config File Mapping:**
-| CUSTOM_MODE | Config File |
-|-------------|-------------|
-| `kitchntabs.ngrok` | `config.kitchntabs.ngrok.yaml` |
-| `kitchntabs.production` | `config.kitchntabs.prod.yaml` |
-| `kitchntabs.prod` | `config.kitchntabs.prod.yaml` |
-| `dev` (macOS) | `config.dev.mac.yaml` |
-| `dev` (Windows) | `config.dev.yaml` |
-
-**PyInstaller Command:**
-```bash
-python3.9 -m PyInstaller ./src/kt_service.py \
-  --onefile \
-  --distpath ./kt_service \
-  --add-data "config.yaml:." \
-  --add-data "pw_env/lib/python3.9/site-packages/escpos/*.json:escpos" \
-  --collect-data escpos \
-  --noconfirm \
-  --clean
-```
-
-**Output:** `dash-python-service/kt_service/kt_service` (88 MB executable)
-
----
-
-### 4. Electron Build Wrapper (`build-electron.js`)
-
-**Location:** `dash-frontend/build-electron.js`
-
-**Purpose:** Wraps electron-builder to handle pnpm workspace compatibility issues.
-
-**Workaround Steps:**
-1. Backup `package.json`
-2. Hide `pnpm-workspace.yaml` and `pnpm-lock.yaml`
-3. Temporarily rename `node_modules`
-4. Run electron-builder
-5. Restore all files
-
-This is necessary because electron-builder 26.x has issues with pnpm workspaces.
-
----
-
-### 5. Electron Builder Config (`electron-builder.config.js`)
-
-**Location:** `dash-frontend/electron-builder.config.js`
-
-**Key Configurations:**
-
-```javascript
-module.exports = {
-  appId: 'com.kitchntab.app',
-  productName: 'kitchntabs',
-  asar: false,
-  npmRebuild: false,
-  electronVersion: '36.7.4',
-  
-  // Python service is copied here
-  extraResources: [
-    {
-      from: '../dash-python-service/kt_service',
-      to: 'python-service',
-      filter: process.platform === 'win32' 
-        ? ['**/*.exe'] 
-        : ['**/kt_service']
-    },
-    {
-      from: '../dash-python-service',
-      to: 'python-service',
-      filter: ['*.yaml']
-    }
-  ],
-  
-  mac: {
-    target: [{ target: 'zip', arch: ['arm64', 'x64'] }]
-  },
-  
-  linux: {
-    target: [
-      { target: 'deb', arch: ['x64', 'armv7l', 'arm64'] },
-      { target: 'AppImage', arch: ['x64', 'armv7l', 'arm64'] }
-    ]
-  },
-  
-  win: {
-    target: [{ target: 'nsis', arch: ['x64'] }]
-  }
-}
-```
-
----
-
-## Python Service (kt_service)
-
-### Purpose
-
-The Python service (`kt_service.py`) runs as a background process spawned by Electron. It provides:
-
-1. **WebSocket Client** - Connects to Laravel Reverb/Pusher for real-time events
-2. **Thermal Printing** - Sends print jobs to ESC/POS printers
-3. **Audio Playback** - Plays notification sounds
-4. **Event Handling** - Processes incoming events from the backend
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      kt_service.py                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
-│  │   main()     │    │  WebSocket   │    │   Handlers   │       │
-│  │              │───▶│  Connection  │───▶│              │       │
-│  │  - Args      │    │              │    │  - print     │       │
-│  │  - Config    │    │  - Pusher    │    │  - speech    │       │
-│  │  - Loop      │    │  - Auth      │    │  - events    │       │
-│  └──────────────┘    └──────────────┘    └──────────────┘       │
-│                                                                  │
-│  Dependencies:                                                   │
-│  ├── websockets     - WebSocket client                          │
-│  ├── aiohttp        - HTTP client for auth                      │
-│  ├── escpos         - Thermal printer support                   │
-│  ├── Pillow         - Image processing                          │
-│  └── librosa/scipy  - Audio processing                          │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Command Line Arguments
-
-```bash
-kt_service <token> <channel> <config_file> <log_file>
-```
-
-| Argument | Description | Example |
-|----------|-------------|---------|
-| `token` | User authentication token | `24\|eJHkese14E9...` |
-| `channel` | WebSocket channel to subscribe | `private-tenant.1.system` |
-| `config_file` | YAML configuration file | `config.kitchntabs.ngrok.yaml` |
-| `log_file` | Log output file | `log.txt` |
-
-### Configuration File (`config.yaml`)
-
-```yaml
-APP_NAME: kitchntabs
-WS_HOST: "ws.kitchntabs.com"
-WS_PORT: ""
-WS_SCHEME: "https"
-API_HOST: "api.kitchntabs.com"
-API_PORT: ""
-API_SCHEME: "https"
-APP: "dash"
-
-AUTH_ENDPOINT: "api/ws/auth"
-LOGS_PATH: "./logs/"
-
-# Printer settings
-PRINTER_VENDOR: 0x04b8
-PRINTER_PRODUCT: 0x0e20
-```
-
-### Event Flow
-
-```
-Laravel Backend                Python Service              Electron App
-      │                              │                           │
-      │  WebSocket Event             │                           │
-      │  {type: "print",             │                           │
-      │   data: {tab_id: 39}}        │                           │
-      │─────────────────────────────▶│                           │
-      │                              │                           │
-      │                              │  Parse event              │
-      │                              │  Call print_order()       │
-      │                              │                           │
-      │                              │  HTTP GET /api/tabs/39    │
-      │◀─────────────────────────────│                           │
-      │  Tab data response           │                           │
-      │─────────────────────────────▶│                           │
-      │                              │                           │
-      │                              │  Generate receipt         │
-      │                              │  Send to ESC/POS printer  │
-      │                              │                           │
-```
-
----
-
-## NPM Scripts Reference
-
-### Full Release Builds (includes Python service)
-
-| Script | Description | Config Mode |
-|--------|-------------|-------------|
-| `release:electron:kitchntabs:production` | Production macOS build | `kitchntabs.production` |
-| `release:electron:kitchntabs:development` | Development macOS build | `kitchntabs.ngrok` |
-| `release:electron:kitchntabs:ngrok` | Ngrok macOS build | `kitchntabs.ngrok` |
-| `release:electron:kitchntabs:debian` | Production Linux/RPi build | `kitchntabs.production` |
-| `release:electron:kitchntabs:debian:dev` | Development Linux/RPi build | `kitchntabs.ngrok` |
-
-### Partial Builds (no Python service)
-
-| Script | Description |
-|--------|-------------|
-| `release:electron:kitchntabs:production:web` | Only build web assets |
-| `release:electron:kitchntabs:production:app` | Only run electron-builder |
-| `release:electron:kitchntabs:ngrok:web` | Only build web assets (ngrok) |
-| `release:electron:kitchntabs:ngrok:app` | Only run electron-builder |
-
-### Development Scripts
-
-| Script | Description |
-|--------|-------------|
-| `dev:electron:kitchntabs:ngrok` | Run Electron in dev mode |
-| `dev:electron:kitchntabs:production` | Run Electron with prod API |
-
----
-
-## Output Artifacts
-
-### macOS
-```
-release/
-├── mac-arm64/
-│   └── kitchntabs.app/
-│       └── Contents/
-│           └── Resources/
-│               └── python-service/
-│                   ├── kt_service        # ARM64 executable
-│                   └── config.yaml
-├── mac/
-│   └── kitchntabs.app/                   # x64 version
-├── kitchntabs-1.0.3-arm64-mac.zip
-└── kitchntabs-1.0.3-mac.zip
-```
-
-### Linux (Debian/Raspberry Pi)
-```
-release/
-├── kitchntabs-1.0.3-arm64.deb            # RPi 64-bit
-├── kitchntabs-1.0.3-armv7l.deb           # RPi 32-bit
-├── kitchntabs-1.0.3-x64.deb              # Intel/AMD
-├── kitchntabs-1.0.3-arm64.AppImage
-├── kitchntabs-1.0.3-armv7l.AppImage
-└── kitchntabs-1.0.3-x64.AppImage
-```
-
-### Windows
-```
-release/
-├── win-unpacked/
-│   └── resources/
-│       └── python-service/
-│           ├── kt_service.exe
-│           └── config.yaml
-└── kitchntabs-1.0.3.exe                  # NSIS installer
-```
-
----
-
-## Troubleshooting
-
-### Python Build Issues
-
-**Problem:** PyInstaller not finding virtual environment
-```
-✅ Virtual environment found
-❌ Config file not found
-```
-**Solution:** Ensure `pw_env` exists and is activated:
 ```bash
 cd dash-python-service
-source pw_env/bin/activate
-pip install -r requirements.txt
+
+# One arch (recommended when you know the Pi's OS bitness)
+npm run build:docker:arm64:prod     # Pi 3B/4/5 running 64-bit OS
+npm run build:docker:armv7l:prod    # Pi running 32-bit OS
+npm run build:docker:x64            # Intel/AMD Linux
+
+# Both Pi arches in one pass
+npm run build:docker:debian         # armv7l + arm64, prod config
+
+# Buster (older Raspberry Pi OS, GLIBC 2.28)
+npm run build:docker:armv7l         # then set USE_BUSTER_BINARIES=true at package time
 ```
 
-**Problem:** Missing escpos JSON files
-```
-ModuleNotFoundError: No module named 'escpos'
-```
-**Solution:** Ensure escpos is properly installed and the JSON files are included:
-```bash
-pip install python-escpos
-```
+Config selection (`CONFIG_MAP` in `build-docker.js`):
 
----
+| `--config` | File |
+|---|---|
+| `prod` / `production` | `config.kitchntabs.production.yaml` |
+| `ngrok` | `config.kitchntabs.ngrok.yaml` |
+| `dev` | `config.dev.yaml` |
 
-## Cross-Compilation for Linux ARM (Raspberry Pi)
+### What each Dockerfile does
 
-### The Problem
+`docker/Dockerfile.linux-<arch>` starts from `python:3.11-slim-bookworm`
+(pinned to the target platform), installs build deps + PyInstaller 6.3.0, copies
+`src/` + the selected config, then runs PyInstaller **once per service** into
+`/output/`. `build-docker.js` then `docker create` + `docker cp`s `/output/*`
+into `kt_service_builds/<arch>/`.
 
-PyInstaller **cannot cross-compile** - it only creates executables for the same platform/architecture it runs on. Building on macOS creates macOS binaries, not Linux ARM binaries.
+> **tkinter exclusion (required).** `tts_service` and its audio deps can pull
+> `tkinter` into PyInstaller's graph; the slim base has no Tcl/Tk data files, so
+> PyInstaller's `_tkinter` hook crashes with
+> `TypeError: expected str, bytes or os.PathLike object, not NoneType` and aborts
+> the **whole** image (so `kt_service`/`print_service` never get extracted
+> either). All four Dockerfiles therefore pass
+> `--exclude-module tkinter --exclude-module _tkinter` to the `tts_service`
+> build. None of the services use a GUI.
 
-### The Solution: Docker + QEMU
-
-We use Docker with QEMU emulation to build Linux binaries for multiple architectures from macOS or Windows.
-
-### Prerequisites
-
-1. **Docker Desktop** installed and running
-2. **QEMU support** (usually automatic in Docker Desktop)
-3. For Apple Silicon Macs: Ensure "Use Rosetta for x86/amd64 emulation" is **disabled** in Docker settings
-
-### Quick Start
-
-```bash
-# Navigate to the Python service directory
-cd dash-python-service
-
-# Build for all Linux architectures (x64, arm64, armv7l)
-npm run build:docker:all
-
-# Or build for specific architecture
-npm run build:docker:armv7l    # Raspberry Pi 32-bit
-npm run build:docker:arm64     # Raspberry Pi 64-bit  
-npm run build:docker:x64       # Intel/AMD Linux
-
-# Build with specific config
-npm run build:docker:prod      # Production config
-npm run build:docker:ngrok     # Development/ngrok config
-```
-
-### Build Output
+### Output layout
 
 ```
 dash-python-service/
 ├── kt_service_builds/
-│   ├── x64/
-│   │   ├── kt_service          # Linux x64 binary
-│   │   └── config.yaml
-│   ├── arm64/
-│   │   ├── kt_service          # Linux ARM64 binary (RPi 4 64-bit)
-│   │   └── config.yaml
-│   └── armv7l/
-│       ├── kt_service          # Linux ARMv7l binary (RPi 3/4 32-bit)
-│       └── config.yaml
-└── kt_service/
-    ├── kt_service_x64          # Copied for easy access
-    ├── kt_service_arm64
-    └── kt_service_armv7l
+│   ├── x64/        { kt_service, print_service, tts_service, config.yaml }
+│   ├── arm64/      { kt_service, print_service, tts_service, config.yaml }
+│   ├── armv7l/     { … }
+│   └── armv7l-buster/ { … }
+└── kt_service/     { host-native kt_service, print_service, tts_service }   # mac/win + fallback
 ```
 
-### Docker Build Scripts
-
-| Script | Description |
-|--------|-------------|
-| `build-docker.sh` | Bash script (macOS/Linux) |
-| `build-docker.js` | Node.js script (cross-platform) |
-
-### How It Works
-
-```mermaid
-flowchart TD
-    Title["Docker Cross-Compilation Flow"]
-    Title --> Mac["Your Mac (ARM64 or x64)"]
-    Mac --> Docker["Docker Desktop"]
-    
-    Docker --> C1["linux/amd64 container<br/>QEMU emulation<br/>Python 3.9<br/>PyInstaller<br/>→ kt_service (x64 ELF)"]
-    Docker --> C2["linux/arm64 container<br/>QEMU emulation<br/>Python 3.9<br/>PyInstaller<br/>→ kt_service (ARM64 ELF)"]
-    Docker --> C3["linux/arm/v7 container<br/>QEMU emulation<br/>Python 3.9<br/>PyInstaller<br/>→ kt_service (ARMv7)"]
-    
-    C1 --> Out1["kt_service_builds/x64"]
-    C2 --> Out2["kt_service_builds/arm64"]
-    C3 --> Out3["armv7l"]
-```
-
-### Electron Builder Integration
-
-The `electron-builder.config.js` automatically uses the correct binary:
-
-1. **macOS/Windows**: Uses native PyInstaller build from `kt_service/`
-2. **Linux**: Uses `afterPack` hook to copy architecture-specific binary from `kt_service_builds/<arch>/`
-
-### Complete Debian Build Workflow
+### Verify the binaries are the right format
 
 ```bash
-# 1. Build Python service for all Linux architectures
-cd dash-python-service
-npm run build:docker:prod
+file kt_service_builds/arm64/kt_service
+# Expect: ELF 64-bit LSB executable, ARM aarch64 …
+#  NOT:   Mach-O 64-bit executable arm64   (that's a Mac binary — will fail on the Pi)
 
-# 2. Build Electron app for Debian (from dash-frontend)
-cd ../dash-frontend
-pnpm release:electron:kitchntabs:debian
-```
-
-### Build Time Estimates
-
-| Architecture | First Build | Cached Build |
-|--------------|-------------|--------------|
-| x64          | ~5-10 min   | ~2-3 min     |
-| arm64        | ~15-25 min  | ~5-8 min     |
-| armv7l       | ~20-35 min  | ~8-12 min    |
-
-**Note:** ARM builds are slower due to QEMU emulation. First builds include downloading base images and installing dependencies.
-
-### Verifying Binaries
-
-```bash
-# Check binary architecture
 file kt_service_builds/armv7l/kt_service
-# Expected: ELF 32-bit LSB executable, ARM, EABI5 version 1 (SYSV)
-
-file kt_service_builds/arm64/kt_service  
-# Expected: ELF 64-bit LSB executable, ARM aarch64, version 1 (SYSV)
-
-file kt_service_builds/x64/kt_service
-# Expected: ELF 64-bit LSB executable, x86-64, version 1 (SYSV)
+# Expect: ELF 32-bit LSB executable, ARM, EABI5 …
 ```
 
 ---
 
-## Electron Build Issues
+## 5. Binding into the Electron app — `electron-builder.config.js`
 
-**Problem:** node_modules collection taking too long
+### macOS / Windows — `extraResources`
+
+The host-native binaries (from `dash-python-service/kt_service/`) are copied
+straight in, because the packaging host is the target platform:
+
+```js
+extraResources: [
+  // Windows: all *.exe services
+  { from: '../dash-python-service/kt_service', to: 'python-service', filter: ['**/*.exe'] },
+  // macOS: the three service binaries
+  { from: '../dash-python-service/kt_service', to: 'python-service',
+    filter: ['**/kt_service', '**/print_service', '**/tts_service'] },
+  // config.yaml (prepared by build-python-service.js), icons, notification sounds
+  { from: 'apps/kitchntabs-app/config.yaml', to: 'config.yaml' },
+  { from: 'icons', to: 'icons' },
+  { from: 'apps/kitchntabs-app/electron/assets', to: 'sounds', filter: ['*.mp3','*.wav','*.ogg'] },
+]
 ```
-Collecting node_modules...
+
+### Linux — `afterPack` hook (the per-arch binder)
+
+Linux is special: a single build invocation can target multiple arches, so the
+binaries are selected **per package** in `afterPack`:
+
+```js
+const ARCH_MAP = {
+  x64: 'x64', arm64: 'arm64',
+  armv7l: useBusterBinaries ? 'armv7l-buster' : 'armv7l',
+  1: 'x64', 3: 'arm64', 2: useBusterBinaries ? 'armv7l-buster' : 'armv7l', // electron-builder Arch enum
+};
+
+// for each of kt_service / print_service / tts_service:
+const dockerBuildPath = `../dash-python-service/kt_service_builds/${mappedArch}/${service}`; // preferred
+const nativeBuildPath = `../dash-python-service/kt_service/${service}`;                       // fallback
+// copy dockerBuildPath if it exists, else nativeBuildPath (with a ⚠️ warning), chmod 755
 ```
-**Solution:** The `build-electron.js` script hides node_modules. If stuck, manually restore:
+
+Read the packager output — it tells you exactly what was bound:
+
+```
+🐍 Setting up Python services for Linux arm64 (arch=3)...
+   ✅ tts_service: Using Docker-built binary for arm64      ← good
+   ⚠️  kt_service: Using native build (may not work on arm64)   ← BAD: Mac binary on a Pi
+   ⚠️  print_service: Using native build (may not work on arm64)
+```
+
+Any `⚠️ Using native build` line on a Linux ARM package means the Docker build
+for that arch is missing — **stop and run `build-docker.js` for that arch**
+(§4), then rebuild.
+
+`USE_BUSTER_BINARIES=true` (set by the `:buster` release scripts) remaps
+`armv7l` → `armv7l-buster` so the GLIBC 2.28 binaries are used.
+
+---
+
+## 6. Runtime — how Electron spawns the services
+
+The Electron main process (`apps/kitchntabs-app/electron/main/index.ts`):
+
+1. Loads `config.yaml` (dev: from `dash-python-service/`; packaged: from
+   `resources/config.yaml`), parsed with `yaml`.
+2. Resolves the service binaries under `resources/python-service/` (packaged) or
+   `dash-python-service/` (dev).
+3. Spawns a service on demand via a child process, streaming stdout/stderr back
+   to the renderer over IPC. `tts_service` is spawned by the desktop TTS path;
+   the Android app uses a native TTS plugin instead (see the frontend TTS docs).
+
+`kt_service` argument shape:
+
 ```bash
-mv node_modules.bak node_modules
-mv pnpm-workspace.yaml.bak pnpm-workspace.yaml
-mv pnpm-lock.yaml.bak pnpm-lock.yaml
+kt_service <token> <channel> <config_file> <log_file>
+# e.g.  kt_service "24|eJH…" "private-tenant.1.system" config.yaml log.txt
 ```
 
-**Problem:** Code signing warnings on macOS
-```
-skipped macOS application code signing
-```
-**Solution:** For distribution, set up Apple Developer certificates. For development, this warning can be ignored.
+Config (`config.yaml`) drives host/port/scheme, auth endpoint, log path, and
+printer USB vendor/product IDs.
 
 ---
 
-## Environment Files
+## 7. Quick reference — full Debian workflow
 
-### `.env.kitchntabs.ngrok`
-Development configuration pointing to ngrok tunnels:
-```env
-VITE_APP_BACKEND_URL=https://api.kitchntabs.com
-VITE_APP_ADMIN_API_URL=https://api.kitchntabs.com/api
-VITE_APP_SOCKETS_HOST=ws.kitchntabs.com
-VITE_APP_SOCKETS_SCHEME=https
-VITE_APP_SOCKETS_KEY=dash
-```
+```bash
+# 1. Build the Linux binaries for the Pi's arch (once per arch, or when source changes)
+cd dash-python-service
+npm run build:docker:arm64:prod          # 64-bit Pi OS   (or :armv7l for 32-bit)
+file kt_service_builds/arm64/kt_service   # confirm: ELF … ARM aarch64
 
-### `.env.kitchntabs.production`
-Production configuration:
-```env
-VITE_APP_BACKEND_URL=https://api.kitchntabs.com
-VITE_APP_ADMIN_API_URL=https://api.kitchntabs.com/api
-VITE_APP_SOCKETS_HOST=ws.kitchntabs.com
-VITE_APP_SOCKETS_SCHEME=https
-VITE_APP_SOCKETS_KEY=dash
+# 2. Build + package the Electron app (binds the binaries via afterPack)
+cd ../kitchntabs-frontend-refactored
+pnpm release:electron:kitchntabs-app:debian:arm64:production
+# watch for "✅ Using Docker-built binary" (not "⚠️ Using native build") for all 3 services
 ```
 
 ---
 
-## File Structure Summary
+## 8. Troubleshooting
 
-```
-DASH-PW-PROJECT/
-├── dash-frontend/
-│   ├── build_config.js              # Config generator
-│   ├── build-python-service.js      # Python build orchestrator
-│   ├── build-electron.js            # Electron build wrapper
-│   ├── electron-builder.config.js   # Electron builder config
-│   ├── electron.vite.config.mts     # Vite config for Electron
-│   ├── build_config.json            # Generated build config
-│   ├── apps/dash/
-│   │   ├── .env.kitchntabs.ngrok
-│   │   ├── .env.kitchntabs.production
-│   │   └── dist/                    # Built frontend
-│   └── release/                     # Build output
-│
-└── dash-python-service/
-    ├── build-service.js             # Python build script
-    ├── package.json                 # NPM scripts
-    ├── config.kitchntabs.ngrok.yaml
-    ├── config.kitchntabs.prod.yaml
-    ├── pw_env/                      # Python virtual env
-    ├── src/
-    │   ├── kt_service.py            # Main service
-    │   ├── print_service.py         # Print handler
-    │   └── pinoywok/                # Service modules
-    └── kt_service/
-        └── kt_service               # Built executable
-```
+**`Syntax error: "(" unexpected` when a service starts on the Pi**
+The bound binary is a **Mac Mach-O**, not Linux ELF — the afterPack fallback
+kicked in because `kt_service_builds/<arch>/` was missing that service. Fix: run
+`build-docker.js` for that arch (§4), confirm with `file`, rebuild the `.deb`,
+and check the packager logs show `✅ Using Docker-built binary` for all three.
+
+**`tts_service` build fails with `_tkinter` `TypeError: … not NoneType`**
+A transitive import pulled `tkinter` into PyInstaller's graph on a slim base
+with no Tcl/Tk. Ensure the Dockerfile's `tts_service` step has
+`--exclude-module tkinter --exclude-module _tkinter` (§4). Because tts_service is
+the last service built, its failure also blocks `kt_service`/`print_service`.
+
+**`Config file not found: config.kitchntabs.prod.yaml`**
+`build-docker.js`'s `CONFIG_MAP` must point `prod`/`production` at
+`config.kitchntabs.production.yaml` (the real filename), not `…prod.yaml`.
+
+**buildx: `containerd-shim-runc-v2: exec format error` / builder pinned to
+`unix:///var/run/docker.sock`**
+Docker Desktop's VM or the `kt-builder` `docker-container` builder is in a bad
+state. First confirm the daemon itself is healthy:
+`docker run --rm hello-world`. If that fails with `exec format error` on any
+binary (e.g. `unpigz`), the Docker Desktop VM is corrupted → **Settings →
+Troubleshoot → Clean/Purge data** (or reinstall). If only *buildx* fails,
+`docker buildx rm kt-builder` and rebuild. Note: for a native build (Mac M1 →
+arm64) the host-aware script skips `kt-builder` entirely, sidestepping this.
+
+**Electron packaging hangs "Collecting node_modules" / pnpm errors**
+`build-electron.js` hides the pnpm workspace files during packaging; if it was
+interrupted, restore them:
+`mv pnpm-lock.yaml.bak pnpm-lock.yaml && mv pnpm-workspace.yaml.bak pnpm-workspace.yaml`.
 
 ---
 
-## Version History
+## 9. File map
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.3 | 2025-11-29 | Added Python service build integration |
-| 1.0.2 | 2025-11-28 | Fixed config path resolution for Linux |
-| 1.0.1 | 2025-11-27 | pnpm workspace workaround |
-| 1.0.0 | 2025-11-26 | Initial release |
+```
+kitchntabs-frontend-refactored/
+├── build_config.js               # writes build_config.json (env → build)
+├── build-python-service.js       # host-native services + config.yaml prep
+├── build-electron.js             # electron-builder wrapper (pnpm workaround, AWS)
+├── electron-builder.config.js    # extraResources (mac/win) + afterPack binder (linux)
+├── electron.vite.config.mts      # builds main + preload
+└── apps/kitchntabs-app/
+    ├── config.yaml               # runtime config (bundled)
+    └── electron/main/index.ts    # spawns the 3 services at runtime
+
+dash-python-service/
+├── build-docker.js               # host-aware cross-compile → kt_service_builds/<arch>/
+├── docker/Dockerfile.linux-{x64,arm64,armv7l,armv7l-buster}
+├── config.kitchntabs.production.yaml
+├── config.kitchntabs.ngrok.yaml
+├── src/{kt_service,print_service,tts_service}.py
+├── kt_service/                   # host-native binaries (mac/win + linux fallback)
+└── kt_service_builds/<arch>/     # Docker-built Linux binaries (linux afterPack source)
+```
