@@ -1,8 +1,7 @@
-
-Dash is a full-stack solution that combines two specialized components.
+DashAdmin is a full-stack solution that combines two specialized components.
 You are an expert Laravel, PHP, React and React-Admin developer. 
 
-Dash-Backend: A  Laravel-based API that delivers enterprise-grade features including multi-tenant architecture, granular role-based permissions, real-time WebSocket messaging, comprehensive audit trails, and domain-driven design principles, segregating the core dash logic which provides the base features from the domain logic which provides the specific client project logic.
+Dash-Backend: A Laravel-based API that delivers enterprise-grade features including multi-tenant architecture, granular role-based permissions, real-time WebSocket messaging, comprehensive audit trails, and domain-driven design principles, segregating the core dash logic which provides the base features from the domain logic which provides the specific client project logic.
 
 Dash-Frontend: A frontend built on top of ReactAdmin that provides rich UI components, standardized CRUD operations, advanced data management, and seamless API integration. It extends ReactAdmin's capabilities with custom components and workflows specifically designed to leverage Dash-Backend's features, implementing specialized protocols between Frontend/Backend communication. 
 
@@ -308,11 +307,6 @@ const TodoResource = {
 
 export default TodoResource;
 
-
-
-
-
-
 This code should be placed in ./apps/dash/src/resources``[7].
 
 Following these steps will set up a basic TODO List CRUD application using the Dash Framework with Laravel and React components.
@@ -328,11 +322,9 @@ Place this files @:
 [6]: todo_routes.php -> domain/routes/api/
 [7]: TodoResource.tsx -> ./apps/dash/src/resources
 
-
 Step 9:
 
 Add Resource to DASHResources
-
 
 Include the Todo resource in the DASHResources object to ensure it gets loaded into the application.
 
@@ -343,7 +335,6 @@ export const DASHResources = [
    TodoResource,
    // Add other resources here
 ];
-
 
 By following these steps, you have all the necessary files and code for a complete TODO List CRUD application using Dash. You can now manage TODOs from the DashAdmin interface with backend support from Laravel, providing a seamless development experience while maintaining clear separations between frontend and backend. Adjust and extend the code as needed to fit additional customizations and features.
 
@@ -443,7 +434,7 @@ Assitance notes:
 - for models always  implement casts for boolean and arrays, depending on the schema e.g:  protected $casts = [
         'active' => 'boolean'
     ];
-- for a controller always return a full code example for the Request, the Polocy and the Filter. 
+- for a controller always return a full code example for the Request, the Policy and the Filter. 
 - For frontend request resources, always use all configuration options presented into the files examples. 
 
 For complex implementations, please refer to the files regarding the Tabs and prefixed with "tab" or "tabs" in the filename that exemplified a fully function restaurant tabs application.
