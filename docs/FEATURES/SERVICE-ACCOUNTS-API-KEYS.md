@@ -729,3 +729,366 @@ whose API returns a write-once value can now surface it — and backwards compat
 - `SubscriptionPlanManagementTest::it_can_list_subscription_plans` fails on this branch. It is
   **pre-existing and unrelated** — verified by re-running it with this branch's service changes
   stashed, where it fails identically.
+
+---
+
+## 17. Complete implementation reference
+
+This section documents the feature **as it actually shipped**, after the fixes in §16 and a further
+round of bugs found by hands-on testing in the dev environment. Read this section for "what does
+the code do today"; read §1–§14 for the design reasoning that motivated it. Where the two disagree,
+this section is correct.
+
+### 17.1 Final backend file manifest
+
+```
+dash-backend/
+├── database/migrations/
+│   ├── 2026_07_26_100000_add_is_service_account_to_users_table.php   [new]
+│   └── 2026_07_26_100001_create_api_keys_table.php                   [new]
+├── database/data/
+│   ├── systemPermissions.json                                        [modified: +system.service_accounts group, 21 labels]
+│   └── rolePermissions/
+│       ├── serviceAccountManagerPermissions.json                     [new: exactly the 21 service_accounts routes]
+│       └── systemAdminPermissions.json                                [modified: +21 service_accounts routes]
+├── database/seeders/
+│   └── RoleSeeder.php                                                 [modified: ServiceAccountManager role + permissions]
+├── app/Models/
+│   ├── ApiKey.php                                                     [new]
+│   ├── User.php                                                       [modified: is_service_account, excludingServiceAccounts(), apiKey()]
+│   └── Role.php                                                       [modified: NAME/LEVEL_SERVICE_ACCOUNT_MANAGER constants]
+├── app/Services/
+│   ├── ServiceAccount/ApiKeyService.php                               [new]
+│   ├── Subscription/PlanLimitsService.php                             [modified: exclude service accounts from seat count]
+│   └── Tenancy/
+│       ├── TenancySubscriptionService.php                            [modified: same exclusion]
+│       └── TenancyProvisioningService.php                            [modified: grant ServiceAccountManager on provisioning]
+├── app/Http/
+│   ├── Controllers/API/System/ServiceAccount/ApiKeyController.php    [new]
+│   ├── Controllers/API/System/UserController.php                     [modified: exclude service accounts]
+│   ├── Controllers/API/Tenancy/TenancyUserController.php             [modified: exclude service accounts]
+│   ├── Requests/API/System/ApiKeyRequest.php                          [new]
+│   ├── Resources/ApiKeyResource.php                                   [new]
+│   └── ModelFilters/
+│       ├── ApiKeysFilter.php                                          [new]
+│       └── RolesFilter.php                                            [modified: assignable_for_service_account filter]
+├── app/Policies/ApiKeyPolicy.php                                      [new]
+├── app/Providers/AuthServiceProvider.php                              [modified: Sanctum guard hook, ApiKeyPolicy registration]
+├── routes/system.php                                                 [modified: service_accounts route group]
+├── lang/{en,es}/service_accounts.php                                  [new, mirrored into resources/lang/{en,es}/]
+└── tests/Feature/
+    ├── ServiceAccountApiKeyTest.php                                  [new, 26 tests]
+    └── TenancyProvisioningIntegrationTest.php                         [modified: +1 test for the auto-granted role]
+```
+
+### 17.2 Final frontend file manifest
+
+```
+dash-frontend-core/packages/
+├── dash-admin/src/
+│   ├── components/serviceAccount/
+│   │   ├── ApiKeyRevealDialog.tsx                                    [new: ApiKeyRevealContent]
+│   │   └── ServiceAccountStatusSwitch.tsx                            [new]
+│   ├── templates/ResourceTemplateCreate.tsx                          [modified: createSuccessDialog hook]
+│   └── providers/i18n/
+│       ├── mergeTranslations.ts                                      [new: recursive translation merge]
+│       ├── languages.tsx                                             [modified: re-export mergeTranslations]
+│       ├── en.ts                                                     [modified: serviceAccount.*, resource.tenancy.serviceAccounts.*]
+│       └── es.ts                                                     [modified: same, Spanish]
+└── dash-auto-admin/src/interfaces/
+    └── IDashAutoAdminResourceConfig.ts                                [modified: createSuccessDialog type]
+
+kitchntabs-frontend/apps/kitchntabs-web/
+├── src/resources/private/
+│   ├── schemas/service_account.tsx                                   [new]
+│   └── tenancyResources.tsx                                          [modified: register the resource]
+├── src/KitchnTabsWebPrivateApp.tsx                                    [modified: mergeTranslations() instead of shallow spread]
+├── src/KitchnTabsWebPublicApp.tsx                                     [modified: same]
+├── src/dash-admin-augment.d.ts                                        [new: module augmentation for mergeTranslations]
+└── index.d.ts                                                        [modified: ambient decls for the two new dash-admin components]
+```
+
+> **Not implemented:** `kitchntabs-system`, `kitchntabs-mall`, and `kitchntabs-app` do not register this
+> resource. Only `kitchntabs-web`'s `tenancyResources.tsx` was wired per the original scope.
+
+---
+
+### 17.3 API contract, as implemented
+
+Base path: `/api/system/service_accounts` (route names `api.system.service_accounts.*`).
+
+#### `GET /api/system/service_accounts` — list
+
+Query params follow the standard React-Admin/dash-auto-admin convention
+(`page`, `perPage`, `pagination`, `field`, `order`, plus `ApiKeysFilter` fields: `q`, `ids`, `name`,
+`status`, `tenantId`, `tenancyId`, `roleId`). Response:
+
+```json
+{
+  "data": [ /* array of ApiKeyResource, see shape below */ ],
+  "current_page": 1, "first_page_url": "...", "prev_page_url": null,
+  "next_page_url": null, "last_page_url": "...", "last_page": 1,
+  "per_page": 10, "total": 1, "path": "..."
+}
+```
+
+#### `GET /api/system/service_accounts/{id}` — single record
+
+**Returns the resource bare — no `{ data: ... }` envelope.** This is the base controller's
+`getOne()` convention (`ResponseHandler::json($data)`), unlike `create`/`update` below. A response
+shape assumption here was the exact bug fixed in §17.7.2 — always verify against a real response
+before trusting an assumed shape.
+
+```json
+{
+  "id": "uuid", "name": "Totem", "status": "active",
+  "tenancy_id": "uuid", "tenant_id": "uuid",
+  "tenant": { "id": "uuid", "name": "Transbank - Main" },
+  "role_ids": [3],
+  "roles": [{ "id": 3, "name": "Tenant", "level": 2 }],
+  "token_prefix": "4|TnmAyblV5DqN",
+  "masked_token": "4|TnmAyblV5DqN••••••••",
+  "expires_at": "2026-07-27T16:56:24-04:00",
+  "expired": false,
+  "last_used_at": null,
+  "created_by": { "id": "uuid", "name": "Francisco Aranda " },
+  "created_at": "2026-07-26T12:56:24-04:00",
+  "updated_at": "2026-07-26T12:56:24-04:00",
+  "plain_text_token": null
+}
+```
+
+`plain_text_token` is `null` on every response except the one immediately following `create`.
+
+#### `POST /api/system/service_accounts` — create
+
+Request:
+
+```json
+{
+  "name": "Totem",
+  "tenant_id": "uuid",
+  "expiration": "30",        // "1" | "7" | "30" | "never"
+  "role_ids": [3]
+}
+```
+
+`tenancy_id` is silently overridden from the actor (`ApiKeyRequest::prepareForValidation()`) unless
+the actor is a System Admin explicitly targeting another tenancy.
+
+Response: **wrapped** in `{ "data": { ...ApiKeyResource, "plain_text_token": "4|actualSecretHere..." } }`
+via `ResponseHandler::reactAdmin($item, 201)`. This is the only response in the entire API that ever
+carries a non-null `plain_text_token`.
+
+#### `PUT /api/system/service_accounts/{id}` — update
+
+Request:
+
+```json
+{ "role_ids": [3, 7] }
+```
+
+**Immutability is enforced by value comparison, not by field presence.** React-Admin submits the
+whole record on save (it does not diff), so `tenant_id`, `name`, `expiration`, `expires_at` routinely
+arrive on every update carrying their current values. `ApiKeyRequest::assertImmutableFieldsUnchanged()`
+compares each against the stored row: an unchanged value passes silently, a genuine change is
+rejected with `422`. The original design (`'tenant_id' => ['prohibited']`) failed on every real save
+from the UI — see §17.7.1.
+
+Response: wrapped via `ResponseHandler::reactAdmin($data)` (no plaintext token, obviously).
+
+#### `DELETE /api/system/service_accounts/{id}`
+
+Revokes the Sanctum token, soft-deletes the `api_keys` row, soft-deletes the backing service-account
+user. Response: `{ "data": { "id": "uuid" } }`.
+
+#### `POST /api/system/service_accounts/{id}/enable` / `.../disable`
+
+No request body. Flips `status` only — **the Sanctum token is never touched**, so disabling and
+re-enabling a key restores the exact same credential rather than forcing a rotation. Response:
+wrapped `ApiKeyResource`.
+
+#### Validation & authorization error shape
+
+```json
+{
+  "message": "The tenant of an API key cannot be changed after creation. (and 1 more error)",
+  "errors": { "tenant_id": ["..."], "name": ["..."] }
+}
+```
+
+Every message string is translated via `lang/{locale}/service_accounts.php`, resolved through the
+existing `SetLocaleFromHeader` middleware — i.e. it follows the request's `Accept-Language` header,
+**not** the tenancy's `primary_language` setting. Changing that would affect every endpoint's error
+messages app-wide, so it was left as-is; flagged here as a deliberate non-change, not an oversight.
+
+---
+
+### 17.4 Frontend implementation
+
+#### Base layer (`dash-admin`)
+
+**`ApiKeyRevealContent`** — the one-time secret reveal. Rendered as the `content` of the framework's
+existing dialog service (`useDialog()` from `dash-dialog`) via a new `createSuccessDialog` hook on
+`IDashAutoAdminResourceConfig`, rather than introducing a second dialog system. It uses
+`useI18nBridge()`, **not** `useTranslate()` — `DialogServiceProvider` is mounted *above* `<Admin>` in
+`DASHAppProviders.tsx`, so dialog content renders outside React Admin's i18n context and
+`useTranslate()` silently resolves nothing there. `useI18nBridge()` is the framework's documented
+escape hatch for exactly this (`AppMaterialMenu` uses the same pattern for the sidebar, which also
+renders outside the Admin tree).
+
+**`ServiceAccountStatusSwitch`** — deliberately **not** a `type: Boolean` schema field. Status isn't
+part of the update payload (`ApiKeyRequest` only accepts `role_ids` on update), and toggling it via a
+plain form save would either 422 or — worse — require loosening the update contract and reopening
+"roles are the only mutable field." The switch instead calls `enable`/`disable` directly via
+`useAxios()` and refreshes, following the same pattern as `TenantStoreStatus`'s `toggle-open` action
+elsewhere in the codebase.
+
+**`mergeTranslations()`** — a recursive translation-object merge (later source wins on leaves, arrays
+replaced wholesale, not concatenated). Necessary because every app's shallow `{ ...core, ...app,
+resource: { ...core.resource, ...app.resource } }` merge only unwraps **one** extra level: any
+second-level key both core and an app populate (e.g. `resource.ecommerce`) gets replaced wholesale by
+whichever side spreads last, silently dropping everything the other side defined underneath it. This
+is what caused `resource.tenancy.serviceAccounts.*` to resolve to nothing until the merge itself was
+fixed — adding the translation strings alone was not sufficient.
+
+**`createSuccessDialog`** on `IDashAutoAdminResourceConfig` — `ResourceTemplateCreate` previously
+always rendered a generic "created" dialog with no way for a resource to substitute its own content.
+The new optional hook `(data) => { title?, content? } | null` lets a resource override both; returning
+`null` keeps the default. A string `title` is treated as a translation key (self-fallback), matching
+how labels behave everywhere else in the schema system.
+
+#### App layer (`kitchntabs-web`)
+
+`service_account.tsx` schema — the two invariants driving every field:
+
+- **Tenant, name, expiration are `inCreate`-only.** The backend rejects any change to them, so
+  exposing them as editable in the edit form would only ever produce `422`s.
+- **`role_ids` is the only field the update payload accepts.** Everything else shown on the edit
+  drawer (`masked_token`, `expires_at`, `last_used_at`, `created_at`, `status`) is either hidden from
+  edit entirely or rendered through a component that bypasses the form (the status switch).
+
+The roles multi-select passes `componentProps: { filter: { assignable_for_service_account: true } }`,
+so the picker can never offer a role the backend's escalation guard would reject (`System`,
+`ServiceAccountManager`) — enforced server-side in `RolesFilter`, not duplicated client-side, so it
+cannot drift from `ApiKeyService::assertRolesAssignable()`.
+
+**Production build caveat, unchanged from §16.5:** `kitchntabs-web` resolves `dash-admin` from the
+published `@dashadmin/dash-admin@1.3.44`, which does not yet ship `createSuccessDialog`,
+`ApiKeyRevealContent`, `ServiceAccountStatusSwitch`, or `mergeTranslations`. Everything above works
+today under `LINK_DASH_CORE=true` (verified via HMR through the whole session). A production build
+needs `dash-admin` republished and the dependency bumped; until then, `dash-admin-augment.d.ts` and
+the ambient declarations in `index.d.ts` keep `tsc` green as a stopgap — delete all three once the
+republish lands.
+
+---
+
+### 17.5 Provisioning integration
+
+`TenancyProvisioningService::assignRoles()` grants every new tenancy owner `TenancyAdmin`, `Tenant`,
+**and `ServiceAccountManager`** — not requested in the original plan, added afterward once the
+question came up in practice: without it, every new signup would need a separate manual role grant
+before they could issue their first API key. Since `ServiceAccountManager` is a pure capability role
+(§5) that confers no data access on its own, there is no security reason to withhold it from the
+account owner by default.
+
+Verified against a real trial signup in the dev environment (not just the test suite): the
+provisioned owner held all three roles immediately after the registration job completed.
+
+---
+
+### 17.6 Test coverage
+
+**`tests/Feature/ServiceAccountApiKeyTest.php` — 26 tests:**
+
+| Group | Tests |
+|---|---|
+| Delegation limits | own-level key succeeds; escalation refused; `System` never assignable; `ServiceAccountManager` self-replication blocked; the role alone confers no minting power; escalation re-checked on `updateRoles`, not just create |
+| Scope isolation | a tenant belonging to a different tenancy is rejected (`422`), even for an otherwise-valid actor |
+| Lifecycle | active key authenticates; disable refuses auth but preserves the credential, re-enable restores it (same token id); expired key refused; tenancy suspension disables all its keys, reactivation restores them; trial-status tenancies still authenticate (the `account_status` vs `isActive()` regression guard); destroy revokes the token and soft-deletes both rows |
+| Expiration mapping | each of the four choices maps to the correct `expires_at` |
+| Leak prevention | a key never increments `max_users_per_tenant`; service accounts excluded from `excludingServiceAccounts()` queries |
+| HTTP contract | create/update responses carry the `{ data: ... }` envelope; a genuine change to an immutable field is rejected; a whole-record update carrying unchanged immutable values is **accepted**; validation messages follow `Accept-Language`; delete endpoint revokes and soft-deletes |
+| Role picker | `assignable_for_service_account` excludes `System`/`ServiceAccountManager`; the filter is inert when the param is absent |
+| Response shaping | `getOne`/`getList` return `role_ids` and never leak the raw `service_user` relation key |
+
+**`tests/Feature/TenancyProvisioningIntegrationTest.php`** — one added test drives the real
+`provisionTenancy()` entry point end-to-end and asserts the created owner holds all three roles.
+
+Full Core suite: 634 passed, one pre-existing unrelated failure
+(`SubscriptionPlanManagementTest::it_can_list_subscription_plans`), confirmed unrelated by re-running
+it with this branch's changes stashed, where it fails identically.
+
+---
+
+### 17.7 Bugs found only by exercising the running feature
+
+Everything in §16 was found by static review or writing tests. These four were found only by
+actually clicking through the UI against the dev environment — recorded because none of them were
+visible from reading the code in isolation.
+
+#### 17.7.1 Whole-record updates made editing impossible
+
+React Admin submits the **entire record** on save, not a diff. The original immutability enforcement
+— `'tenant_id' => ['prohibited']` — rejects the field's mere *presence*, so it failed on every real
+edit, since `tenant_id`/`name`/`expiration` arrive on every save carrying their unchanged current
+values. **Editing roles was completely broken from the first click.** Fixed by comparing submitted
+values against the stored row (`ApiKeyRequest::assertImmutableFieldsUnchanged()`) — unchanged passes,
+changed is still rejected.
+
+#### 17.7.2 `getOne()`/`getList()` never shaped through the resource
+
+Neither `_postList()` nor `_postGetOne()` existed on `ApiKeyController`, so both endpoints returned
+the **raw Eloquent model**: no top-level `role_ids`, and a leaked `service_user` key from the raw
+`serviceUser()` relation. The edit form's roles multi-select reads `listAttribute` (`role_ids`) as its
+source for every reference input — with the field entirely absent from the response, the select
+rendered with nothing pre-selected. Since `role_ids` is required on update, saving with an
+apparently-empty selection would have **silently wiped a key's actual roles on the very first edit**.
+Fixed by adding both hooks, mirroring the existing `RoleController::_postList`/`_postGetOne` pattern
+exactly.
+
+Caught before it shipped further: the record involved in triage (`Totem`) was confirmed, by direct
+query against the dev database, to still hold its `Tenant` role — the bug was caught before a save
+actually went through.
+
+#### 17.7.3 Eager-loaded `tenant` relation carried the entire settings blob
+
+`ApiKeyController`'s eager loads originally loaded the bare `tenant`/`serviceUser`/`createdBy`
+relations. `Tenant` carries a large `settings` JSON column (theme palette, alarm configuration,
+feature flags — hundreds of keys), none of it used by this resource, pulled on every list request.
+Column-limited to `tenant:id,name`, `serviceUser:id` (serviceUser is only ever read for its `roles`,
+never serialized itself), `serviceUser.roles:id,name,level`, `createdBy:id,name,lastname,deleted_at`.
+The same fix applies to `ApiKeyService::tokenIsUsable()`, which runs on **every** authenticated
+service-account request via the Sanctum guard hook — the hottest path in the feature — trimmed to
+`tenancy:id,account_status` and `tenant:id`, the only two fields it actually reads.
+
+#### 17.7.4 Backend error messages were hardcoded English
+
+Every `abort()` message in `ApiKeyService`/`ApiKeyController`/`ApiKeyRequest` was a literal English
+string. Moved to `lang/{en,es}/service_accounts.php` (mirrored into `resources/lang/`, since Laravel
+resolves that location first), resolved through the existing `SetLocaleFromHeader` middleware. A test
+sends the same failing request with `es` and `en` `Accept-Language` headers and asserts the responses
+differ and match each locale file exactly — guarding against the two files silently drifting into
+identical strings.
+
+---
+
+### 17.8 Known follow-ups (not done, deliberately)
+
+- **`kitchntabs-app` product-field translation staleness.** Unrelated to this feature, surfaced
+  during adjacent i18n work: four `resource.ecommerce.products.fields.*` labels in `kt-ecommerce`'s
+  product schema appeared untranslated in `kitchntabs-app`. Direct testing ruled out the translation
+  content, the merge logic, and the schema key strings — all three checked out correct in isolation.
+  The likely cause is `KitchnTabsWebPrivateApp.tsx`'s `translationsData` being built with
+  `useMemo(() => {...}, [])` (empty deps), which can freeze the object across a live session predating
+  the commit that added those keys. Descoped at the user's call as minor; not fixed on this branch.
+- **Role picker level ceiling is stricter than the escalation guard.** `RoleController`'s
+  `applyRoleVisibilityPolicy()` filters to `level > actor.level` (strict), while
+  `ApiKeyService::assertRolesAssignable()` permits `level >= actor.level`. A same-level role the
+  backend would allow never appears in the picker. Left as-is — it fails safe (under-offering, never
+  over-offering) — but worth a decision if same-level delegation should be reachable from the UI.
+- **`kitchntabs-app`, `kitchntabs-system`, `kitchntabs-mall` do not register this resource.** Only
+  `kitchntabs-web` has a `service_account.tsx` schema and a `tenancyResources.tsx` entry. If any other
+  app needs a service-accounts management UI, that integration is still open.
+- **`dash-admin` republish**, per §17.4 — the production-build stopgap files listed there remain until
+  it happens.
