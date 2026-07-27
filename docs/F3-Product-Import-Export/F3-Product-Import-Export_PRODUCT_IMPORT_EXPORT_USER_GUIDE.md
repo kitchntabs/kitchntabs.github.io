@@ -83,6 +83,7 @@ The first row is always the header. These columns are always present:
 | `sku` | Unique product code | `DVIE` |
 | `name` | Product name | `Daily Viernes - Sushi` |
 | `description` | Product description | `Roll de sushi (8 piezas)...` |
+| `terms` | Phonetic / alternate spoken names, comma-separated. Used by the voice agent and the welcome kiosk to match what a customer said to this product. | `pad tai, padtai, pat thai` |
 | `display_order` | Sort order (1 = first, empty = last) | `5` |
 | `categories` | Category names, comma-separated | `Sushi, Ofertas` |
 | `primary_category` | Main category name | `Sushi` |
@@ -172,7 +173,7 @@ You can edit these values in the file and re-import to bulk-update campaign prod
 > **Important:** Always use the file exported from the system as your starting point. Do not create a new Excel file from scratch.
 
 **Safe to edit:**
-- `name`, `description`, `display_order`
+- `name`, `description`, `terms`, `display_order`
 - `is_enabled`, `infinite_stock`, `is_pack`
 - `brand_name`, `categories`, `primary_category`
 - Any `price_*` column
