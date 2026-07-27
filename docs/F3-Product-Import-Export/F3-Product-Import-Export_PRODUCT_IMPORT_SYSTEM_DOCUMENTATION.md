@@ -208,17 +208,18 @@ flowchart TD
 [0]  sku
 [1]  name
 [2]  description
-[3]  display_order
-[4]  categories
-[5]  primary_category
-[6]  category_ids
-[7]  brand_name
-[8]  is_pack
-[9]  is_enabled
-[10] infinite_stock
-[11] gallery_title
-[12] images
-[13..N]  price_<pricelist_name>  (one per non-internal pricelist, sorted by id)
+[3]  terms                       (phonetic / alternate spoken names)
+[4]  display_order
+[5]  categories
+[6]  primary_category
+[7]  category_ids
+[8]  brand_name
+[9]  is_pack
+[10] is_enabled
+[11] infinite_stock
+[12] gallery_title
+[13] images
+[14..N]  price_<pricelist_name>  (one per non-internal pricelist, sorted by id)
 [N+1..]  stock_<stock_type_name> (one per non-internal stock type, sorted by id)
 [M+1..]  campaign_<slug>         (one per PENDING/PUBLISHED/PAUSED campaign)
 [...]    modifier_group_name
@@ -760,6 +761,8 @@ The unique lock is held for 3600 seconds.
 6. **Campaign sync is import-side only**: The export includes campaign columns for informational purposes. The import triggers actual marketplace API calls (Jumpseller, Uber Eats) via `PublishProductsJob`, `PauseProductsJob`, `FinishProductsJob`. Test in a staging environment first.
 
 7. **`delete_absent_products` safety guard**: If no valid SKUs are found in the import file (e.g. blank file), the deletion phase is skipped entirely to prevent accidental mass-deletion.
+
+8. **Absent columns vs empty cells for `terms`**: `createOrUpdateProduct()` mass-assigns `$productData` via `$product->update()`, so any key present in that array overwrites the stored value. `terms` is therefore added with `array_key_exists('terms', $mainRow)` rather than `?? null` — a file exported *before* the column existed simply omits the column and leaves stored terms untouched, while an explicitly blank cell clears them. Apply the same guard to any future nullable text column, or the first re-import of an older export silently wipes it catalog-wide.
 
 ---
 
