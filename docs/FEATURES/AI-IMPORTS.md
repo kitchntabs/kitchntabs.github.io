@@ -190,26 +190,56 @@ and it handles the N-image case that react-admin's single `FileInput` does not.
 > a top-level `FileInput` prop.
 
 ### 10. Extraction review tab
-New `components/ProductImport/MenuExtractionReview.tsx`, registered as a new
+`components/ProductImport/MenuExtractionReview.tsx`, registered as a
 `tab: "resource.import.instances.tabs.extraction"` entry in
-`schemas/productImport.ts`, placed **before** the preview tab.
+`schemas/productImport.ts`, placed **before** the preview tab. Page chrome
+(Extract/Save/Confirm/Download buttons, progress bar, token-usage card, the
+page-level warnings summary as a collapsed-by-default accordion) lives here;
+the product/group/option grid itself is a separate component.
 
 - "Extract with AI" button, gated on status; live progress from the websocket
   context.
-- One card per product showing the **cropped product photo** extracted from the
-  page, alongside name, category, description, base price.
-- **Fully editable**, not just the scalar product fields:
-  - product: name, category, description, base price, delete
-  - modifier group: name, type (SINGLE/MULTIPLE), required, min/max selections,
-    add group, delete group
-  - option: name, price adjustment, is_default, reorder, add option, delete option
-  - all persisted with `PUT .../extraction`
 - Surface `extraction_meta.warnings` prominently (the heuristics that caught the
   phantom-product and identical-option-price cases) and token usage / cost.
 - **Download the generated .xlsx** at any point, so the operator can finish the
   edit in Excel/Sheets when that is faster than the inline editor. Generated on
   demand from the current `extraction_data`, so it reflects unsaved-to-file edits.
 - "Confirm & generate import file" → `POST .../extraction/confirm`.
+
+**`components/ProductImport/MenuExtractionTable.tsx`** — the editable grid,
+built on [material-react-table](https://www.material-react-table.com) v3
+(`material-react-table` dependency in `kt-ecommerce/package.json`; peers
+`@mui/material`/`@mui/icons-material` v6+, `@mui/x-date-pickers` v7.15+,
+`@emotion/*` v11.13+ — all already satisfied by this monorepo's pinned MUI v7 /
+React 19 versions via the `pnpm-workspace.yaml` `overrides` block). Replaced an
+earlier nested-accordion layout (product accordion → modifier-group cards →
+option rows) that the user found too heavy to scan.
+
+Product → modifier group → option is rendered as one **tree table**
+(`enableExpanding`, `getSubRows`), not three separate grids — MRT's tree
+feature handles the indentation and expand/collapse natively. The three row
+kinds are heterogeneous (a product has SKU/category/price, a group has
+type/min/max, an option has price-adjustment/is_default), so internally
+everything is flattened into one `IMenuTableRow` shape tagged with
+`kind: 'product' | 'group' | 'option'`, and each column decides per-row
+whether it applies via `enableEditing: (row) => ...` — irrelevant cells render
+blank rather than as a disabled input, e.g. `category` only edits on product
+rows, `isDefault` only on option rows.
+
+Editing uses `editDisplayMode: 'table'` — every editable cell is a live input
+all the time (spreadsheet-style), not click-to-edit-a-row. Each column defines
+a fully custom `Edit` renderer directly controlled by the page's `products`
+state (not MRT's own edit-value cache or its `onEditingRowSave`/create-row
+machinery), because this page already has its own save/confirm semantics at
+the `products`-array level — the per-row optimistic-update pattern from MRT's
+CRUD examples is built for a typical per-row REST API and doesn't fit here.
+
+No "add product": extraction is the only source of products by design — an
+operator corrects what the model found, they don't hand-author new dishes in
+this grid. Modifier groups and options **are** addable via row-action icons
+(mirroring "add subordinate" from MRT's tree-editing example), alongside
+delete (all three kinds) and a warnings-dialog trigger (product rows with
+warnings only) using the same `useDialog()` pattern as the page-level summary.
 
 ### Reference: the canonical template shape
 
