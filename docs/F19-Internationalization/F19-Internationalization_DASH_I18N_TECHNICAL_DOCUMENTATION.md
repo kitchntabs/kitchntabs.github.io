@@ -553,19 +553,104 @@ const dashSpanish = {
 
 ### 7.3 Merging Translations
 
+Use `mergeTranslations` from `dash-admin` rather than object spread. It is
+**variadic** and does a **deep** merge, so a later source can override a single
+nested key without replacing its whole parent object — which a spread cannot do.
+
 ```typescript
 // In private app entry
+import { mergeTranslations } from 'dash-admin';
+
 const translations = {
-    en: {
-        ...dashAdminEn,    // Base RA translations
-        ...customEnglish,  // App-specific translations (override)
-    },
-    es: {
-        ...dashAdminEs,
-        ...customSpanish,
-    },
+    en: mergeTranslations(dashAdminEn, customEnglish),
+    es: mergeTranslations(dashAdminEs, customSpanish),
 };
 ```
+
+**Later sources win.** That ordering is the whole mechanism: framework base
+first, app last, so the app always has the final say.
+
+### 7.4 Package-Owned Translations
+
+A shared package (`kt-*` / `vx-*`) should ship its **own** translation bundles
+instead of having every consuming app restate its keys. The strings belong to
+the component, so adding one should be a change in one file — not an edit to
+each app's locale files, which is N places to keep in step and N chances to
+break a large hand-maintained object literal.
+
+This is the same mechanism `dash-admin` itself already uses; it is simply
+available to any package.
+
+**1. The package ships the bundles, namespaced so a merge cannot collide:**
+
+```typescript
+// packages/vx-character-preview/src/i18n/en.ts
+const characterPreviewEn = {
+    character_preview: {
+        anchor: 'Anchor',
+        hud: '%{name} · zoom %{zoom}%',
+    },
+};
+export default characterPreviewEn;
+
+// packages/vx-character-preview/src/index.ts
+export { en as characterPreviewEn, es as characterPreviewEs } from './i18n';
+```
+
+**2. The app merges them, package before app:**
+
+```typescript
+import { characterPreviewEn, characterPreviewEs } from 'vx-character-preview';
+
+const translations = {
+    en: mergeTranslations(dashAdminEn, characterPreviewEn, customEnglish),
+    es: mergeTranslations(dashAdminEs, characterPreviewEs, customSpanish),
+};
+```
+
+Because later sources win, an app can still override any individual key locally
+without restating the rest of the package's bundle.
+
+#### Translating a package that must not depend on React Admin
+
+A genuinely domain-neutral package (usable from a private admin app **and** a
+public app built on `createSimpleI18nProvider`) must not take `react-admin` as a
+dependency just to call `useTranslate`. **Inject the translate function
+instead** — both provider shapes expose the identical
+`translate(key, options)` signature (§4.1, §4.2), so one prop serves both:
+
+```tsx
+export type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+
+const CharacterPreview = ({ translate }: { translate?: TranslateFn }) => {
+    // `options._` is polyglot's default-value convention, so each call carries
+    // its own fallback and the component renders readable text with no provider
+    // at all — in a test, a Storybook page, or before i18n is wired.
+    const t: TranslateFn = translate ?? ((key, options) => String(options?._ ?? key));
+
+    return <label>{t('character_preview.anchor', { _: 'Anchor' })}</label>;
+};
+```
+
+The domain adapter, which *does* have React Admin, supplies it:
+
+```tsx
+const translate = useTranslate();
+return <CharacterPreview translate={translate} />;
+```
+
+#### Why package bundles cannot be lazy-loaded
+
+`polyglotI18nProvider` builds a Polyglot instance per locale, and React Admin
+only re-runs `getMessages` on `changeLocale`. A chunk that loads later therefore
+**cannot** contribute keys — nothing re-reads them, so the strings render as raw
+keys until the locale is switched.
+
+Package bundles must be merged at app entry (§7.4 step 2), which places them in
+the entry chunk. Genuinely lazy registration would need a runtime registry that
+packages push into at module-eval time, plus a `changeLocale(currentLocale)`
+nudge to force a refresh — a `dash-frontend-core` change, and rarely worth it:
+a bundle of a few dozen keys is well under 2KB.
 
 ---
 

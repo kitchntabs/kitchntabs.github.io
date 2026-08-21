@@ -10,8 +10,8 @@ The KitchnTabs application uses react-admin's i18n system with JSON translation 
 ## File Locations
 
 ### Frontend Translation Files
-- `/apps/kitchntabs/src/i18n/es.tsx` - Spanish translations
-- `/apps/kitchntabs/src/i18n/en.tsx` - English translations
+- `/apps/kitchntabs-{app}/src/i18n/es.tsx` - Spanish translations
+- `/apps/kitchntabs-{app}/src/i18n/en.tsx` - English translations
 
 ### Backend Translation Files (Laravel)
 - `/dash-backend/lang/es/` - Spanish translations
@@ -193,6 +193,22 @@ Based on the codebase, here are **key areas that need translations**:
 ```
 
 ## How to Add Translations
+
+### Step 0: Decide WHERE the keys belong
+
+Not everything goes in the app's locale files. Put the keys where the strings
+live:
+
+| The strings belong to… | Keys go in |
+|---|---|
+| One app's own screens | `apps/<app>/src/i18n/{en,es}.tsx` (below) |
+| A shared package (`kt-*` / `vx-*`) | `packages/<pkg>/src/i18n/{en,es}.ts`, exported and merged by the app |
+| A backend-driven form schema | the backend config's `label`, which is itself a key |
+
+Copying a package's keys into every consuming app is the anti-pattern: it is N
+files to keep in step, and each edit risks breaking a large hand-maintained
+object literal. See `_DASH_I18N_TECHNICAL_DOCUMENTATION.md` §7.4 for the
+package-owned pattern and `_I18N_INTEGRATION_GUIDE.md` for the merge order.
 
 ### Step 1: Identify Untranslated Text
 

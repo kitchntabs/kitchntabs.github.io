@@ -21,7 +21,7 @@ flowchart TD
 
 ### 1. KitchnTabsPrivateApp (Entry Point)
 
-**File:** `apps/kitchntabs/src/core/KitchnTabsPrivateApp.tsx`
+**File:** `apps/kitchntabs-{app}/src/core/KitchnTabsPrivateApp.tsx`
 
 This is where the i18n provider is created and configured:
 
@@ -86,7 +86,31 @@ const loadTranslations = async () => {
 }
 ```
 
-### 3. Custom Components Translation
+### 3. Package-Owned Translations (`kt-*` / `vx-*`)
+
+A shared package ships its **own** bundles rather than having each consuming app
+restate its keys — the strings belong to the component, so adding one should be
+a single-file change.
+
+```typescript
+// packages/vx-character-preview/src/index.ts
+export { en as characterPreviewEn, es as characterPreviewEs } from './i18n';
+
+// apps/<app>/src/KitchnTabsWebPrivateApp.tsx
+en: mergeTranslations(dashAdminEn, characterPreviewEn, customEnglish),
+es: mergeTranslations(dashAdminEs, characterPreviewEs, customSpanish),
+```
+
+`mergeTranslations` is variadic and deep, and **later sources win** — so the app
+can still override any individual key without restating the package's bundle.
+
+A package that must stay usable from a **public** app (no React Admin) should
+not import `useTranslate`; it takes a `translate` prop instead, defaulting to
+polyglot's `_` fallback so it renders readable text with no provider. Full
+detail, including why these bundles cannot be lazy-loaded, is in
+`_DASH_I18N_TECHNICAL_DOCUMENTATION.md` §7.4.
+
+### 4. Custom Components Translation
 
 **Pattern:** Use `useTranslate()` hook from react-admin
 
@@ -347,7 +371,26 @@ Both `es.json` and `en.json` should have the same structure and keys:
 
 ## Testing Translations
 
-### 1. Manual Testing Checklist
+### 1. Verify It Compiles First
+
+**`pnpm typecheck` does not exist in `apps/*`** — it exits `127`, and grepping
+that empty output for `error TS` reports zero for a command that never ran. Use
+the project-level invocation and check the exit code:
+
+```bash
+cd apps/<app> && npx tsc --noEmit -p .; echo "exit=$?"
+```
+
+Locale files are large hand-maintained object literals, and the property before
+an insertion point often ends `}` with **no trailing comma** — appending a key
+there produces `}` followed by `your_key:`, which takes the dev server down with
+`Expected "}" but found "your_key"`. Parse-check the file directly after editing:
+
+```bash
+./node_modules/vite/node_modules/esbuild/bin/esbuild apps/<app>/src/i18n/es.tsx --outfile=/dev/null
+```
+
+### 2. Manual Testing Checklist
 
 - [ ] Switch languages using LocalesMenuButton
 - [ ] Verify all UI text updates
@@ -357,7 +400,7 @@ Both `es.json` and `en.json` should have the same structure and keys:
 - [ ] Refresh page - language persists
 - [ ] Check interpolated variables work
 
-### 2. Debugging
+### 3. Debugging
 
 **Check translation keys are loaded:**
 ```typescript
@@ -401,7 +444,33 @@ fieldProps: {
 }
 ```
 
-### Issue 3: Language Switcher Not Showing
+### Issue 3: A Boolean Field Shows Its Key Above The Switch
+
+**Symptom:** the switch reads correctly, but a raw key sits above it:
+
+```
+resource.ai.agent_config.field_is_active
+[toggle] Active
+```
+
+**Cause:** `AttributeToInput` renders a Boolean as
+`<InputLabel>{input.label}</InputLabel>` above the input, and **that label is
+printed raw** — only the `BooleanInput`'s own `label` prop is translated. Any
+Boolean whose `label` is an i18n key hits this.
+
+**Solution:** suppress the duplicate heading; the switch keeps its translated
+label.
+
+```typescript
+{
+    attribute: 'is_active',
+    label: 'resource.ai.agent_config.field_is_active',
+    type: Boolean,
+    showLabel: false,
+}
+```
+
+### Issue 4: Language Switcher Not Showing
 
 **Symptom:** LocalesMenuButton doesn't display
 
@@ -410,7 +479,7 @@ fieldProps: {
 2. Check that LocalesMenuButton is imported from 'react-admin'
 3. Verify i18nProvider is set before rendering Admin component
 
-### Issue 4: Language Not Persisting
+### Issue 5: Language Not Persisting
 
 **Symptom:** Language resets to default on page refresh
 
