@@ -2,7 +2,7 @@
 
 **Category**: Functional Epic  
 **Status**: Active  
-**Last Updated**: 2026-06-26
+**Last Updated**: 2026-08-03
 
 ---
 
@@ -20,10 +20,11 @@ Public-facing website and brand presence with design system, marketing content, 
 
 ## 📁 Documentation
 
-This epic contains **2 document(s)**:
+This epic contains **3 document(s)**:
 
 - [Public-Web Dash Design System Variables](F8-Public-Web_DASH_DESIGN_SYSTEM_VARIABLES.md)
 - [Public-Web Design-System-Less-Css](F8-Public-Web_design-system-less-css.md)
+- [Style System — Technical Reference](F8-Public-Web_STYLE_SYSTEM_TECHNICAL_REFERENCE.md) — MUI coupling, light/dark runtime flow, file map, and the full domain-overridable CSS variable table
 
 
 ## 🔗 Related Epics
@@ -36,7 +37,7 @@ This epic contains **2 document(s)**:
 |--------|-------|
 | **Epic Code** | F8 |
 | **Category** | Functional |
-| **Documents** | 2 |
+| **Documents** | 3 |
 | **Related Epics** | 1 |
 
 ## 🗂️ Document Structure
@@ -45,6 +46,7 @@ This epic contains **2 document(s)**:
 docs/F8-Public-Web/
 ├── F8-Public-Web_DASH_DESIGN_SYSTEM_VARIABLES
 ├── F8-Public-Web_design-system-less-css
+├── F8-Public-Web_STYLE_SYSTEM_TECHNICAL_REFERENCE
 
 ```
 
