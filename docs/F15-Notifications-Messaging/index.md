@@ -20,7 +20,7 @@ Multi-channel notification delivery system supporting email, SMS, and push notif
 
 ## 📁 Documentation
 
-This epic contains **16 document(s)**:
+This epic contains **17 document(s)**:
 
 - [Notifications-Messaging Aws Ses Bounce Complaint Implementation](F15-Notifications-Messaging_AWS_SES_BOUNCE_COMPLAINT_IMPLEMENTATION.md)
 - [Notifications-Messaging Aws Ses Email Practices Kitchntabs](F15-Notifications-Messaging_AWS_SES_EMAIL_PRACTICES_KITCHNTABS.md)
@@ -29,6 +29,7 @@ This epic contains **16 document(s)**:
 - [Notifications-Messaging Dash Email Notification System](F15-Notifications-Messaging_DASH_EMAIL_NOTIFICATION_SYSTEM.md)
 - [Notifications-Messaging Dash Notifications Catalog](F15-Notifications-Messaging_DASH_NOTIFICATIONS_CATALOG.md)
 - [Notifications-Messaging Deploy Ses Bounce Handling](F15-Notifications-Messaging_DEPLOY_SES_BOUNCE_HANDLING.md)
+- [Notifications-Messaging Domain Branding Defaults](F15-Notifications-Messaging_DOMAIN_BRANDING_DEFAULTS.md)
 - [Notifications-Messaging Email System Tests](F15-Notifications-Messaging_EMAIL_SYSTEM_TESTS.md)
 - [Notifications-Messaging Email Unsubscribe Deployment Checklist](F15-Notifications-Messaging_EMAIL_UNSUBSCRIBE_DEPLOYMENT_CHECKLIST.md)
 - [Notifications-Messaging Email Unsubscribe Implementation Summary](F15-Notifications-Messaging_EMAIL_UNSUBSCRIBE_IMPLEMENTATION_SUMMARY.md)
@@ -52,7 +53,7 @@ This epic contains **16 document(s)**:
 |--------|-------|
 | **Epic Code** | F15 |
 | **Category** | Functional |
-| **Documents** | 16 |
+| **Documents** | 17 |
 | **Related Epics** | 3 |
 
 ## 🗂️ Document Structure
