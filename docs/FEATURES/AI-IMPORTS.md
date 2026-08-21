@@ -314,3 +314,412 @@ Do **not** use `evalActionPermission` for the new gating — it is deprecated.
 
 Local env: `pnpm dash:start kitchntabs.tunnel --tunnel` from `dash-backend-docker`.
 Queue is `products-import`; extraction is long-running, so watch Horizon.
+
+---
+
+# Implementation Reference (as built)
+
+Everything above this line was the plan going in. This section documents what
+the code actually does, on branch `feat/ai-import` in both
+`kitchntabs-backend-domain` and `kitchntabs-frontend`, including the fixes
+made after the first working version shipped. Written in present tense as a
+reference — for the *why* behind a specific decision, `git log -p` on the file
+is more precise than this doc; this is for finding your way around the system
+without reading the whole history first.
+
+## Data model
+
+`product_import_instances` gained three columns
+(`2026_07_28_120000_add_ai_extraction_to_product_import_instances_table.php`):
+
+| Column | Type | Purpose |
+|---|---|---|
+| `extraction_data` | `jsonb` nullable | The reviewable/editable product array — the operator's working copy, not raw model output once edited |
+| `extraction_meta` | `jsonb` nullable | Model id, token usage, cost estimate, page count, validation warnings |
+| `extraction_confirmed_at` | `timestamp` nullable | The import gate. Null blocks preview/import; cleared by any edit |
+
+`ProductImportInstance` (`app/Models/ECommerce/ProductImportInstance.php`)
+adds `STATUS_EXTRACTION_INITIATED|COMPLETED|FAILED` alongside the existing
+preview/import statuses, casts both JSON columns to `array`, and exposes:
+
+```php
+public function usesAiMenu(): bool { return $this->import_type === 'ai_menu'; }
+public function isExtractionConfirmed(): bool { return !is_null($this->extraction_confirmed_at); }
+public function canRunImport(): bool { return !$this->usesAiMenu() || $this->isExtractionConfirmed(); }
+```
+
+## Backend components
+
+**`AiMenuImportMechanism`** (`app/Services/ECommerce/Imports/`) — registered
+in `ImportMechanismRegistry` as `'ai_menu'`. Its `getImportOptionsFormats()`
+returns the standard normalized options plus four extraction-only ones
+(`pricelist`, `brand_name`, `sku_prefix`, `max_pages`); deliberately no model
+picker — the model is fixed server-side via `BEDROCK_MENU_MODEL`. Because this
+drives the frontend's options form dynamically, the AI options UI needed zero
+frontend work. `processImport()` just delegates to
+`ImportNormalizedProductsJob` — by the time it's called the file is an
+ordinary normalized xlsx.
+
+**`MenuExtractionPrompt`** (`app/Services/ECommerce/Imports/`) — the Bedrock
+system/user prompt as static methods, `system()` and `user()`. Extracted so
+two callers share one prompt: `ExtractMenuProductsJob` (production) and
+`ImportMenuMultimodalJob`/`MenuImportPoc02Command` (the benchmark harness in
+`menu-model-benchmarks/`) — otherwise the harness measures a prompt that isn't
+what production actually sends. The prompt's central rule: variants (protein,
+size, flavor) are never separate products, they're one product with a
+modifier group; a grid header naming several dishes side by side
+(`"Laksa Tonkotsu Ramyun"`) must split into separate products, never
+concatenate into one.
+
+**`MenuExtractionNormalizer`** (`app/Services/ECommerce/Imports/`) — converts
+`extraction_data` into normalized import rows and an xlsx. Shares its column
+list with the human-facing export via three public constants on
+`NormalizedProductsExport` (`PRODUCT_COLUMNS`, `MODIFIER_GROUP_COLUMNS`,
+`MODIFIER_OPTION_COLUMNS`) — before this refactor the two producers had
+independently-written column lists that had already drifted once (`terms` was
+added to one and not the other). Runs twice in an instance's life: once after
+extraction (to report a row count) and again on confirm (to produce the file
+that's actually imported), so an operator's edits can never be bypassed —
+confirm always regenerates from current `extraction_data`, never reuses a
+stale file.
+
+**`ExtractMenuProductsJob`** (`app/Jobs/Imports/`) — the production
+extraction job, queued on `products-import`. Constructor:
+`($productImportInstanceId, $tenantId, $options, $user)`.
+
+- Reads source files from `s3-private` via `options.source_files[]`. A PDF is
+  rasterized page-by-page with Imagick; an image upload is already one page
+  per file. Capped at `options.max_pages` (default 30,
+  `ExtractMenuProductsJob::DEFAULT_MAX_PAGES`) as a cost guard against an
+  oversized upload.
+- Calls Bedrock's Converse API per page (`temperature: 0`, though output is
+  *not* deterministic — see Known limitations), crops each product's photo
+  out of the page using the model's bounding box, and uploads the crop to
+  `s3` for the review UI to display.
+- Computes `price_adjustment` from `absolute_price` in PHP rather than trusting
+  the model's arithmetic: base price = the cheapest `absolute_price` across a
+  product's own option group, every option's adjustment = its price minus that
+  base. The model is asked to copy printed prices verbatim, never to subtract.
+- Writes `modifier_option_price` as a **string**, not a number: a numeric `0`
+  round-trips through xlsx as `NULL`, which would make
+  `NormalizedProductsImport`'s `?? $option->price_adjustment` fallback
+  silently preserve a stale surcharge on re-import instead of zeroing it out.
+- `generateSku()` is deterministic (hash of the product name), so re-running
+  extraction on the same menu maps onto the same SKUs rather than creating
+  duplicates.
+- Drives `EXTRACTION_INITIATED → EXTRACTION_COMPLETED|FAILED` and broadcasts
+  `extraction.started|progress|completed|failed` through
+  `AppNotificationBuilder` / `NormalizedImportProgressNotification`, reusing
+  the exact payload shape `ImportNormalizedProductsJob` already uses for
+  `import.*` events (including `truncateNotificationData()`, since Pusher caps
+  messages at 10 KB and a menu's warning list can be long) — the frontend's
+  progress components need no special-casing to handle extraction progress.
+- `uniqueId()` → `"extract_menu_{$productImportInstanceId}"`: locked per
+  *instance*, not per tenant, so two different menus can extract concurrently
+  (unlike the tenant-wide lock on the normalized import job).
+- Exposes `getValidationWarnings()` / the static `validationWarningsFor()`:
+  heuristics for the two vision-model failure modes actually observed in
+  benchmarking — a product name containing another product's name (a grid
+  header captured as one phantom product instead of being split), and a
+  modifier group where every option shares the same price adjustment (the
+  model read one grid column and applied it to every variant).
+- Exposes `getTokenUsage()`: exact token counts from Bedrock's own response,
+  plus a cost estimate *only* for models present in the hardcoded
+  `MODEL_RATES_PER_MTOK` table (a handful of Nova variants) — an unlisted
+  model reports tokens with `estimated_cost_usd: null` rather than a guessed
+  figure.
+
+Kept from the original POC (`ImportMenuMultimodalJob`,
+`MenuImportPoc01Command`/`MenuImportPoc02Command` under `app/Jobs/Menu/` and
+`app/Console/Commands/`) as a standalone benchmark harness — it's what drives
+comparisons across Bedrock models in `menu-model-benchmarks/` without needing
+any DB setup. Not wired into the app; artisan-only.
+
+**Controller surface** — `ProductController::import()` gained an `ai_menu`
+arm that returns `422` with `requires_extraction_confirmation: true` unless
+`extraction_confirmed_at` is set; once confirmed, it's treated identically to
+a `normalized` import (the confirmed file already *is* a normal xlsx).
+
+`ProductImportInstanceController` gained:
+
+| Method | Route | Behavior |
+|---|---|---|
+| `extract()` | `POST .../{id}/extract` | Dispatches `ExtractMenuProductsJob`; same idempotency (`already_completed`) / re-entrancy (`already_running`) guards as `import()`; `force: true` re-runs a completed extraction |
+| `getExtraction()` | `GET .../{id}/extraction` | Returns `extraction_data` + `extraction_meta` + `extraction_confirmed_at` |
+| `updateExtraction()` | `PUT .../{id}/extraction` | Validates the full nested product/group/option shape, recomputes warnings via `ExtractMenuProductsJob::validationWarningsFor()`, **always clears `extraction_confirmed_at`** — an edit can never ride on a stale confirmation |
+| `confirmExtraction()` | `POST .../{id}/extraction/confirm` | Builds the xlsx from *current* `extraction_data` via `MenuExtractionNormalizer`, writes it to `s3-private`, sets it as `filepath`, sets `extraction_confirmed_at`, resets `status` to `NOT_INITIATED` so preview/import become reachable |
+| `downloadExtraction()` | `GET .../{id}/extraction/download` | Streams an xlsx built **on demand** from current `extraction_data`, not from storage — reflects edits that haven't even been saved yet, for an operator who'd rather finish corrections in Excel |
+
+Also added: `storeUploadedFile()` (the three-tier disk-fallback logic
+extracted out of `_create()` so both the single `products_file` and the
+`source_files[]` array use it) and `sanitizeOptions()` — strips the literal
+strings `"undefined"` / `"null"` / `""` from incoming options before they
+merge over the mechanism's defaults. `multipart/form-data` has no types: an
+unset JS value serializes to the seven-character string `"undefined"`, and
+since options are merged *over* the defaults, that string was winning —
+`pricelist: "undefined"` would silently produce a `price_undefined` column
+and a matching junk pricelist rather than an error. `false`, `0`, and `"0"`
+are preserved (they're meaningful).
+
+**Request validation** (`ProductImportInstanceRequest`) branches on
+`import_type` + `upload_kind`: `ai_menu` + `pdf` requires `products_file`
+(mimes:pdf, max 50 MB); `ai_menu` + `images` requires `source_files[]`
+(mimes jpg/jpeg/png/webp, max 10 MB each).
+
+Removed `app/Http/Controllers/API/Menu/` — unreferenced copies of the Todo
+sample scaffold that still declared `namespace ...\Example\Todo`, discovered
+to be dead weight while wiring this feature's routes.
+
+## Frontend components
+
+All under `packages/kt-ecommerce/src/components/ProductImport/`.
+
+**`MenuSourceUpload.tsx`** — PDF/images toggle bound to `upload_kind`, then a
+dropzone via `react-drag-drop-files` (the multi-file pattern already
+established in `components/Product/GallerySelector.tsx`; react-admin's
+`FileInput` only handles a single file). Images mode shows per-page
+thumbnails numbered by upload order, since that order becomes page order for
+extraction. Split into edit/view sub-components dispatched by `method`,
+because `useWatch` — needed in edit mode to read `import_type` — throws when
+called on show/list, which render outside a react-hook-form provider; the
+mode check has to happen *inside* each variant, not in a shared wrapper above
+the switch.
+
+**`MenuExtractionReview.tsx`** — page chrome: Extract / Save / Confirm /
+Download buttons, progress bar, token-usage card, and the page-level warnings
+summary (a collapsed-by-default `Accordion`, not a permanent `Alert` — a menu
+with many warnings shouldn't push the product grid below the fold). The
+product/group/option grid itself is a separate component (below).
+
+Data fetching uses `@tanstack/react-query`'s `useQuery`
+(`queryKey: ['ecommerce', 'product_import_instances', id, 'extraction']`,
+`staleTime: 30_000`) rather than a raw `axios.get` in a `useEffect` — the
+original version fired four concurrent duplicate requests to the same
+endpoint on a single page load, because nothing coalesced overlapping call
+sites (initial mount, the websocket-driven reload, any parent re-render that
+remounted the schema component). `saveExtraction()` / `confirmExtraction()`
+write their results straight into the query cache via `setQueryData` instead
+of triggering a redundant re-fetch; the websocket completion handler calls
+`queryClient.invalidateQueries()` rather than fetching directly. The editable
+`products` draft stays local `useState`, synced from the query result by an
+effect keyed on the query's data reference — react-query's default structural
+sharing keeps that reference stable when a background refetch returns
+byte-identical data, so an in-progress edit isn't clobbered unless the server
+data genuinely changed.
+
+**`MenuExtractionTable.tsx`** — the editable grid, built on
+[material-react-table](https://www.material-react-table.com) v3
+(dependency in `kt-ecommerce/package.json`; peers `@mui/material` /
+`@mui/icons-material` v6+, `@mui/x-date-pickers` v7.15+, `@emotion/*` v11.13+
+— all satisfied by this monorepo's pinned MUI v7 / React 19 via
+`pnpm-workspace.yaml`'s `overrides`). Replaced an initial nested-accordion
+layout (product accordion → modifier-group cards → option rows) that was too
+heavy to scan for a menu with dozens of dishes.
+
+Product → modifier group → option renders as one **tree table**
+(`enableExpanding` + `getSubRows`), not three separate grids. The three row
+kinds are heterogeneous — a product has SKU/category/price, a group has
+type/min/max, an option has a price adjustment and `is_default` — so
+everything flattens into one `IMenuTableRow` shape tagged with
+`kind: 'product' | 'group' | 'option'`, and each column's `enableEditing` is a
+function of that kind: irrelevant cells render blank instead of a disabled
+input (e.g. `category` only applies to product rows).
+
+Editing uses `editDisplayMode: 'table'` — every editable cell is a live input
+all the time, spreadsheet-style, rather than a click-to-edit step per row.
+Each column's `Edit` renderer is fully custom and writes directly into the
+page's `products` state; MRT's own edit-value cache and
+`onCreatingRowSave`/`onEditingRowSave` machinery go unused, because this page
+already has its own save/confirm semantics operating on the whole `products`
+array at once — the per-row optimistic-update pattern from MRT's CRUD
+examples is built for a typical per-row REST API and doesn't fit here. Row
+actions: add modifier group (product rows), add option (group rows), delete
+(any row), and a warnings-dialog trigger (product rows with warnings, via the
+same `useDialog()` pattern — `dash-dialog`'s `variant` type is
+`'default' | 'info' | 'success' | 'danger'`, no `'warning'`, so `'info'` is
+used). No "add product": extraction is the only source of products by design
+— an operator corrects what the model found rather than hand-authoring new
+dishes in this grid.
+
+Pagination is a single switch, `PAGINATION_CONFIG` at the top of the file
+(`enabled`, `pageSize`, `rowsPerPageOptions`), rather than scattered magic
+numbers — flip `enabled` to change the default for every caller; the
+component also accepts `enablePagination`/`pageSize` props for a one-off
+per-instance override. `paginateExpandedRows: false` keeps a page boundary
+aligned to top-level products (without it, TanStack Table paginates the fully
+*expanded* row list, so a product's own modifier groups could get split
+across a page). `paginationDisplayMode: 'pages'` renders MUI's numbered
+`<Pagination>` control rather than MRT's default `<TablePagination>`
+(arrows + "x-y of z" text) — the default component's own controls weren't
+rendering for reasons not fully root-caused, and `'pages'` mode uses a
+different underlying MUI component entirely, sidestepping the problem.
+`rowsPerPageOptions` must include the configured `pageSize`: MUI's rows-per-
+page `<Select>` silently falls back to displaying its first option when the
+real value isn't among the choices, which is why the control once showed "5"
+regardless of the page size actually in effect.
+
+The table renders at its natural full height and relies on page-level scroll
+to reach rows below the fold, after an earlier attempt at a bounded,
+internally-scrolling container (`muiTableContainerProps` with `maxHeight` +
+`overflow: auto`) turned out not to work reliably: a nested scroll container
+only scrolls if every ancestor between it and the viewport also permits
+overflow, and this table sits inside a DASH tab panel whose layout isn't
+controlled from here. Page-level scroll is what this layout already relies on
+to reach the Preview/Import tabs, so it's known to work in this container
+chain.
+
+**`ProductImportComponent.tsx`** — the Preview/Import buttons are disabled
+for an `ai_menu` instance until `extraction_confirmed_at` is set, with an
+inline `Alert` explaining why. The server enforces the same rule
+independently (see `ProductController::import()` above); this only avoids
+offering an action that would be rejected.
+
+**`ProductImportContext.tsx`** — the websocket event switch gained
+`extraction.started|progress|completed|failed` cases, reusing the existing
+`import.*` progress/stats state, so the existing progress bar and stats
+components needed no changes to also handle extraction.
+
+Fixed an actual infinite render loop discovered after shipping: the
+provider's `processImportEvent` callback depended directly on
+`notify`/`translate`/`refresh` from react-admin, none of which are guaranteed
+a stable identity across renders. A churning identity re-ran the
+events-processing effect on *every* render, not just when a genuinely new
+websocket event arrived — and once `MenuExtractionReview` started calling
+`refresh()` synchronously out of its own effect on `extraction.completed`,
+that refetch cascaded back down through the provider and fed the loop.
+Fixed by reading those three through a `latestActionsRef` so
+`processImportEvent`'s own identity no longer depends on them, by memoizing
+the provider's exposed `contextValue` so an unrelated re-render doesn't force
+every consumer to re-render too, and by removing the `refresh()` call from
+`MenuExtractionReview`'s completion effect entirely (redundant — the provider
+already schedules one 1.5s after the same event).
+
+**`types.ts`** (new) — `TImportType`, `TUploadKind`, `TModifierGroupType`,
+`TImportStatus`, `IExtractedProduct`, `IExtractedModifierGroup`,
+`IExtractedOption`, `IExtractionMeta`, `IExtractionResponse`, `ITokenUsage`.
+Replaced roughly eight inline `'normalized' | 'template'` string literals
+scattered across the import components.
+
+**i18n** — `resource.import.instances.ai.*`, `types.ai_menu`,
+`no_template.*`, and corrected `statuses.*` were added to all six files
+(`en.tsx` + `es.tsx` in each of `apps/kitchntabs-{web,app,system}/src/i18n/`
+— there's no shared i18n for these). While touching `statuses.*`: a
+pre-existing bug meant the block defined `PREVIEW_STARTED`/`IMPORT_STARTED`
+but the backend actually emits `PREVIEW_INITIATED`/`IMPORT_INITIATED`, so
+those two states had always rendered a raw translation key in the status
+chip; fixed alongside adding the new `EXTRACTION_*` labels.
+
+**Dependencies** added to `kt-ecommerce/package.json`:
+`material-react-table@^3.2.1`, `@tanstack/react-query@5.101.2` — the latter
+pinned to the *exact* version (no `^`) already resolved everywhere else in the
+workspace via `pnpm-workspace.yaml`'s `overrides`, so it can't accidentally
+pull a second, incompatible copy into the dependency graph.
+
+## Known limitations
+
+- **Extraction is not deterministic**, even at `temperature: 0` — repeated
+  runs over the identical page can return a different product count or
+  different grid readings. This is the entire reason the review/confirm step
+  exists rather than importing extraction output directly; see
+  `menu-model-benchmarks/` for the model comparison that established this.
+- The validator's substring heuristic (grid-header-as-phantom-product) has at
+  least one known false positive: `'Neoguri Ramyun'` gets flagged for
+  containing `'Ramyun'` even when they are genuinely different dishes.
+- No automated test suite. Verification so far has been manual: a live
+  extraction run against ground truth transcribed from a real menu page (see
+  `menu-model-benchmarks/README.md`), an xlsx round-trip check (write via
+  `MenuExtractionNormalizer`, read back with `WithHeadingRow`, confirm every
+  heading survives and a `0` price adjustment doesn't become `NULL`), and a
+  standalone Node script sanity-checking the tree table's immutable
+  patch/delete/add logic in isolation from React.
+- A `@emotion/react` "already loaded" console warning has been observed in
+  dev with `LINK_DASH_CORE=true` — attributed to that flag aliasing the
+  `dash-*` packages to sibling-repo source (which then resolves emotion from
+  a different `node_modules` than the app does), not to anything added by
+  this feature; neither new dependency (`material-react-table`,
+  `@tanstack/react-query`) brings its own emotion instance.
+
+
+Availbale bedrock modal image models 
+
+meta Logo
+Llama 4 Maverick 17B Instruct
+By Meta
+
+Fine Tuning, Text summarization, Code generation, Function calling, Advanced understanding, Assistants, Chatbots
+Serverless Serverless
+Cross-region inference
+
+meta Logo
+Llama 4 Scout 17B Instruct
+By Meta
+
+Fine Tuning, Text summarization, Code generation, Function calling, Advanced understanding, Assistants, Chatbots
+Serverless Serverless
+Cross-region inference
+
+amazon Logo
+Nova 2 Lite
+By Amazon
+
+Image, Video, Text to Text
+Serverless Serverless
+Cross-region inference
+
+amazon Logo
+Nova Premier
+By Amazon
+
+Legacy
+Agents, Chat optimized, Code generation, Complex reasoning analysis, Conversation, Math, Multilingual support, Question answering, RAG, Text generation, Text summarization, Translation, Text, Image, Video-to-text
+Serverless Serverless
+Cross-region inference
+
+amazon Logo
+Nova Lite
+By Amazon
+
+Agents, Chat optimized, Conversation, Math, Multilingual support, Question answering, RAG, Text generation, Text summarization, Translation, Text, Image, Video-to-text
+Serverless Serverless
+
+amazon Logo
+Nova Pro
+By Amazon
+
+Agents, Chat optimized, Code generation, Complex reasoning analysis, Conversation, Math, Multilingual support, Question answering, RAG, Text generation, Text summarization, Translation, Text, Image, Video-to-text
+Serverless Serverless
+Cross-region inference
+
+google Logo
+Gemma 3 12B IT
+By Google
+
+Text generation; Code generation; Reasoning; Question answering; Summarization; Multilingual support; Tool use
+Serverless Serverless
+
+google Logo
+Gemma 3 27B PT
+By Google
+
+Base pretrained modeling; Multimodal understanding; Reasoning; Code understanding; Long-context representation learning
+Serverless Serverless
+
+google Logo
+Gemma 3 4B IT
+By Google
+
+Text generation; Code generation; Reasoning; Question answering; Summarization; Multilingual support; Instruction following
+Serverless Serverless
+
+nvidia Logo
+NVIDIA Nemotron Nano 12B v2 VL BF16
+By NVIDIA
+
+Image and document understanding; Visual QA; Multimodal reasoning; Text generation; Document intelligence
+Serverless Serverless
+
+qwen Logo
+Qwen3 VL 235B A22B
+By Qwen
+
+Text generation; Image understanding; Document OCR and layout
