@@ -1,6 +1,19 @@
 
 # Electron Build Process Documentation
 
+> ## ⚠️ Corrections — verified against the repo on 2026-08-21
+>
+> This document predates the `apps/dash` → **`apps/kitchntabs-app`** rename and the
+> `CUSTOM_MODE=kitchntabs.<env>` → **`kitchntabs-app.<env>`** change, and names
+> several `release:electron:kitchntabs:*` scripts that now point at a removed app.
+>
+> See the full verified correction table in
+> [N4-Build-Toolchain_ELECTRON_BUILD_AND_CONFIG_SYSTEM.md](./N4-Build-Toolchain_ELECTRON_BUILD_AND_CONFIG_SYSTEM.md)
+> before following any path, mode or script name below.
+
+---
+
+
 ## Overview
 
 This document provides an in-depth explanation of the Electron build process for the **KitchnTabs** desktop application. The build system is designed to work with a **pnpm monorepo workspace** and uses **Vite** for bundling the Electron main process, preload scripts, and renderer process.

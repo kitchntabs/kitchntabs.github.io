@@ -66,6 +66,7 @@ Manages restaurant tabs and orders from creation through delivery. Includes orde
 - [F1-Orders-Tabs_Order-README.md](F1-Orders-Tabs/F1-Orders-Tabs_Order-README.md) — Order model reference
 - [F1-Orders-Tabs_TABS_MALLTABS_ARCHITECTURE.md](F1-Orders-Tabs/F1-Orders-Tabs_TABS_MALLTABS_ARCHITECTURE.md) — Tab/mall architecture
 - [F1-Orders-Tabs_Tab-README.md](F1-Orders-Tabs/F1-Orders-Tabs_Tab-README.md) — Tab domain model
+- [SYSTEM-DEVICES-FEATUE.md](FEATURES/SYSTEM-DEVICES-FEATUE.md) — Ticket print routing across multiple printers (planned)
 
 ---
 
@@ -324,6 +325,7 @@ Integrated notification platform supporting email, SMS, push notifications, and 
 - [F15-Notifications-Messaging_DASH_EMAIL_NOTIFICATION_SYSTEM.md](F15-Notifications-Messaging/F15-Notifications-Messaging_DASH_EMAIL_NOTIFICATION_SYSTEM.md) — Email system
 - [F15-Notifications-Messaging_DASH_NOTIFICATIONS_CATALOG.md](F15-Notifications-Messaging/F15-Notifications-Messaging_DASH_NOTIFICATIONS_CATALOG.md) — Notifications catalog
 - [F15-Notifications-Messaging_DEPLOY_SES_BOUNCE_HANDLING.md](F15-Notifications-Messaging/F15-Notifications-Messaging_DEPLOY_SES_BOUNCE_HANDLING.md) — Deployment guide
+- [F15-Notifications-Messaging_DOMAIN_BRANDING_DEFAULTS.md](F15-Notifications-Messaging/F15-Notifications-Messaging_DOMAIN_BRANDING_DEFAULTS.md) — Domain-default branding for pre-tenant system emails
 - [F15-Notifications-Messaging_EMAIL_SYSTEM_TESTS.md](F15-Notifications-Messaging/F15-Notifications-Messaging_EMAIL_SYSTEM_TESTS.md) — Email tests
 - [F15-Notifications-Messaging_EMAIL_UNSUBSCRIBE_DEPLOYMENT_CHECKLIST.md](F15-Notifications-Messaging/F15-Notifications-Messaging_EMAIL_UNSUBSCRIBE_DEPLOYMENT_CHECKLIST.md) — Deployment checklist
 - [F15-Notifications-Messaging_EMAIL_UNSUBSCRIBE_IMPLEMENTATION_SUMMARY.md](F15-Notifications-Messaging/F15-Notifications-Messaging_EMAIL_UNSUBSCRIBE_IMPLEMENTATION_SUMMARY.md) — Implementation summary
@@ -410,6 +412,7 @@ Complete tenant account management from signup through termination. Features ten
 **Documents:**
 - [F21-Tenancy-Management_StoreScheduleFeature.md](F21-Tenancy-Management/F21-Tenancy-Management_StoreScheduleFeature.md) — Store schedule feature
 - [F21-Tenancy-Management_TENANT_SETTINGS_MODULE.md](F21-Tenancy-Management/F21-Tenancy-Management_TENANT_SETTINGS_MODULE.md) — Tenant settings module
+- [SYSTEM-DEVICES-FEATUE.md](FEATURES/SYSTEM-DEVICES-FEATUE.md) — Per-tenant device inventory & printing tab (planned)
 
 ---
 
@@ -535,6 +538,8 @@ Cross-platform Electron application for desktop usage with integrated Python ser
 - [N5-Desktop-Device-Service_REDIS_PREDIS_CHAT.md](N5-Desktop-Device-Service/N5-Desktop-Device-Service_REDIS_PREDIS_CHAT.md) — Redis chat
 - [N5-Desktop-Device-Service_dev-notes.md](N5-Desktop-Device-Service/N5-Desktop-Device-Service_dev-notes.md) — Dev notes
 - [N5-Desktop-Device-Service_websocket-system.md](N5-Desktop-Device-Service/N5-Desktop-Device-Service_websocket-system.md) — WebSocket system
+- [SYSTEM-DEVICES-FEATUE.md](FEATURES/SYSTEM-DEVICES-FEATUE.md) — Device core, printers & print routing (planned)
+- [KT-TRAY-FEATURE.md](FEATURES/KT-TRAY-FEATURE.md) — The tray as device orchestrator (registration, supervision, sign-in)
 
 ---
 

@@ -1,6 +1,19 @@
 
 # Electron + Python Service Build System Documentation
 
+> ## ⚠️ Corrections — verified against the repo on 2026-08-21
+>
+> This document predates the `apps/dash` → **`apps/kitchntabs-app`** rename and the
+> `CUSTOM_MODE=kitchntabs.<env>` → **`kitchntabs-app.<env>`** change, and names
+> several `release:electron:kitchntabs:*` scripts that now point at a removed app.
+>
+> See the full verified correction table in
+> [N4-Build-Toolchain_ELECTRON_BUILD_AND_CONFIG_SYSTEM.md](./N4-Build-Toolchain_ELECTRON_BUILD_AND_CONFIG_SYSTEM.md)
+> before following any path, mode or script name below.
+
+---
+
+
 ## Overview
 
 The KitchnTabs application is a hybrid desktop application that combines:

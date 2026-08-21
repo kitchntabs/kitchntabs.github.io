@@ -1,6 +1,75 @@
 
 # Electron Build & Configuration System
 
+> ## ⚠️ Corrections — verified against the repo on 2026-08-21
+>
+> Much of this document predates the `apps/dash` → `apps/kitchntabs` →
+> **`apps/kitchntabs-app`** renames and has drifted. The concepts below are still
+> accurate; the **paths, modes and script names are not**. Verified corrections:
+>
+> | Document says | Reality |
+> |---|---|
+> | `apps/dash/` | **`apps/kitchntabs-app/`** — both `apps/dash` and `apps/kitchntabs` are removed |
+> | `CUSTOM_MODE=kitchntabs.<env>` | **`CUSTOM_MODE=kitchntabs-app.<env>`** — it must match `.env.<CUSTOM_MODE>` *and* `config.<CUSTOM_MODE>.yaml`, and every one of those files is named `kitchntabs-app.*` |
+> | `npm run release:electron:kitchntabs:*` | **`…:kitchntabs-app:*`** — see the script table below |
+> | `DEV_PYTHON_ENV: …/pw_env/bin/python3.9` | Leave it **unset**. `getDevPythonEnvPath()` in `electron/main/index.ts` already picks `pw_env/Scripts/python.exe` on Windows and `pw_env/bin/python3` elsewhere; hardcoding it pins one platform and breaks the others |
+> | Environments: development / production / ngrok | **development, staging, production** — the three supported modes. `ngrok` is gone; a `.env.kitchntabs-app.tunnel` file still exists but is not part of the supported set |
+>
+> **Scripts this document names that no longer resolve** — the `:kitchntabs:`
+> family still exists in `package.json` but points at the removed `apps/kitchntabs`,
+> so it is dead either way:
+>
+> | Documented | Use instead |
+> |---|---|
+> | `release:electron:kitchntabs:production` | `release:electron:kitchntabs-app:production` |
+> | `release:electron:kitchntabs:debian` | `release:electron:kitchntabs-app:debian` |
+> | `release:electron:kitchntabs:debian:arm64:development` | `release:electron:kitchntabs-app:debian:arm64:development` |
+> | `release:electron:kitchntabs:debian:dev` | `release:electron:kitchntabs-app:debian:dev` |
+> | `dev:electron:kitchntabs:development` / `:production` | `dev:electron:kitchntabs-app:development` / `:production` / `:staging` |
+> | `release:electron:kitchntabs:development` | **no replacement** — nearest is `release:electron:kitchntabs-app:development:win` (Windows) or the `debian:*:development` variants |
+> | `release:electron:kitchntabs:ngrok`, `:debian:buster:dev`, `:development:force` | **no replacement** — these target the removed app |
+>
+> **The complete, current config set** (each mode needs BOTH copies — the Electron
+> main process prefers `dash-python-service/` in dev and falls back to the app dir):
+>
+> ```
+> kitchntabs-frontend/apps/kitchntabs-app/     dash-python-service/
+>   config.kitchntabs-app.development.yaml       config.kitchntabs-app.development.yaml
+>   config.kitchntabs-app.staging.yaml           config.kitchntabs-app.staging.yaml
+>   config.kitchntabs-app.production.yaml        config.kitchntabs-app.production.yaml
+>   .env.kitchntabs-app.{development,staging,production}
+> ```
+>
+> **Two config traps this document does not mention, both of which fail silently:**
+>
+> 1. **`SPAWN_BACKGROUND_SERVICE` must be set to `true` in the YAML** or
+>    `electron/main/index.ts` defaults it to `false` and never starts `kt_service` —
+>    the app runs fine and nothing ever prints. It was absent from
+>    `config.kitchntabs-app.staging.yaml` and `config.yaml`.
+> 2. **`VITE_PROJECT_PATH` defaults to `'apps/dash'`** (a removed directory) in
+>    `electron/main/index.ts`, so it has to be set explicitly in the YAML.
+>
+> **A third trap — argv quoting when spawning the Python service.** `spawn()` in
+> `electron/main/index.ts` uses `shell: true` only on **win32**. Without a shell,
+> arguments go straight to `execve`, so a wrapping `"` is not syntax — it becomes
+> a literal character in the value. The args were quoted unconditionally, so on
+> macOS/Linux `kt_service` received `"/path/config.yaml"` (quotes included) and
+> died instantly with **exit code 1**, while the log line directly above it showed
+> a path that looked perfectly correct. Quote via `shellArg()`, which only quotes
+> where a shell will consume it. The Python side now uses `.strip('"')` rather than
+> `[1:-1]`, so it tolerates either form (the old slice silently chopped two real
+> characters off an unquoted token).
+>
+> **Electron install on Node 26**: electron's postinstall extracts its zip with
+> `extract-zip`, whose promise never settles on Node 26 — it exits 0 having written
+> nothing, leaving a 17 KB stub and no `path.txt`, and the app then dies with
+> *"Electron failed to install correctly"*. Reinstalling does not help. Run
+> **`pnpm fix:electron`** (`scripts/fix-electron-install.js`), which re-extracts the
+> cached zip with `ditto`.
+
+---
+
+
 ## Technical Documentation
 
 > **Version:** 1.1  

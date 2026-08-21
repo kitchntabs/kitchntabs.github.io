@@ -20,11 +20,12 @@ Build processes and application compilation systems with Webpack, Electron build
 
 ## 📁 Documentation
 
-This epic contains **8 document(s)**:
+This epic contains **9 document(s)**:
 
 - [Build-Toolchain Electron Build And Config System](N4-Build-Toolchain_ELECTRON_BUILD_AND_CONFIG_SYSTEM.md)
 - [Build-Toolchain Electron Build Process](N4-Build-Toolchain_ELECTRON_BUILD_PROCESS.md)
 - [Build-Toolchain Electron Python Service Build System](N4-Build-Toolchain_ELECTRON_PYTHON_SERVICE_BUILD_SYSTEM.md)
+- [Build-Toolchain Frontend Staging Deployment](N4-Build-Toolchain_FRONTEND_STAGING_DEPLOYMENT.md)
 - [Build-Toolchain Migration Yarn Pnpm](N4-Build-Toolchain_MIGRATION_YARN_PNPM.md)
 - [Build-Toolchain Multi Architecture Build System](N4-Build-Toolchain_MULTI_ARCHITECTURE_BUILD_SYSTEM.md)
 - [Build-Toolchain Production Build Technical Documentation](N4-Build-Toolchain_PRODUCTION_BUILD_TECHNICAL_DOCUMENTATION.md)
