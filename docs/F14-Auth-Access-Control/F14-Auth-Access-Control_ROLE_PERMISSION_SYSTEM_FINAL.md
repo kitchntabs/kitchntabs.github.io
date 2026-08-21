@@ -99,6 +99,77 @@ What it does:
 - attaches the requested permission to the live role
 - clears the permission cache
 
+## Permission Migrations (Preferred For New Routes)
+
+The JSON files above work well for bootstrapping a brand-new environment, but
+they don't scale to *adding* a permission to one that's already running:
+someone has to hand-edit the right JSON file(s) **and** separately remember
+to re-run the permission/role seeders afterward — a step with no
+enforcement. The AI menu extraction routes shipped without that second step
+and 403'd for every role until it was fixed by hand (see the incident note
+in the technical reference section below).
+
+For any *new* route added after initial bootstrap, write a migration
+instead of editing JSON:
+
+```php
+// database/migrations/permissions/2026_08_09_000000_add_example_permission.php
+use App\Models\Role;
+use App\Support\Permissions\PermissionMigration;
+
+return new class extends PermissionMigration {
+    public function up(): void
+    {
+        $permission = $this->ensurePermission(
+            routeName: 'api.ecommerce.example.getList',
+            name: 'Get List Example',
+            group: 'ecommerce.example',
+            level: 2,
+        );
+
+        $this->grantToRoles($permission, [Role::NAME_TENANCY_ADMIN, Role::NAME_TENANT_ADMIN]);
+    }
+
+    public function down(): void
+    {
+        $permission = \App\Models\Permission::where('route_name', 'api.ecommerce.example.getList')->first();
+        if ($permission) {
+            $this->revokeFromRoles($permission, [Role::NAME_TENANCY_ADMIN, Role::NAME_TENANT_ADMIN]);
+            $permission->delete();
+        }
+    }
+};
+```
+
+Run it the same way as any other migration — `php artisan migrate`, already
+a mandatory step in every deploy. No separate reseed step to forget.
+
+- **Base class**: `App\Support\Permissions\PermissionMigration` (core,
+  `dash-backend/app/Support/Permissions/`) — idempotent
+  `ensurePermission()` / `grantToRoles()` / `revokeFromRoles()` helpers.
+  Safe to import from a domain migration the same way domain code already
+  reaches into any other `App\*` class.
+- **Where the file goes**: `database/migrations/permissions/` in whichever
+  repo owns the route — core (`dash-backend`) for core-only routes, or the
+  relevant domain repo (`kitchntabs-backend-domain`, `vanexa-backend-domain`,
+  …) for domain routes. Domain migration subdirectories are auto-discovered
+  (`AppServiceProvider::register()` globs every subdirectory under the
+  mounted `domain/database/migrations/`), so a new `permissions/` folder
+  needs zero wiring on the domain side — same mechanism that already
+  auto-loads `ecommerce/`, `tabs/`, etc. Core needed one explicit line added
+  to `AppServiceProvider`'s `$migrationPaths` array, since core doesn't
+  auto-glob its own subdirectories the way it does for the domain's.
+- **Applies to every domain mounted on this core** — kitchntabs, vanexa,
+  fablabos, reddorada, … — since the base class and the auto-discovery both
+  live in core, not in any one domain. A domain that needs this today just
+  adds the `permissions/` subfolder; nothing in core changes per-domain.
+
+The JSON catalog + role files remain the right tool for **bootstrapping a
+brand-new environment** — `PermissionSeeder`/`RoleSeeder` still run them, and
+running them again on an already-seeded environment is still harmless
+(idempotent). They're just no longer where a permission for an
+*already-running* environment gets added.
+
 ## Updating Or Troubleshooting Access
 
 If a user gets `403` for a route that should be allowed, check these in order:
@@ -121,6 +192,8 @@ php artisan cache:clear
 
 - `app/Http/Middleware/AccessMiddleware.php`
 - `app/Console/Commands/UpsertRoleDefaultPermission.php`
+- `app/Support/Permissions/PermissionMigration.php` — base class for permission migrations (see above)
+- `database/migrations/permissions/*.php` — core permission migrations; the equivalent domain directory is `<domain-repo>/database/migrations/permissions/*.php`
 - `database/seeders/PermissionSeeder.php`
 - `database/seeders/RoleSeeder.php`
 - `kitchntabs-backend-domain/database/seeders/Extended/PermissionSeeder.php`
@@ -468,6 +541,13 @@ flowchart TD
     H --> H1["php artisan cache:clear\nthen retry"]
 ```
 
+> Branches **E1** and **G1** describe the manual JSON-edit-plus-reseed fix.
+> For a permission missing on an already-deployed environment, prefer writing
+> a `PermissionMigration` instead (see "Permission Migrations" below) — it
+> does the same catalog-entry-plus-role-grant work but ships as part of the
+> normal `php artisan migrate` deploy step, so it can't be forgotten the way
+> a manual reseed can.
+
 ---
 
 ## Canonical File Reference
@@ -488,6 +568,9 @@ flowchart TD
 | `kitchntabs-backend-domain/database/data/rolePermissions/*.json` | Domain | Domain default role permission sets |
 | `kitchntabs-backend-domain/database/seeders/Extended/PermissionSeeder.php` | Domain | Inserts domain catalog into DB (insertOrIgnore) |
 | `kitchntabs-backend-domain/database/seeders/Extended/RoleSeeder.php` | Domain | Adds domain permissions to roles (givePermissionTo — additive) |
+| `dash-backend/app/Support/Permissions/PermissionMigration.php` | Core | Base class for permission migrations — idempotent grant/revoke helpers, usable from core or any domain |
+| `dash-backend/database/migrations/permissions/*.php` | Core | Core-only permission migrations; registered via one explicit line in `AppServiceProvider` |
+| `<domain-repo>/database/migrations/permissions/*.php` | Domain | Domain permission migrations (e.g. `kitchntabs-backend-domain/database/migrations/permissions/`); auto-discovered, no wiring needed |
 
 ---
 
@@ -520,6 +603,104 @@ docker exec dash_image_app php artisan cache:clear
 
 ---
 
+## Permission Migrations (Alternative To Re-seeding)
+
+The re-seeding flow above (edit JSON → re-run two seeders → clear cache) is
+the bootstrap path: it's how a fresh environment gets its full permission
+set the first time. It's a weaker fit for *incrementally* adding one new
+route's permission to an environment that's already running, because
+step "re-run the seeders" has no enforcement anywhere — it's a manual
+step a human has to remember, separately from whatever actually deploys the
+code.
+
+### Incident: AI menu extraction routes (2026-08-09)
+
+`feat/ai-import` added five new `product_import_instances` routes
+(`extract`, `getExtraction`, `updateExtraction`, `confirmExtraction`,
+`downloadExtraction`) to `kitchntabs-backend-domain`. The branch sat
+unmerged for a while; once merged, the routes existed and the frontend
+called them, but nobody had added matching labels to
+`database/data/permissions.json` or granted them in
+`rolePermissions/tenancyAdminPermissions.json` /
+`tenantAdminPermissions.json`. Every request 403'd for every non-System-Admin
+role — `AccessMiddleware` resolves permissions by `route_name`; an
+unmatched route_name always denies (see the 403 Diagnosis Decision Tree
+above, branch E). Hand-editing the three JSON files fixed the catalog and
+role grants, but that fix itself still depended on someone remembering to
+run `Domain\Database\Seeders\Extended\PermissionSeeder` +
+`Domain\Database\Seeders\Extended\RoleSeeder` on every environment — the
+exact step that was missed the first time.
+
+### The fix: `PermissionMigration`
+
+`App\Support\Permissions\PermissionMigration` (`dash-backend/app/Support/Permissions/PermissionMigration.php`)
+is a small `Migration` subclass with three idempotent helpers:
+
+```php
+abstract class PermissionMigration extends Migration
+{
+    protected function ensurePermission(string $routeName, string $name, string $group, int $level, string $guard = 'api'): Permission
+    {
+        return Permission::firstOrCreate(
+            ['route_name' => $routeName, 'guard_name' => $guard],
+            ['name' => $name, 'group' => $group, 'level' => $level, 'is_active' => true]
+        );
+    }
+
+    protected function grantToRoles(Permission $permission, array $roleNames): void { /* Role::where('name', ...)->first()?->givePermissionTo($permission), then clearPermissionCaches() */ }
+    protected function revokeFromRoles(Permission $permission, array $roleNames): void { /* the inverse, for down() */ }
+}
+```
+
+A permission migration for the incident above lives at
+`kitchntabs-backend-domain/database/migrations/permissions/2026_08_09_000000_add_ai_extraction_permissions.php`
+and grants `Role::NAME_TENANCY_ADMIN` / `Role::NAME_TENANT_ADMIN` the five
+routes. Because it's a real migration, `php artisan migrate` — already a
+mandatory deploy step — applies it exactly once, with no separate reseed
+step to remember or skip.
+
+### Where files go, and why domain repos need no wiring
+
+```mermaid
+flowchart LR
+    subgraph "dash-backend (core)"
+        PM["App\\Support\\Permissions\\PermissionMigration\n(base class)"]
+        ASP["AppServiceProvider::register()\nhardcodes database/migrations/permissions\n+ globs domain/database/migrations/*/"]
+        CMIG["database/migrations/permissions/*.php\n(core-only routes)"]
+    end
+
+    subgraph "any domain (kitchntabs-, vanexa-backend-domain, …)"
+        DMIG["database/migrations/permissions/*.php\n(that domain's routes)"]
+    end
+
+    PM -->|"extended by"| CMIG
+    PM -->|"extended by"| DMIG
+    ASP -->|"auto-discovers\n(no domain-side change needed)"| DMIG
+    ASP -->|"explicit one-line registration"| CMIG
+```
+
+Domain migration subdirectories were already auto-discovered before this
+existed — `ecommerce/`, `tabs/`, `marketplace/`, etc. under
+`kitchntabs-backend-domain/database/migrations/` all load via the same glob
+in `AppServiceProvider::register()`. A `permissions/` subfolder is just one
+more subdirectory to that same glob, so **any** domain mounted on this core
+gets the capability automatically — no core change needed per domain. Core
+itself doesn't auto-glob its own migration subdirectories (that's why
+`Modules/System` and `Modules/Queues` were already hardcoded into
+`$migrationPaths` before this), so `database/migrations/permissions` needed
+one explicit line added there, once.
+
+### When to still use the JSON + reseed flow
+
+- Bootstrapping a brand-new environment (fast, bulk, human-readable full
+  picture of every default permission at once).
+- `PermissionSeeder`/`RoleSeeder` are safe to keep running unconditionally
+  on an already-seeded environment too (`insertOrIgnore` / additive
+  `givePermissionTo`) — this flow isn't being removed, just no longer the
+  place *new* permissions get added after bootstrap.
+
+---
+
 ## Known Pitfalls
 
 | Pitfall | Consequence | Prevention |
@@ -530,3 +711,4 @@ docker exec dash_image_app php artisan cache:clear
 | Missing label in permission catalog | `AccessMiddleware` gets `null` from `Permission::where('route_name')` → always 403 | Every route protected by `access` middleware needs a catalog entry |
 | Duplicate entries in role JSON file | Spatie deduplicates by permission ID — functionally harmless, but noisy | Remove duplicates in JSON source |
 | `getForSelect` missing from catalog for non-product ecommerce resources | 403 on React-Admin reference inputs for those resources | Label must be in `permissions.json` AND role files |
+| New route's permission added to JSON files but seeders never re-run (the reseed step is manual, unenforced) | Route 403s for every non-System-Admin role until someone remembers to reseed — happened for the AI menu extraction routes | Add new permissions via a `PermissionMigration` instead (see above) — `php artisan migrate` is already a mandatory deploy step |

@@ -20,8 +20,9 @@ Role-based permissions and granular access control with permission inheritance a
 
 ## 📁 Documentation
 
-This epic contains **23 document(s)**:
+This epic contains **24 document(s)**:
 
+- [Auth-Access-Control Core Authentication Flows](F14-Auth-Access-Control_CORE_AUTHENTICATION_FLOWS.md) — registration (trial, direct, Google), login, verification, refresh tokens, core/domain overrides
 - [Auth-Access-Control Bulk Permission Manager](F14-Auth-Access-Control_BULK_PERMISSION_MANAGER.md)
 - [Auth-Access-Control Bulk Permission Manager Architecture](F14-Auth-Access-Control_BULK_PERMISSION_MANAGER_ARCHITECTURE.md)
 - [Auth-Access-Control Bulk Permission Manager Crud Fix](F14-Auth-Access-Control_BULK_PERMISSION_MANAGER_CRUD_FIX.md)
@@ -58,7 +59,7 @@ This epic contains **23 document(s)**:
 |--------|-------|
 | **Epic Code** | F14 |
 | **Category** | Functional |
-| **Documents** | 23 |
+| **Documents** | 24 |
 | **Related Epics** | 2 |
 
 ## 🗂️ Document Structure
