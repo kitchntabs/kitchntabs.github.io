@@ -75,6 +75,49 @@ POST /public/selfservice/client_session/{tenantSlug}
 
 ---
 
+### Scan (QR Landing / Claim)
+
+**This is the URL actually encoded in the QR code** — not a direct link to the SPA. It claims
+the session at HTTP-request time (before a single byte of the SPA has been downloaded) and then
+302-redirects the phone to the frontend. See the [Feature doc §6](./F5-Customer-Self-Service_SELFSERVICE_FEATURE.md#6-flow-1--qr-session-creation--activation)
+for why this exists (race condition fix).
+
+```http
+GET /public/selfservice/scan/{hash}?r={frontendOrigin}
+```
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `hash` | string | 5-character session hash |
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `r` | string (URL-encoded origin) | No | Frontend origin to redirect back to (e.g. `https://app.kitchntabs.com`). Must match a host in `config('selfservice.allowed_scan_redirect_origins')` or it is silently ignored in favour of the server's default `app.frontend_url`. |
+
+**Response:** Always a `302` redirect (no JSON body). No `r`, or an `r` whose host isn't
+allow-listed, redirects using the default `app.frontend_url` instead of the raw input — this
+endpoint is public/unauthenticated, so `r` is attacker-controlled and never trusted blindly.
+
+| Outcome | Redirects to |
+|---|---|
+| Session not found | `{base}/selfservice/invalid?reason=not_found` |
+| Session `pending` → claimed successfully | `{base}/selfservice/{hash}` |
+| Session already claimed by **this** client (same IP + User-Agent), still `active` | `{base}/selfservice/{hash}` |
+| Session already claimed by **someone else**, or `completed`/`cancelled` | `{base}/selfservice/already-used` |
+
+Where `{base}` is the resolved frontend origin (validated `r`, or the default).
+
+A successful claim also broadcasts `self_service_session_activated` on both
+`selfservice_session.{hash}` (public) and `tenant.{id}.system` (private) — the same event the
+staff QR generator listens for to mint a fresh code. See
+[Security Considerations](./F5-Customer-Self-Service_SELFSERVICE_FEATURE.md#14-security-considerations).
+
+---
+
 ### Get Session Auth
 
 Validates and activates a session, returning tenant data.

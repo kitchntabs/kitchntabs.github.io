@@ -7,7 +7,7 @@
 > [CHECKOUT_GATEWAYS_FEATURE.md](./CHECKOUT_GATEWAYS_FEATURE.md).
 >
 > **Audience:** backend & frontend engineers.
-> **Status:** implemented. **Last updated:** 2026-06-22.
+> **Status:** implemented. **Last updated:** 2026-08-12.
 
 ---
 
@@ -146,7 +146,7 @@ All paths are under `kitchntabs-backend-domain/`.
 ### Controllers (`app/Http/Controllers/API/SelfService/`)
 | File | Methods |
 |---|---|
-| `SelfServiceSessionController.php` | `createClientSession({tenantSlug})`, `getSessionAuth({hash})` (validates + activates), `getNotifications`, `markNotificationsAsRead`, `completeSession`, `cancelSession`. |
+| `SelfServiceSessionController.php` | `createClientSession({tenantSlug})`, `scan({hash})` (QR landing — atomic claim + redirect to the SPA, see §6), `getSessionAuth({hash})` (validates + activates, fallback claim path), `getNotifications`, `markNotificationsAsRead`, `completeSession`, `cancelSession`. |
 | `SelfServiceTabsController.php` | React-Admin tab CRUD (`getOneByHash`, `_preList` filtered by session), `confirmTab({hash},{id})` (self-confirm), `downloadSaleNote`. Extends the generic `TabController`. |
 | `SelfServiceProductController.php` / `SelfServiceCategoryController.php` | Public product / category listing for the session's tenant (1-hour cache). |
 | `SelfServiceCheckoutController.php` | Online payment — see checkout doc. |
@@ -192,7 +192,7 @@ All paths under `kitchntabs-frontend/apps/kitchntabs-app/src/`.
 | File | Responsibility |
 |---|---|
 | `kt-selfservice/resources/selfServiceResource.tsx` | Resource that renders the QR generator page (`/selfservice/qr`). |
-| `kt-selfservice/components/SelfServiceQRGenerator.tsx` | Auto-creates a session via `POST /public/selfservice/client_session/{slug}`, renders the QR (`/selfservice/{hash}`), auto-refreshes when the **current** session is claimed (listens to the tenant channel). |
+| `kt-selfservice/components/SelfServiceQRGenerator.tsx` | Auto-creates a session via `POST /public/selfservice/client_session/{slug}`. The QR itself encodes `GET {ADMIN_API_URL}/public/selfservice/scan/{hash}?r={kioskFrontendOrigin}` — the backend claim/redirect endpoint (§6), **not** a direct SPA link. `kioskFrontendOrigin` comes from `VITE_KIOSK_SELFSERVICE_APP_URL` (falls back to the current app's own `FRONTEND_URL`) so a QR generated from either `kitchntabs-app` or `kitchntabs-web` always redirects to the kiosk app's URL regardless of which app generated it. The on-screen caption below the QR still shows the friendly `{kioskFrontendOrigin}/selfservice/{hash}` deep link. Auto-refreshes when the **current** session is claimed (listens to the tenant channel). |
 
 ### Kiosk ordering (`kt-kiosk/`)
 | File | Responsibility |
@@ -212,24 +212,48 @@ All paths under `kitchntabs-frontend/apps/kitchntabs-app/src/`.
 
 ## 6. Flow 1 — QR Session Creation & Activation
 
+**The QR encodes a backend URL, not the SPA.** Earlier, the QR pointed straight at the SPA
+(`{frontend}/selfservice/{hash}`), so the claim only happened once the customer's phone had
+downloaded and booted the whole app (`getSessionAuth` firing from inside `SelfServiceClientWrapper`).
+On venue wifi that's seconds of wall-clock time during which the code on the kiosk screen is still
+perfectly scannable — two customers scanning inside that window both got what looked like a valid
+session, and the second one failed deep inside the app instead of at scan time. Pointing the QR at
+`SelfServiceSessionController::scan()` moves the claim to milliseconds after the camera reads the
+code, before a single byte of JavaScript is downloaded, closing that window.
+
 ```mermaid
-flowchart TD
-    A["User navigates to self-service area"] --> B["Authenticate user"]
-    B --> C["Load user data"]
-    C --> D["Display dashboard"]
-    D --> E["User selects action"]
-    E --> F{"Which action?"}
-    F -->|View| G["Retrieve data"]
-    F -->|Edit| H["Open form"]
-    F -->|Download| I["Generate file"]
-    G --> J["Display"]
-    H --> K["Submit changes"]
-    I --> J
-    K --> L["Update database"]
+sequenceDiagram
+    participant Staff as Staff (SelfServiceQRGenerator)
+    participant API as Backend API
+    participant Phone as Customer's Phone
+    participant SPA as Kiosk SPA
+
+    Staff->>API: POST /public/selfservice/client_session/{tenantSlug}
+    API-->>Staff: { hash: "DFJNL", status: "pending" }
+    Note over Staff: QR encodes GET {api}/public/selfservice/scan/{hash}?r={kioskFrontendOrigin}<br/>(NOT a direct /selfservice/{hash} SPA link)
+
+    Phone->>API: Scans QR -> GET /public/selfservice/scan/DFJNL?r=...
+    Note over API: Conditional UPDATE (pending -> active),<br/>checked by affected-row count - not a<br/>find()-then-save() race
+    alt claim wins (0 rows already claimed)
+        API->>API: Store client IP + User-Agent in meta
+        API-->>Staff: broadcast self_service_session_activated<br/>(selfservice_session.{hash} + tenant.{id}.system)
+        API-->>Phone: 302 -> {r}/selfservice/DFJNL
+        Phone->>SPA: Load SPA at /selfservice/DFJNL
+        SPA->>API: GET /{hash}/getSessionAuth (session already active - identity check only)
+    else already claimed (second scanner, or stale reload)
+        API-->>Phone: 302 -> {r}/selfservice/already-used
+    end
 ```
 
-When the **current** session is claimed, `SelfServiceQRGenerator` hears the activation event on
-the tenant channel and **regenerates** a fresh QR, so the next customer gets a new session.
+On the activation broadcast, `SelfServiceQRGenerator` (still open on the staff device) hears the
+event on the tenant channel and **regenerates** a fresh QR/session, so the next customer never sees
+a code that's already been claimed.
+
+`getSessionAuth` still performs the same pending→active claim as a fallback (e.g. a customer who
+bookmarked or was sent the raw `/selfservice/{hash}` SPA link directly, bypassing `scan()`), so the
+SPA never depends on having gone through the scan redirect — `scan()` only closes the race window,
+it isn't the sole activation path. See [API Reference — Scan (QR Landing / Claim)](./F5-Customer-Self-Service_SELFSERVICE_API_REFERENCE.md#scan-qr-landing--claim)
+for the full endpoint contract, including the `r` open-redirect protection.
 
 ---
 
@@ -381,7 +405,8 @@ Frontend reads these via `AuthPersistenceService.getSystemValues()?.selfservice`
 | Method | Path | Description |
 |---|---|---|
 | POST | `/client_session/{tenantSlug}` | Staff: create a pending session, returns `{ hash }`. |
-| GET | `/{hash}/getSessionAuth` | Validate + activate; returns tenant data, theme, `systemValues.selfservice.*`. `403` mismatch · `404` not found · `410` expired. |
+| GET | `/scan/{hash}?r={origin}` | **The QR's actual target.** Atomic claim (pending→active) + `302` redirect to `{origin}/selfservice/{hash}` (or `.../already-used`, `.../invalid`). `r` is checked against `config('selfservice.allowed_scan_redirect_origins')`. |
+| GET | `/{hash}/getSessionAuth` | Validate + activate (fallback claim path if `scan()` wasn't used); returns tenant data, theme, `systemValues.selfservice.*`. `403` mismatch · `404` not found · `410` expired. |
 | GET / POST | `/{hash}/tab` … | React-Admin tab list/create (`DASHSelfServiceClientDataProvider`). |
 | GET | `/{hash}/tab/{id}` | Single tab (`getOneByHash`). |
 | POST | `/{hash}/tab/{id}/confirm` | Customer self-confirm (`confirmTab`). |
@@ -403,6 +428,8 @@ Frontend reads these via `AuthPersistenceService.getSystemValues()?.selfservice`
 | Ownership checks | Tab actions verify `Order.brokerable_type === SelfServiceSession && brokerable_id === session.id` (e.g. `confirmTab`, checkout session). |
 | No delete | The client data provider disables delete; cancellation is a guarded status action. |
 | Public channel | Only order-status/update payloads broadcast to `selfservice_session.{hash}`; no cross-session data. |
+| Scan redirect allow-list | `scan()` is public/unauthenticated, so its `?r=` redirect-target param is attacker-controlled input. `r` is only honoured when its host is in `config('selfservice.allowed_scan_redirect_origins')` (env `SELFSERVICE_ALLOWED_SCAN_REDIRECT_ORIGINS`); anything else falls back to `app.frontend_url`, never to the raw input — otherwise `?r=https://phish.example` would turn a trusted `kitchntabs.com` QR into an open redirect. |
+| Atomic claim | `scan()`'s pending→active transition is a conditional `UPDATE ... WHERE status = 'pending'` checked by affected-row count, not a `find()`-then-`save()` — two simultaneous scans of the same code can't both "win". |
 
 ---
 
@@ -415,6 +442,10 @@ Frontend reads these via `AuthPersistenceService.getSystemValues()?.selfservice`
   a focus-based refetch would harden against missed events.
 - **i18n keys** for several new strings currently use inline `_` fallbacks
   (`selfservice.order_updated`, `tab.order_paid_locked`, …) and should be added to `i18n/es|en`.
+- **Local docker dev** (`.env.kitchntabs.local`) has no `SELFSERVICE_ALLOWED_SCAN_REDIRECT_ORIGINS`,
+  so `scan()` falls back to its default `FRONTEND_URL` (`http://localhost:3000`) rather than
+  whatever port the frontend dev-port registry actually assigned. Not an issue for the tunneled
+  `development`/`staging` environments, which do set it (see `dash-backend-docker/.env.kitchntabs.development`).
 
 ---
 

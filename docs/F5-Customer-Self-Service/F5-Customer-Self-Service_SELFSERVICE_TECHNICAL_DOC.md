@@ -78,36 +78,43 @@ end
 
 ### Session Creation & Activation Flow
 
+The QR encodes the **backend** `scan/{hash}` claim endpoint, not a direct link to the SPA — this
+closes a race window where two customers scanning the same code within the SPA's boot time could
+both get a session that looked valid. See the
+[Feature doc §6](./F5-Customer-Self-Service_SELFSERVICE_FEATURE.md#6-flow-1--qr-session-creation--activation)
+for the full rationale.
+
 ```mermaid
 sequenceDiagram
     participant Admin as Restaurant Admin
     participant API as Backend API
     participant DB as Database
     participant Customer as Customer Device
-    
+    participant SPA as Kiosk SPA
+
     Admin->>API: POST /client_session/{tenantSlug}
     API->>DB: Create session (status: pending)
     API-->>Admin: Return hash (e.g., DFJNL)
-    Admin->>Admin: Generate QR with URL
-    
+    Admin->>Admin: Render QR encoding<br/>GET /public/selfservice/scan/{hash}?r={kioskFrontendOrigin}
+
     Customer->>Customer: Scan QR Code
-    Customer->>API: GET /{hash}/getSessionAuth
-    API->>DB: Find session by hash
-    
-    alt Session is Pending
-        API->>DB: Update status to 'active'
-        API->>DB: Store client IP & user agent
-        API-->>Customer: Return tenant data + session info
-    else Session is Active
-        API->>API: Validate client identity
-        alt Identity matches
-            API-->>Customer: Return tenant data
-        else Identity mismatch
-            API-->>Customer: 403 Forbidden
-        end
-    else Session Expired
-        API-->>Customer: 410 Gone
+    Customer->>API: GET /public/selfservice/scan/DFJNL?r=...
+
+    alt Session found and still pending
+        API->>DB: Conditional UPDATE status='active' WHERE status='pending'<br/>(affected-row count, not find-then-save - atomic claim)
+        API->>DB: Store client IP & user agent in meta
+        API-->>Admin: broadcast self_service_session_activated
+        API-->>Customer: 302 redirect -> {r}/selfservice/DFJNL
+    else Already claimed by someone else / completed / cancelled
+        API-->>Customer: 302 redirect -> {r}/selfservice/already-used
+    else Not found
+        API-->>Customer: 302 redirect -> {r}/selfservice/invalid?reason=not_found
     end
+
+    Customer->>SPA: Loads SPA at /selfservice/DFJNL
+    SPA->>API: GET /{hash}/getSessionAuth
+    Note over API: Session is already active - this call<br/>only validates identity, doesn't re-claim.<br/>(Still the ONLY activation path if a customer<br/>opens the raw SPA link instead of scanning.)
+    API-->>SPA: Tenant data + session info
 ```
 
 ### Order Submission Flow
@@ -173,7 +180,8 @@ Handles session lifecycle management.
 | `updateSession` | PUT /session/{hash} | Update session |
 | `completeSession` | POST /session/{hash}/complete | Mark as completed |
 | `cancelSession` | POST /session/{hash}/cancel | Cancel session |
-| `getSessionAuth` | GET /{hash}/getSessionAuth | Validate & authenticate session |
+| `scan` | GET /scan/{hash}?r={origin} | **The QR's actual target.** Atomic pending→active claim + `302` redirect to the frontend (`r`, allow-list validated). See [API Reference](./F5-Customer-Self-Service_SELFSERVICE_API_REFERENCE.md#scan-qr-landing--claim). |
+| `getSessionAuth` | GET /{hash}/getSessionAuth | Validate & authenticate session (fallback claim path if `scan()` wasn't used) |
 | `createClientSession` | POST /client_session/{tenantSlug} | Create session by tenant slug |
 
 **File:** [SelfServiceSessionController.php](kitchntabs-backend-domain/app/Http/Controllers/API/SelfService/SelfServiceSessionController.php)
@@ -204,7 +212,12 @@ Route::prefix('public/selfservice')->group(function () {
     Route::post('/session/{hash}/complete', 'completeSession');
     Route::post('/session/{hash}/cancel', 'cancelSession');
     
-    // Session auth (validates and activates)
+    // QR landing endpoint - the QR encodes THIS url, not the SPA. Atomic
+    // claim + redirect, declared before {sessionId}/... so the literal
+    // 'scan' segment isn't swallowed by the wildcard.
+    Route::get('/scan/{hash}', 'scan');
+
+    // Session auth (validates and activates - fallback claim path)
     Route::get('/{sessionId}/getSessionAuth', 'getSessionAuth');
     
     // Client session creation by slug
@@ -328,6 +341,19 @@ Content-Type: application/json
   }
 }
 ```
+
+#### Scan (QR Landing / Claim)
+
+The URL actually encoded in the QR. See [API Reference — Scan](./F5-Customer-Self-Service_SELFSERVICE_API_REFERENCE.md#scan-qr-landing--claim)
+for full details.
+
+```http
+GET /api/public/selfservice/scan/{hash}?r={frontendOrigin}
+```
+
+**Response:** `302` redirect to `{r}/selfservice/{hash}` (success), `.../already-used`, or
+`.../invalid?reason=not_found`. `r` must match `config('selfservice.allowed_scan_redirect_origins')`
+or it's ignored in favour of the server's default `app.frontend_url`.
 
 #### Get Session Auth
 
