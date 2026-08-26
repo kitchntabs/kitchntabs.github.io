@@ -120,8 +120,6 @@ Found? → Renders the component
 Not found? → Renders fallback: "No component for JsonColorSelector"
 ```
 
-**Relevant code in `AttributeToInput.tsx`:**
-
 ```typescript
 const { components } = useComponentRegistry();
 
@@ -133,6 +131,33 @@ const typeComponentMapper = (type: string) => {
     return { custom: true, type: "component", component: () => <>No component for {type}</> };
 };
 ```
+
+### There are TWO resolution sites, not one
+
+Both consume the registry, and which one runs depends on the form mode:
+
+| File | Used for | Modes |
+|---|---|---|
+| `mui/AttributeToInput.tsx` | form **inputs** | `edit`, `create` |
+| `mui/AttributeToField.tsx` | display **fields** | `list`, `show` |
+
+They carry near-identical copies of `typeComponentMapper`. This matters when
+debugging: a component that renders fine in an edit form but shows
+*"No component for X"* in a list is resolving through `AttributeToField`, and
+looking only at `AttributeToInput` will not explain it.
+
+### `custom: true` is set for you
+
+The `case 'custom'` branch does `input.custom = true` before it looks the
+component up, so a schema entry needs only:
+
+```php
+'type'      => 'custom',
+'component' => 'MyComponent',
+```
+
+Declaring `'custom' => true` as well is harmless and appears in older configs,
+but it is redundant — `type` and `component` are what actually drive resolution.
 
 ---
 
@@ -193,6 +218,10 @@ useEffect(() => {
                 JsonCssVarValuesComp,
                 MyCustomFieldComp,
             ] = await Promise.all([
+                // Both 'dash-components/components/…' and
+                // 'dash-components/src/components/…' resolve — the package's
+                // exports map carries both wildcards. The codebase uses the
+                // shorter form; either is correct.
                 import('dash-components/src/components/Json/Json'),
                 import('dash-components/src/components/JsonColorSelector/JsonColorSelectorEnhanced'),
                 import('dash-components/src/components/JsonColorSelector/JsonCssVarValues'),
@@ -291,6 +320,37 @@ For dynamic schemas served by the backend API (e.g., tenant setting formats), us
 ],
 ```
 
+### A custom component is the answer to conditional fields
+
+The declaration format has no conditional visibility: every declared setting is
+always rendered. When a group's fields depend on each other — a weekday that
+only applies weekly, a day-of-month that only applies monthly — declaring them
+separately means showing operators inputs that are silently ignored.
+
+Collapsing the group into **one** `type: 'custom'` entry whose `attribute` is the
+parent object lets the component render only what currently applies:
+
+```php
+// domain/config/cashcount_tenant_settings.php — five values, one entry
+[
+    'id'            => 'cashcount_schedule',
+    'attribute'     => 'settings.cashcount',   // the whole sub-object
+    'type'          => 'custom',
+    'component'     => 'CashCountScheduleSettings',
+    'default_value' => ['mode' => 'manual', 'frequency' => 'daily', /* … */],
+],
+```
+
+Two things this shape requires:
+
+- **Write the object whole.** `setValue(path, { ...current, ...patch })` — a
+  partial write drops the fields the current render is not showing.
+- **Re-validate on read, server-side.** Settings are user-editable JSON that
+  predates any rule added later, so the consumer
+  (`CashCountSchedule::normaliseTime()`) falls back rather than trusting the
+  stored value. One malformed field must not break a scheduled job for every
+  other tenant.
+
 ---
 
 ## Runtime Registration
@@ -374,6 +434,7 @@ The following components are registered by default in `KitchnTabsWebPrivateApp`:
 | `UberStoreAvailability` | `kt-ecommerce` | Uber Eats store availability toggle |
 | `BasicTokenGeneratorField` | `kt-ecommerce` | API token generator field |
 | `NotificationPreferences` | `dash-components` | Notification channel preferences editor |
+| `CashCountScheduleSettings` | `kt-cashcount` | Cash count closing policy — mode, frequency, time; renders only the fields that currently apply |
 
 ---
 

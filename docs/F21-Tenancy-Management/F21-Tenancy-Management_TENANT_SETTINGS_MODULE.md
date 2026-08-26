@@ -80,7 +80,7 @@ flowchart TD
     end
 
     subgraph DOMAIN["Active domain (kitchntabs-backend-domain, vanexa-backend-domain, ...)"]
-        DCFG["domain/config/tenant_settings.php<br/>(+ checkout_tenant.php, ai_tenant_settings.php,<br/>pw_bot_tenant_settings.php)"]
+        DCFG["domain/config/tenant_settings.php<br/>(+ checkout_tenant.php, ai_tenant_settings.php,<br/>pw_bot_tenant_settings.php, printing_tenant_settings.php,<br/>cashcount_tenant_settings.php)"]
     end
 
     CFG -->|"base (empty)"| MERGE
@@ -474,6 +474,67 @@ For a plain field (boolean, string, integer, color swatch — anything `dash-aut
    ],
    ```
 3. Reload the frontend. `SystemRequestsCache` has a 300s TTL keyed to `tenant_settings_formats_cache` — clear IndexedDB (`SystemRequestsCacheDB`) or wait for expiry to see it immediately. The field appears automatically in the correct tab; its value round-trips through the tenant's `settings` JSON column with no further wiring.
+
+---
+
+## 4b. Worked example — the cash count group
+
+`kitchntabs-backend-domain/config/cashcount_tenant_settings.php`, registered in
+`mergeDomainTenantSettings()`. A useful reference because it exercises three of
+the five types and needs **no frontend work at all** — `dash-auto-admin` builds
+the whole form from the declarations.
+
+It is **one** entry, not five — a `type: 'custom'` setting whose `attribute` is
+the parent object:
+
+```php
+[
+    'id'            => 'cashcount_schedule',
+    'group'         => 'cashcount',
+    'tab'           => 'general',
+    'attribute'     => 'settings.cashcount',          // the whole sub-object
+    'type'          => 'custom',
+    'component'     => 'CashCountScheduleSettings',   // resolved by NAME
+    'default_value' => ['mode' => 'manual', 'frequency' => 'daily', /* … */],
+],
+```
+
+| Value | Stored at | Shown when |
+|---|---|---|
+| mode | `settings.cashcount.mode` | always |
+| frequency | `settings.cashcount.frequency` | mode = automatic |
+| close_time | `settings.cashcount.close_time` | mode = automatic |
+| weekday | `settings.cashcount.weekday` | frequency = weekly |
+| day_of_month | `settings.cashcount.day_of_month` | frequency = monthly |
+
+Read at runtime by `Domain\App\Services\CashCount\CashCountSchedule` and acted
+on by `kt:close-due-cash-counts` (scheduled every 15 minutes). See
+[CASHCOUNTS.md §5b](../FEATURES/CASHCOUNTS.md).
+
+### Three things this example gets right, worth copying
+
+**A custom component is how you get conditional fields.** Every *declared*
+setting is always rendered — the format has no conditional visibility. When
+fields depend on each other, collapse the group into one `type: 'custom'` entry
+whose `attribute` is the parent object, and let the component decide what to
+show. Write the object **whole** on change (`{ ...current, ...patch }`); a
+partial write drops the fields the current render is not showing.
+
+**The default is the safe one.** `mode` defaults to `manual`, so the scheduler
+never begins closing periods for a tenant who never configured it. A setting
+that changes system behaviour should default to the behaviour that already
+exists, not to the new feature.
+
+**Validation is declared *and* re-checked on read.** `close_time` carries
+`date_format:H:i`, but `CashCountSchedule` also falls back to `23:59` on a bad
+value. Settings are user-editable JSON that predates any rule you add later —
+one malformed value must not stop a scheduled job for every other tenant.
+
+> **The component is referenced by name, and nothing links the two ends.** The
+> string in `component` must match a key in the frontend registry exactly; a
+> rename on either side renders *"No component for …"* rather than failing the
+> build. See
+> [the component registry](../N2-Frontend-Framework/N2-Frontend-Framework_COMPONENT_REGISTRY.md).
 
 ---
 

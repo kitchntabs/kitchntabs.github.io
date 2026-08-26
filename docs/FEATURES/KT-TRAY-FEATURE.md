@@ -17,9 +17,13 @@
 status widget with a printer list bolted on; it is the process that owns the
 terminal's identity and lifecycle:
 
-- **Owns device registration.** It discovers the attached hardware, registers it
-  with the backend through `DeviceAgent`, and heartbeats to keep this terminal's
-  presence alive.
+- **Owns device registration.** It discovers the attached hardware and registers
+  it with the backend through `DeviceAgent`, and heartbeats to keep this
+  terminal's presence alive. Discovery + registration is a **manual, tray-menu
+  action** ("Register printers…") — a printer never announces itself the
+  moment it is plugged in. Heartbeating a *previously*
+  registered printer stays automatic, so an ordinary restart doesn't let an
+  already-known printer go stale.
 - **Supervises the workers.** It starts, watches and restarts `kt_service` (the
   websocket consumer) and is the place any future worker is added.
 - **Is the UI.** Service state, the registered printers, per-device test
@@ -120,7 +124,7 @@ sequenceDiagram
     Note over E: renderer authenticates
     E->>F: write {token, label}  (0600)
     T->>F: poll (every 3s)
-    T->>BE: register devices
+    T->>T: resume cached registration (heartbeat only, no discovery)
     T->>T: start kt_service
 ```
 
@@ -130,6 +134,12 @@ supervised service and shows `Sign in…` again.
 
 **Precedence:** `argv` → `KT_AGENT_TOKEN` → stored `agent.conf` → interactive
 sign-in.
+
+> Credential handover never triggers discovery/registration by itself — it
+> only resumes heartbeating whatever `agent.json` already has from a previous
+> manual registration (see [§6 "Registration is manual"](#6-the-ui-is-the-menu)).
+> A brand-new terminal with no prior registration shows "No printers
+> registered" until someone uses the menu.
 
 ---
 
@@ -146,10 +156,33 @@ a till, and an operator pasting a ServiceAccount key into a headless box.
 Built with **tkinter** — in the standard library, present on all three targets,
 and shown only on demand, so no always-on window returns.
 
-> ⚠️ **Tk and the tray backend cannot share the main thread.** Both drive a
-> platform run loop (NSApplication on macOS, a message pump on Windows). A
-> sign-in therefore *stops the icon*, runs the dialog on the main thread, and
-> **rebuilds** the icon — a stopped `pystray.Icon` cannot be reused.
+> ⚠️ **Tk cannot run in the same process as pystray, at all, on macOS.**
+> This Tcl/Tk build (8.6.18, Homebrew) **aborts unconditionally**
+> (`EXC_CRASH`/`SIGABRT`, an uncaught `-[NSApplication macOSVersion]:
+> unrecognized selector` exception inside Tk's own `TkpGetColor`, before any
+> dialog widget is created) the instant `tk.Tk()` runs in a process that has
+> already created and run its own `NSApplication` — which the tray always
+> has, via pystray, by the time any dialog would be needed. Tk's Cocoa setup
+> only registers a private category method it needs on `NSApplication` when
+> it does *not* find an app already running, and silently skips that step
+> otherwise. Confirmed empirically to be 100% deterministic — reproduced by
+> starting a pystray icon, stopping it, then calling `tk.Tk()`, with nothing
+> else about the calling code changed. **No in-process workaround exists**:
+> forcing the Aqua appearance before creating the root does not help (tried
+> and reproduced the identical crash with it applied).
+>
+> The fix is `kt_dialog.py` — a separate script that shows exactly one
+> dialog (sign-in or the printer picker, see §7) and exits, launched as a
+> child process via `KtStatusTray._run_dialog_subprocess()`. Because it has
+> never touched pystray, its `tk.Tk()` never hits the crash. It communicates
+> back over a single `RESULT:{...}` JSON line on stdout, plus its exit code.
+> An earlier version of this dialog ran **in-process**, stopping the tray's
+> icon and running Tk on the freed-up main thread before rebuilding the icon
+> — that avoided a *different*, unrelated constraint (Tk and pystray both
+> wanting the main thread) but did nothing for this crash, since the
+> `NSApplication` pystray had already created was still sitting there either
+> way. Sign-in and the printer picker share this same fix for the same
+> reason — this was not specific to one dialog.
 
 ---
 
@@ -172,7 +205,7 @@ Test print  ▸
 ──────────────────────────────────
 Account: kitchntabs-app
 Service: running
-Refresh devices
+Register printers…
 Restart service
 Sign out
 ──────────────────────────────────
@@ -184,6 +217,115 @@ Quit
 The menu is rebuilt wholesale on each tick (`Menu(callable)`), because
 reconciling a live menu against hardware that comes and goes is far more code
 than redrawing a dozen rows.
+
+### Registration is manual, and per-printer
+
+`DeviceAgent.register()` — discover attached hardware and announce it to the
+backend — is never called on sign-in, on startup, or when a credential shows
+up via `agent.conf`. It only runs from **"Register printers…"** in the tray
+menu (`_request_register` → `_do_register_dialog`), and even then only for
+the ONE printer an operator explicitly picks — not a blind "register
+everything attached" sweep.
+
+Clicking it launches `kt_dialog.py register <config> <token>` as a child
+process from a background thread — the tray icon and menu stay fully
+responsive the whole time (see §5's callout for why this has to be a
+separate process at all). That subprocess does the discovery, shows a small
+tkinter picker (`pinoywok/device_picker.py`, `prompt_register_printer`), and
+calls `DeviceAgent.register()` itself once confirmed — it already needs the
+bearer token to do that, so nothing about registering is left for the tray
+process to finish afterward beyond reloading the result it wrote to
+`agent.json`:
+
+```
+Select a printer to register
+┌──────────────────────────────────────────┐
+│ Canon_MF260  (cups:Canon_MF260)           │
+└──────────────────────────────────────────┘
+Label
+┌──────────────────────────────────────────┐
+│ Canon_MF260                               │
+└──────────────────────────────────────────┘
+              [ Register ]
+──────────────────────────────────────────────
+Registered printers
+┌──────────────────────────────────────────┐
+│ POS58 Mostrador  (usb:0fe6:811e)          │
+└──────────────────────────────────────────┘
+              [ Unregister ]
+──────────────────────────────────────────────
+                   [ Close ]
+```
+
+Two independent sections, one dialog, because both answer the same question
+("what does this terminal think is registered, and is that right?"):
+
+- **Select a printer to register** — every discovered device NOT already in
+  `known_devices` (device_uid → the backend's own record, from `GET
+  device/agent/status` — see the callout below for why it has to be that
+  endpoint and not `agent.json` or `register()`). Excluded, not just
+  annotated: once `known_devices` is trustworthy, an already-registered
+  device has no reason to clutter the "register a new one" list. Empty →
+  "No new printers found." instead of an empty listbox.
+- **Registered printers** — built from `known_devices` directly, by name, so
+  a printer that has since been unplugged can still be unregistered; it does
+  not need to appear in `discovered` to show up here. Empty (nothing
+  registered yet) → the section is omitted entirely, not shown empty.
+
+If literally nothing is attached and nothing is registered, the dialog shows
+one dead-end message instead of two empty sections.
+
+> ⚠️ **`known_devices` comes from `GET device/agent/status`, never from
+> `register()`, and never from `agent.json` alone.** The obvious-looking
+> shortcut — re-announce whatever the local cache already believes and see
+> what the backend confirms back — was tried and is actively dangerous:
+> `DeviceRegistrar` creates a row for ANY device_uid an announce mentions
+> that lacks one, whether or not that descriptor got a custom name. A stale
+> cache entry for a printer that was never really registered gets *actually
+> registered for real*, silently, the moment it is included in any
+> `register()` call — confirmed the hard way, and undone by hand in the dev
+> DB (see SYSTEM-DEVICES-FEATUE.md §14.6 for the full story).
+> `fetch_registered_devices()` calls the new read-only status endpoint
+> instead; `agent.json` is only the fallback if that call fails outright
+> (network down, token rejected) — worse list, never worse safety.
+
+The chosen label rides along as `DeviceAgent.register(name_overrides={uid:
+label}, only_uids=known_uids | {uid})`. `only_uids` matters as much as
+`name_overrides` does: without it, the announce includes EVERY
+currently-attached printer (full discovery), so picking one of two
+unregistered printers would silently *also* create an inert row for the
+other one nobody selected — the backend creates a device for any descriptor
+it has never seen, regardless of whether that descriptor got a custom name.
+`only_uids` caps the announce to "whatever's already known" (kept alive, so
+`DeviceRegistrar` doesn't read their absence as unplugged) plus the one
+device just picked — nothing else attached gets mentioned this round, even
+if it's sitting right next to the one that was chosen.
+
+**Unregister** soft-deletes via `POST device/agent/unregister`
+(`DeviceAgent.unregister()`), after a confirm dialog — recoverable from the
+web admin's Trash tab if it was a mistake. Unlike register/heartbeat/status,
+this route is **TenancyAdmin/Tenant only** (see SYSTEM-DEVICES-FEATUE.md
+§14.7): a Staff or Kitchen token can register a printer fine but gets a 403
+here, surfaced as "Only a TenancyAdmin or Tenant can unregister a printer" —
+registering is routine till setup, removing a device is an administrative
+call.
+
+The menu item's label never changes to "Refresh devices" once something is
+registered — the action is exactly as much "pick up a newly plugged-in
+printer" whether 0 or 20 devices are already known, so a label that flips
+based on current state would misleadingly suggest it does something
+different (or less) once a printer already exists.
+
+Automatic registration would mean a printer starts receiving routed jobs the
+moment it is plugged in, before anyone at the till has confirmed that is
+correct. What *does* stay automatic is presence: on startup the tray loads
+whatever was registered in a previous session
+(`DeviceAgent.adopt_registration()`, the same call `kt_service` uses to adopt
+the tray's registration) and keeps heartbeating it — so an ordinary restart
+does not let an already-known, still-attached printer go `disconnected` for
+90s just because nobody re-opened the menu. `DeviceAgent.register()` itself
+was left untouched, for the same reason `kt_service` still has a legacy-print
+fallback: other device types may want an automatic registration path later.
 
 ### The icon has three states, not two
 
@@ -314,8 +456,10 @@ kt_status_tray /path/config.yaml <token>    # or pass both
 
 | Path | Role |
 |---|---|
-| `src/kt_status_tray.py` | The orchestrator: menu, icon, supervision, sign-in |
-| `src/pinoywok/tray_auth.py` | Credential precedence, `POST /api/login`, token verification, the tkinter dialog |
+| `src/kt_status_tray.py` | The orchestrator: menu, icon, supervision, `_run_dialog_subprocess()` |
+| `src/kt_dialog.py` | Standalone entry point — shows exactly ONE dialog (login or register) in its own process, never touching pystray, and exits. See §5's callout for why this exists |
+| `src/pinoywok/tray_auth.py` | Credential precedence, `POST /api/login`, token verification, the sign-in tkinter dialog itself |
+| `src/pinoywok/device_picker.py` | The "Register printers…" tkinter picker — register one discovered-but-unregistered printer (labeled, confirmed), or unregister an already-registered one (TenancyAdmin/Tenant only) |
 | `src/pinoywok/service_supervisor.py` | `ServiceSupervisor` + `SingleInstanceLock` |
 | `src/pinoywok/device_agent.py` | `DeviceAgent` — identity, register, heartbeat, `adopt_registration()` |
 | `src/kt_service.py` | Websocket consumer; adopts the tray's registration |
@@ -338,6 +482,11 @@ kt_status_tray /path/config.yaml <token>    # or pass both
 
 On macOS (Intel), against the local stack through the `api-dev` Cloudflare
 tunnel, with a real POS58 (`0fe6:811e`) attached:
+
+> Recorded when registration still ran automatically. Registration is now a
+> manual menu action (§6, "Registration is manual") — the "Registration" and
+> "Credential handover" rows below describe the pre-change flow and need
+> re-verification against the manual trigger.
 
 | Check | Result |
 |---|---|
