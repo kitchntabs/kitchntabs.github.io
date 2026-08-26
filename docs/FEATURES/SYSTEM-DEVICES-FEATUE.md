@@ -258,7 +258,7 @@ sequenceDiagram
     participant Q as Horizon
     participant RV as Reverb
 
-    Note over AG: startup — discover attached hardware
+    Note over AG: operator opens the tray menu and clicks<br/>"Register printers…" — NOT automatic on startup
     AG->>API: POST device/agent/register {agent_uid, host, devices[]}
     API->>API: upsert node + devices (reported fields only)
     API-->>AG: {node_id, tenant_id, agent_channel, devices[], print_policy}
@@ -289,6 +289,8 @@ Group prefix `device`, name prefix `api.device.`.
 | `POST device/agent/register` | Announce → upsert. The first announce from an unseen `agent_uid` creates the node — this *is* the bootstrap |
 | `POST device/agent/heartbeat` | `{agent_uid, devices[]{device_uid, status, last_error}}` |
 | `POST device/agent/ack` | `{command_id, status, error?}` |
+| `GET device/agent/status?agent_uid=` | **Read-only.** What the backend actually has for this node — added for the tray's printer picker (§14.6), which needs to ask "is what I think I know still true?" without the asking itself creating anything |
+| `POST device/agent/unregister` | `{agent_uid, device_uid}` — soft-deletes one device this node reported. **TenancyAdmin/Tenant only**, unlike every other row in this table: registering is routine till setup, removing a device is an administrative decision. A Staff/Kitchen token reaches every other agent route but 403s here |
 
 > **Tenant scope comes from the authenticated principal (`$user->tenant_id`), never from
 > the request body.** This is the rule the ServiceAccounts feature established, and it is
@@ -450,8 +452,15 @@ New `src/pinoywok/device_agent.py`:
   pyusb devices with printer interface class `0x07`, CUPS queues via `lpstat -p`,
   `win32print.EnumPrinters`, and `/dev/usb/lp*`. This is the first time the service looks
   at what is *actually* attached rather than one hardcoded vid/pid pair.
-- **`register()`** on startup and on device change, then **`heartbeat_loop()`** every 30s.
-  Both use `argv[1]`, so one code path serves an Electron-launched agent and a headless one.
+- **`register()`** — discovery + announce — is triggered **manually from the tray
+  menu** ("Register printers…" / "Refresh devices"), never automatically on startup
+  or sign-in. A printer that auto-registers the instant it's plugged in could receive
+  a routed job before anyone has confirmed it should. On startup the tray instead
+  calls **`adopt_registration()`** to resume heartbeating whatever was registered in
+  a prior session, so an ordinary restart doesn't let an already-known printer go
+  stale. Then **`heartbeat_loop()`** runs every 30s regardless. Both `register()` and
+  the heartbeat use `argv[1]`, so one code path serves an Electron-launched agent and
+  a headless one.
 
 Changes to existing files:
 
@@ -518,6 +527,8 @@ Via `PermissionMigration`s, never hand-edited JSON (see the `dashadmin-permissio
 |---|---|
 | `dash-backend/database/migrations/permissions/…_add_device_core_permissions.php` | Standard CRUD set for `api.device.device.*` and `api.device.node.*`, plus custom `test` / `default` / `configure`, plus `api.device.agent.register\|heartbeat\|ack` — to `TenancyAdmin` and `Tenant` |
 | `kitchntabs-backend-domain/database/migrations/permissions/…_add_device_agent_permissions.php` | The three agent routes to the **domain** roles that actually sit at a terminal: `Staff`, `Kitchen`, `TenantServiceAccount` |
+| `…_add_device_agent_status_permission.php` (core) + `…_add_device_agent_status_domain_permission.php` (domain) | `api.device.agent.status` (§14.6) to the same two role sets — added as new migrations, not folded into the two above, since those had already run in every environment |
+| `…_add_device_agent_unregister_permission.php` (core ONLY — no domain counterpart) | `api.device.agent.unregister` (§14.7) to `TenancyAdmin`/`Tenant` only. Deliberately asymmetric with every other agent route: registering a printer is routine till setup any signed-in terminal should be able to do; removing one is an administrative decision, so `Staff`/`Kitchen`/`TenantServiceAccount` do NOT get this one |
 
 `TenantServiceAccount` (`Domain\App\Models\Extended\Role:17-27`) is seeded but has never
 been assigned to anything. The headless printer terminal is exactly what it was
@@ -629,6 +640,52 @@ acts on it.
 `<Stack alignItems="center">` fails to typecheck against this MUI version's overloads (while
 `direction` and `spacing` are fine). Use `sx={{ alignItems: 'center' }}`. Same family as the
 pre-existing `Grid item xs` errors already in `dash-admin`.
+
+### 14.6 Checking whether a device is registered by re-announcing it is not a check
+
+Added later, once the tray's "Register printers…" picker (KT-TRAY-FEATURE.md §6) needed to
+answer "does the backend actually have this device_uid, or is my local cache lying to me?" —
+its `~/.kt_service/agent.json` cache can drift from the backend (a dev DB reset, or an admin
+deleting the device from the web admin, both leave the file untouched).
+
+The first attempt reused `register()`: re-announce whatever the cache already believes, filtered
+to just that set (`only_uids`), and see what devices come back in the response. This looks
+read-only and is not: `DeviceRegistrar::syncDevices()` creates a row for **any** device_uid an
+announce mentions that lacks one, independent of whether that descriptor also carried a custom
+`name`. A stale cache entry for a printer that was never actually registered — the exact failure
+mode the check exists to catch — gets *actually registered for real* the moment it's included in
+the announce used to check it. Confirmed against the live dev backend: a phantom `Canon_MF260`
+cache entry from before a DB reset became a genuine `Device` row the instant this "sync" ran,
+with nobody having picked it in the tray UI at all. Undone by hand (`forceDelete()`) in the dev
+DB once caught.
+
+Fixed by adding a real read-only endpoint, `GET device/agent/status` (§6), scoped to the same
+agent-level authorization as `register`/`heartbeat`/`ack` so it works for a Staff/Kitchen token,
+not only TenancyAdmin/Tenant. `DeviceAgentController::deviceListPayload()` was extracted out of
+`register()` so both endpoints return devices in the identical shape. The python client's
+`DeviceAgent.fetch_registered_devices()` returns `None` (not an empty dict) on any failure —
+network down, token rejected, unparseable response — specifically so the caller can fall back to
+the local cache rather than mistake "the check itself failed" for "the backend confirmed nothing
+is registered."
+
+### 14.7 Unregister is agent-scoped but admin-permissioned — a deliberate asymmetry
+
+Added alongside §14.6's status endpoint once the picker could reliably tell what's really
+registered: an "Unregister" action, so a mistakenly-registered or retired printer doesn't require
+a trip to the web admin. `DeviceAgentController::unregister()` lives under `device/agent/*` (the
+same node/tenant scoping every agent route gets, so a terminal can only remove its own hardware)
+and soft-deletes, same as the admin `DELETE device/device/{id}` route.
+
+Where it deliberately breaks the pattern every other agent route follows: its permission
+(`api.device.agent.unregister`) is granted to `TenancyAdmin`/`Tenant` only, with **no domain
+migration** granting it to `Staff`/`Kitchen`/`TenantServiceAccount` the way register/heartbeat/
+ack/status all get. A domain-role permission migration for it was written and applied once, then
+rolled back and deleted — registering a printer is routine till setup any signed-in terminal
+should be able to do without a manager present; removing one is not. The tray shows "Unregister"
+unconditionally either way (it has no notion of the signed-in user's role), so a Staff/Kitchen
+token hits a 403 — surfaced by `DeviceAgent.unregister()` as "Only a TenancyAdmin or Tenant can
+unregister a printer" specifically, not a generic failure, since a till operator seeing this needs
+to know it is a permissions boundary, not a bug.
 
 ### Verified end to end
 
