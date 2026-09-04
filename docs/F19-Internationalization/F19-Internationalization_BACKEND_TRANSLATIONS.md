@@ -35,6 +35,55 @@ dash-backend/
         └── es.json          # JSON translations (react-admin)
 ```
 
+## Domain Translations
+
+A **domain** (`kitchntabs-backend-domain`, `vanexa-backend-domain`) ships its
+own translations. There are two mechanisms and they behave differently — the
+distinction decides whether your keys resolve:
+
+| Path | Registered by | Key form |
+|---|---|---|
+| `<domain>/resources/lang/{locale}/*.php` | the CORE, automatically — `AppServiceProvider::loadDomainTranslations()` globs it | **un-namespaced**: `__('reports.x.y')` |
+| `<domain>/lang/{locale}/*.php` | the domain itself: `$this->loadTranslationsFrom(base_path('domain/lang'), 'domain')` | **namespaced**: `__('domain::cashcount.x')` |
+
+Use the first when a key's name is fixed by something outside the domain — a
+`ReportDefinition`'s `title()` returns `reports.lab_sessions.title`, and
+namespacing it would simply stop it resolving. Use the second for the domain's
+own vocabulary, where the namespace prevents collisions.
+
+### Why reports need backend translations at all
+
+A report's labels are *also* translated in the frontend, so it is reasonable to
+ask why the backend needs them. Two reasons:
+
+1. **An xlsx export is a file.** `ReportSeriesSheet` writes `labelText` because
+   "a spreadsheet has no translation layer". Without backend translations every
+   exported workbook ships `reports.lab_consumption.total_tokens` as a column
+   heading — and **no frontend fix can reach that**.
+2. **They are the frontend's fallback.** `dash-reports` resolves
+   `the app's own translation → the backend's resolved text → the raw key`, so
+   a locale the app has not translated still reads as English rather than as a
+   key.
+
+Note they resolve at different locales: the backend at `app.locale`, the
+frontend at the **logged-in user's**. That is why both exist rather than one
+delegating to the other.
+
+```php
+// vanexa-backend-domain/resources/lang/en/reports.php
+return [
+    'lab_consumption' => [
+        'title'        => 'AI Consumption',
+        'total_tokens' => 'Total tokens',
+    ],
+];
+```
+
+> **Symptom to recognise**: report cards and chart legends showing
+> `reports.<something>.title`, and an exported workbook whose headings are the
+> same raw keys. The export is the tell — if only the UI were wrong, the cause
+> would be frontend-side.
+
 ## Basic Usage
 
 ### Using the `__()` Helper

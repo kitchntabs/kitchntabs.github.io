@@ -13,9 +13,21 @@ The KitchnTabs application uses react-admin's i18n system with JSON translation 
 - `/apps/kitchntabs-{mode}/src/i18n/es.tsx` - Spanish translations
 - `/apps/kitchntabs-{mode}/src/i18n/en.tsx` - English translations
 
+### Package Translation Files
+- `/packages/<pkg>/src/i18n/{en,es}.ts` - a shared package owns its own strings
+  rather than each consuming app defining them. Merged once per app entry,
+  package before app, so an app can still override a single key.
+- A package feature that loads **lazily** can register its strings at runtime
+  instead — see DASH_I18N_TECHNICAL_DOCUMENTATION §7.6.
+
 ### Backend Translation Files (Laravel)
 - `/dash-backend/lang/es/` - Spanish translations
 - `/dash-backend/lang/en/` - English translations
+- `/<domain>/resources/lang/{locale}/` - a DOMAIN's own un-namespaced keys,
+  loaded automatically by the core. This is where report vocabulary lives, and
+  it is not optional: an xlsx export resolves labels server-side, so without it
+  every exported workbook ships raw keys as its column headings. See
+  BACKEND_TRANSLATIONS.
 
 ## How Translations Work
 

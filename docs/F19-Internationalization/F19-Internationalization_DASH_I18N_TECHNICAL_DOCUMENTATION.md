@@ -639,18 +639,111 @@ const translate = useTranslate();
 return <CharacterPreview translate={translate} />;
 ```
 
-#### Why package bundles cannot be lazy-loaded
+#### Why a lazily-loaded chunk contributes nothing on its own
 
 `polyglotI18nProvider` builds a Polyglot instance per locale, and React Admin
 only re-runs `getMessages` on `changeLocale`. A chunk that loads later therefore
-**cannot** contribute keys — nothing re-reads them, so the strings render as raw
-keys until the locale is switched.
+cannot contribute keys by merely existing — nothing re-reads them, so the
+strings sit unused until the locale is switched.
 
-Package bundles must be merged at app entry (§7.4 step 2), which places them in
-the entry chunk. Genuinely lazy registration would need a runtime registry that
-packages push into at module-eval time, plus a `changeLocale(currentLocale)`
-nudge to force a refresh — a `dash-frontend-core` change, and rarely worth it:
-a bundle of a few dozen keys is well under 2KB.
+Merging at app entry (§7.4 step 2) remains the default and is right for
+anything on screen at first paint. For a feature most sessions never open there
+is now a second option — see §7.6.
+
+#### 7.6 Progressive registration — a package contributing after boot
+
+**Implemented in** `packages/vx-lab/src/i18n/runtime.ts`; first used by the
+VaneXa reports feature.
+
+The registry is the missing half this section used to describe as hypothetical:
+packages push bundles in at module-eval time, the app merges them when
+`getMessages` runs, and a `changeLocale(currentLocale)` nudge makes the
+provider re-read.
+
+```
+┌─ boot ────────────────────────────────────────────────────────────┐
+│  app entry merges: dashAdmin + package bundles + app bundle       │
+└───────────────────────────────────────────────────────────────────┘
+              │
+              ▼  user opens a lazily-loaded feature
+┌─ chunk arrives ───────────────────────────────────────────────────┐
+│  feature module imports its registrar (side effect)               │
+│    → registerTranslations({ en, es })                             │
+│    → listeners notified                                           │
+│  app: changeLocale(currentLocale)                                 │
+│    → getMessages re-runs, merging the registry                    │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+**API** (exported from the owning package):
+
+| Function | Called by | Purpose |
+|---|---|---|
+| `registerTranslations({ en, es })` | the package, at module scope | contribute bundles |
+| `runtimeTranslations(locale)` | the app, inside `getMessages` | everything registered so far |
+| `onTranslationsRegistered(fn)` | the app, once | fires on arrival; returns an unsubscribe |
+
+**App wiring** — the two things that are easy to get subtly wrong:
+
+```tsx
+// 1. Read the registry at CALL time. Closing over a frozen object means a
+//    bundle registered later is never seen, even after a nudge.
+const messagesFor = ((locale: string) => mergeTranslations(
+    translationsData[locale] || translationsData.en,
+    ...runtimeTranslations(locale),
+)) as Parameters<typeof polyglotI18nProvider>[0];
+
+// 2. Nudge on arrival, and return the unsubscribe — a remounting app
+//    otherwise accumulates listeners that each fire their own changeLocale.
+useEffect(() => {
+    if (!i18nProvider) return;
+    return onTranslationsRegistered(() => {
+        const locale = i18nProvider.getLocale?.();
+        if (locale) void i18nProvider.changeLocale(locale);
+    });
+}, [i18nProvider]);
+```
+
+##### When NOT to use it
+
+There is a window between the chunk arriving and the nudge landing. Only
+strings that can afford to be late belong here:
+
+| Suitable | Not suitable |
+|---|---|
+| A reports screen — and its keys also resolve server-side (see BACKEND_TRANSLATIONS), so a late arrival degrades to backend text, never a raw key | A component's own chrome, on screen immediately with no fallback |
+
+`vx-lab` splits exactly on this line: `vx_lab.*` stays merged at entry,
+`reports.*` registers lazily.
+
+##### Design notes worth preserving
+
+- **State lives on a well-known `globalThis` key, not in module scope.** An app
+  and a package can resolve *different copies* of the same file (a duplicated
+  dependency, bundled vs externalised, `src` aliasing in dev against `dist` in
+  the app). Module-scope state then splits in two — the package registering
+  into one store, the app reading another — with no error anywhere. This also
+  means the file can move into `dash-frontend-core` later without a flag day:
+  both copies share one store during the transition.
+- **Registration is idempotent by bundle IDENTITY**, not content. The same
+  module can be evaluated twice (two chunks importing it, HMR); a second call
+  must neither duplicate nor re-notify, or every duplicate import costs a full
+  re-render.
+- **Register from the lazily-loaded module, not the package barrel.** `tsup`
+  with `bundle: false` emits one file per source file, so
+  `import('vx-lab/resources/reportResources')` never evaluates `src/index.ts`.
+- **The bundle must carry the full key path.** Registering
+  `{ lab_consumption: … }` for the key `reports.lab_consumption.title` fails
+  silently: the merge succeeds, the registry reports a bundle, and the key
+  still renders raw. Structurally invisible — only resolving a real key catches
+  it.
+
+##### Current scope
+
+The registry lives in `vx-lab`, so only VaneXa packages can use it today.
+Making it universal means moving `src/i18n/runtime.ts` into
+`dash-frontend-core`, which is consumed as a **published** package and so needs
+a version bump and publish.
 
 ---
 
