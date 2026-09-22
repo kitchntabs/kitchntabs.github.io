@@ -363,23 +363,36 @@ sequenceDiagram
     participant API as SystemIntegrationController
     participant DB as Database
 
-    FE->>API: PUT /system_integration/{id} { tenancy_ids: [...] }
-    API->>DB: item.tenancies().sync(tenancyIds)
-    note over DB: Writes tenancy_system_integrations rows
-    API->>API: cascadeTenantEntitlement(item)
-    API->>DB: Tenant::whereIn('tenancy_id', grantedTenancyIds)
-    API->>DB: item.tenants().sync(allTenantIdsAcrossGrantedTenancies)
-    note over DB: Recomputes tenant_system_integrations for\nEVERY tenant in EVERY currently-granted tenancy
+    FE->>API: PUT /system_integration/{id}\n{ tenancy_ids_added: [...], tenancy_ids_removed: [...] }
+    API->>DB: item.tenancies().syncWithoutDetaching(added)
+    API->>DB: item.tenancies().detach(removed)
+    note over DB: Writes/removes tenancy_system_integrations rows -\nONLY for the ids in the diff
+    API->>API: cascadeTenantEntitlement(item, added, removed)
+    API->>DB: Tenant::whereIn('tenancy_id', added) -> attach
+    API->>DB: Tenant::whereIn('tenancy_id', removed) -> detach
+    note over DB: Updates tenant_system_integrations ONLY for tenants\nbelonging to the CHANGED tenancies
 ```
 
 There is **no per-tenant grant** anywhere in this framework, by design —
 feature availability is tenancy-wide only. `tenant_system_integrations` is
 never written to directly by a human in either path; it is always a derived
-mirror of the current tenancy-level grant, recomputed on every save
-(`cascadeTenantEntitlement()`) exactly the way `syncPlanAddons()`'s own
-per-tenant loop already worked. Revoking a tenancy from `tenancy_ids`
-cascades the same way in reverse — a tenant loses the junction the moment no
-granted tenancy covers it anymore.
+mirror of the current tenancy-level grant. Revoking a tenancy cascades the
+same way in reverse — a tenant loses the junction the moment its tenancy is
+removed from the grant.
+
+**Why a diff, not a snapshot.** An earlier version of this accepted a plain
+`tenancy_ids` array and did `sync()` + a full recompute over every granted
+tenancy on every save — correct, but O(total grant size) regardless of how
+small the actual change was, which round-trips the WHOLE grant on every
+save at catalog scale (thousands of tenancies). `tenancy_ids_added`/
+`tenancy_ids_removed` are computed client-side by
+`SystemIntegrationTenancyAssociator` against whatever `tenancy_ids` it
+loaded, so the payload and the backend work are both proportional to what
+actually changed. The incremental cascade is exact, not an approximation:
+a tenant belongs to exactly one tenancy (a plain `belongsTo` FK, never
+many-to-many), so a newly granted tenancy's tenants can never already be
+covered by another still-granted tenancy, and a newly revoked tenancy's
+tenants can never still be covered by one either.
 
 ---
 
@@ -705,13 +718,15 @@ already carries.
 
 - **`SystemIntegrationTenancyAssociator`** — the SystemAdmin's manual
   entitlement override, a **Tenancies** tab on the Integration Types catalog
-  form. Deliberately tenancy-wide only — there is no per-tenant equivalent:
-  granting a tenancy here (or via a plan addon) makes
-  `SystemIntegrationController::cascadeTenantEntitlement()` recompute
-  `tenant_system_integrations` for every tenant in every currently-granted
-  tenancy, so a Tenant Admin sees the type in their own create-form picker
-  immediately, with no separate per-tenant step to remember. Revoking a
-  tenancy's grant cascades the same way in reverse.
+  form. Deliberately tenancy-wide only — there is no per-tenant equivalent.
+  Submits a diff (`tenancy_ids_added`/`tenancy_ids_removed` against whatever
+  `tenancy_ids` it loaded), not the full current selection — see
+  [The Second Entitlement Path](#the-second-entitlement-path-a-systemadmins-manual-tenancy-grant)
+  for why. `SystemIntegrationController::cascadeTenantEntitlement()`
+  attaches/detaches `tenant_system_integrations` for exactly the tenants
+  belonging to the changed tenancies, so a Tenant Admin sees the type in
+  their own create-form picker immediately, with no separate per-tenant
+  step to remember.
 - **`IntegrationTypeSelector`** — picks `tenant_system_integration_id` at
   create time from `tenant.systemIntegrations` (added to `TenantResource.php`
   alongside `systemMarketplaces`/`systemPointOfSales` for exactly this),
