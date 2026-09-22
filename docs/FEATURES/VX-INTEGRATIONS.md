@@ -728,11 +728,13 @@ already carries.
   their own create-form picker immediately, with no separate per-tenant
   step to remember.
 - **`IntegrationTypeSelector`** — picks `tenant_system_integration_id` at
-  create time from `tenant.systemIntegrations` (added to `TenantResource.php`
-  alongside `systemMarketplaces`/`systemPointOfSales` for exactly this),
-  mirroring `TenantMarketplaceSelector`'s pivot-id contract. Immutable after
-  create — carried forward as a hidden field on edit, since
-  `IntegrationRequest` requires it on every write.
+  create time from `tenant.systemIntegrations`, mirroring
+  `TenantMarketplaceSelector`'s pivot-id contract. Immutable after create —
+  carried forward as a hidden field on edit, since `IntegrationRequest`
+  requires it on every write. **This field must actually reach the wire** —
+  see the domain Tenant-resource trap in
+  [Extending](#extending-adding-a-new-integration-type) below, which cost
+  real debugging time on this exact field for vanexa.
 - **`IntegrationConnectionOptions`** — the Connect/Reconnect button and live
   status (`is_active`, `expires_at`), driving the full-redirect OAuth flow
   described above. `connection_params` is never returned by the API (see
@@ -764,9 +766,36 @@ framework was designed around:
    registry — no hardcoded array to keep in sync).
 4. Add the addon to `config/subscription_plans.php`'s `integrations` group
    so a plan can entitle tenancies to it.
-5. Nothing else changes: `IntegrationController`, `IntegrationActionTool`,
-   `AgentToolResolver`, and every frontend component in `vx-integrations`
-   are already generic over the service class.
+5. `IntegrationController`, `IntegrationActionTool`, `AgentToolResolver`,
+   and every frontend component in `vx-integrations` are already generic
+   over the service class — but read the trap below **before** assuming
+   step 4 is enough to make a Tenant see the new type.
+
+### The Trap: Confirm the Domain's OWN Tenant Resource Actually Serves `systemIntegrations`
+
+`Tenant::systemIntegrations()` (core, `App\Models\Tenant`) is what
+`IntegrationTypeSelector`'s create-form picker reads — but **which
+`TenantResource`/`TenantController` a domain's own
+`GET /api/tenant/tenant/{id}` route actually resolves to is not guaranteed
+to be core's**. This framework's own domain, vanexa-backend-domain, has its
+own `Domain\App\Http\Controllers\API\Extended\TenantController` and
+`Domain\App\Http\Resources\Extended\TenantResource`, registered under the
+identical `api.tenant.tenant.*` route names — they completely SHADOW core's
+classes for every vanexa request. Adding `systemIntegrations` to core's
+`TenantResource`/`TenancyTenantController` (the obvious first place to look)
+silently does nothing there: verified via direct Eloquent/resource
+instantiation that the field was correct, while the live UI kept showing
+"no integration types enabled" for a fully entitled tenant, because not one
+real HTTP request ever reached the code that was fixed.
+
+**Before shipping a new integration type in a new domain**, confirm which
+class actually serves that domain's tenant-fetch route and make sure it
+eager-loads and serializes `systemIntegrations` — do not assume core's
+`TenantResource` is what runs. The fastest way to check: hit the endpoint
+with a real token (`Http::withToken($user->createToken('x')->plainTextToken)
+->get(...)`, not just `new TenantResource($tenant)->toArray()`) and confirm
+the field is actually in the response body. A domain override with no
+`systemIntegrations` key at all is the sign this trap has been hit again.
 
 ---
 
