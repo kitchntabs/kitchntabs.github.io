@@ -3,7 +3,13 @@
 
 > **Version:** 1.0
 > **Last Updated:** September 2026
-> **Status:** Shipped (Instagram POC)
+> **Status:** Built and verified (Instagram POC) — lives on
+> `feat/service-tools-integrations` across `dash-backend`,
+> `vanexa-backend-domain`, and `kitchntabs-frontend`; not yet merged to
+> `development`. A pre-existing, unrelated core bug found while testing
+> this feature (210 permission rows with the wrong `guard_name`, see
+> [Permissions](#permissions)) was cherry-picked onto `development`
+> separately, since it affects every tenant regardless of this feature.
 > **Audience:** Engineers, Backend/Frontend Developers
 > **Related Docs:** [F9-Marketplaces_FEAT-SYSTEM-MARKETPLACES.md](../F9-Marketplaces/F9-Marketplaces_FEAT-SYSTEM-MARKETPLACES.md) · [F10-Point-of-Sale_FEAT-SYSTEM-POINT-OF-SALES.md](../F10-Point-of-Sale/F10-Point-of-Sale_FEAT-SYSTEM-POINT-OF-SALES.md) · [MCP-TOOL-MANAGEMENT.md](MCP-TOOL-MANAGEMENT.md)
 
@@ -53,7 +59,7 @@ for why.
 | Concept | Description |
 |---------|-------------|
 | **SystemIntegration** | Platform-defined integration type (name, slug, service class). Managed by SystemAdmin only. |
-| **tenancy_system_integrations** | Entitlement pivot: which integration types this account's subscription allows. Written only by `TenancyProvisioningService::syncPlanAddons()`. |
+| **tenancy_system_integrations** | Entitlement pivot: which integration types this account's subscription allows. Written by `TenancyProvisioningService::syncPlanAddons()` (plan-driven) or a SystemAdmin's manual `tenancy_ids` grant — see [The Second Entitlement Path](#the-second-entitlement-path-a-systemadmins-manual-tenancy-grant). |
 | **TenantSystemIntegration** | Junction: one record per (tenant × system_integration) pair, enabling that tenant to create connected instances. |
 | **Integration** | Tenant-specific connected instance — encrypted OAuth tokens, active status, shareable with sibling tenants. |
 | **IntegrationAssociation** | The polymorphic leaf link: which owner (a `LabProject` today) may call which of an instance's actions. |
@@ -688,16 +694,33 @@ see [Extending](#extending-adding-a-new-integration-type).
 
 `api.integration.*` (getList, getMany, getManyReference, getForSelect,
 getOne, create, update, delete, deleteMany, updateMany,
-getConnectionParamFormats, setUpConnection) is granted to `TenancyAdmin` and
-`Tenant` via a `PermissionMigration` **and** the matching entries added to
-`database/data/rolePermissions/tenancyAdminPermissions.json` /
-`tenantAdminPermissions.json` — both are required, or the next
+getConnectionParamFormats, setUpConnection, oAuthCallback) is granted to
+`TenancyAdmin` and `Tenant` via a `PermissionMigration` **and** the matching
+entries added to `database/data/rolePermissions/tenancyAdminPermissions.json`
+/ `tenantAdminPermissions.json` — both are required, or the next
 `db:sync_roles` silently strips the migration's grant (see the
-`dashadmin-permissions` skill).
+`dashadmin-permissions` skill). `oAuthCallback` got its own, later migration
+— it started life with no `access` middleware at all (the provider dialed it
+directly), so it needed no permission row until the
+[frontend-mediated redesign](#oauth--connection-flow) made it an ordinary
+authorized action.
 
 `api.system_integration.*` has **no** permission rows at all, deliberately —
 `SystemAdmin` bypasses `AccessMiddleware` entirely, so the absence of a grant
 already means 403 for everyone else.
+
+> **A real, pre-existing, UNRELATED core bug was found and fixed while
+> testing this feature**: 210 permission rows across the whole system
+> (`api.system.*`, `api.tenant.*`, `api.lab.*`, `api.app.*` — not just
+> integration-related ones) had `guard_name = 'web'` instead of `'api'`,
+> which every role in this app actually uses. Worse, it silently broke
+> `RoleSeeder::assignRolePermissions()` for the WHOLE role the moment even
+> one fetched permission had the wrong guard, not just that one row. Fixed
+> by `dash-backend/database/migrations/2026_09_22_000020_fix_permission_guard_name_mismatches.php`,
+> which — unlike everything else in this document — was deliberately
+> **cherry-picked onto `development` directly**, independent of whether this
+> feature branch ever merges, since it affects every tenant regardless of
+> Integrations.
 
 > **Known pre-existing gap, not introduced by this feature**: dash-backend
 > core's `tenancyAdminPermissions.json` and `tenantAdminPermissions.json`
