@@ -238,8 +238,8 @@ every insert. The same trap `ai_agent_mcp_selections` already documents.
 | Table | Purpose | Who writes it |
 |-------|---------|--------------|
 | `system_integrations` | Platform-defined integration types | SystemAdmin via CRUD |
-| `tenancy_system_integrations` | Subscription entitlement — what the _account_ can access | `syncPlanAddons` on provisioning / plan change |
-| `tenant_system_integrations` | Store-level junction — what a _tenant_ can configure | `syncPlanAddons` on provisioning / plan change |
+| `tenancy_system_integrations` | Subscription entitlement — what the _account_ can access | `syncPlanAddons` on provisioning / plan change, or a SystemAdmin's manual `tenancy_ids` grant |
+| `tenant_system_integrations` | Store-level junction — what a _tenant_ can configure | Always DERIVED, never set directly: `syncPlanAddons` (plan path) or `SystemIntegrationController::cascadeTenantEntitlement()` (manual path) recompute it from the current tenancy grant |
 | `integrations` | Actual connected instance with encrypted credentials | TenancyAdmin / Tenant via CRUD |
 | `integration_tenants` | Shares one connected instance across sibling tenants | `IntegrationController` on create/update |
 | `integration_associations` | Grants an owner (a Lab) some or all of an instance's actions | `LabProjectController` via `HasIntegrations::syncIntegrations()` |
@@ -348,6 +348,38 @@ definition as a **lazy string** class reference
 (`\Domain\App\Services\Lab\Integrations\InstagramIntegrationService::class`),
 the same trick the existing Marketplace addons already use to let core
 config name a class that only exists once a domain is mounted.
+
+### The Second Entitlement Path: a SystemAdmin's Manual Tenancy Grant
+
+Plan addons are the default, no-UI path most tenancies go through — but a
+SystemAdmin can also grant a tenancy access directly from the Integration
+Types catalog form's **Tenancies** tab
+(`SystemIntegrationTenancyAssociator`), for a one-off grant outside the
+standard plan tiers. Both paths land on the exact same tables:
+
+```mermaid
+sequenceDiagram
+    participant FE as SystemAdmin (Tenancies tab)
+    participant API as SystemIntegrationController
+    participant DB as Database
+
+    FE->>API: PUT /system_integration/{id} { tenancy_ids: [...] }
+    API->>DB: item.tenancies().sync(tenancyIds)
+    note over DB: Writes tenancy_system_integrations rows
+    API->>API: cascadeTenantEntitlement(item)
+    API->>DB: Tenant::whereIn('tenancy_id', grantedTenancyIds)
+    API->>DB: item.tenants().sync(allTenantIdsAcrossGrantedTenancies)
+    note over DB: Recomputes tenant_system_integrations for\nEVERY tenant in EVERY currently-granted tenancy
+```
+
+There is **no per-tenant grant** anywhere in this framework, by design —
+feature availability is tenancy-wide only. `tenant_system_integrations` is
+never written to directly by a human in either path; it is always a derived
+mirror of the current tenancy-level grant, recomputed on every save
+(`cascadeTenantEntitlement()`) exactly the way `syncPlanAddons()`'s own
+per-tenant loop already worked. Revoking a tenancy from `tenancy_ids`
+cascades the same way in reverse — a tenant loses the junction the moment no
+granted tenancy covers it anymore.
 
 ---
 
@@ -671,6 +703,15 @@ already carries.
 
 ### Components
 
+- **`SystemIntegrationTenancyAssociator`** — the SystemAdmin's manual
+  entitlement override, a **Tenancies** tab on the Integration Types catalog
+  form. Deliberately tenancy-wide only — there is no per-tenant equivalent:
+  granting a tenancy here (or via a plan addon) makes
+  `SystemIntegrationController::cascadeTenantEntitlement()` recompute
+  `tenant_system_integrations` for every tenant in every currently-granted
+  tenancy, so a Tenant Admin sees the type in their own create-form picker
+  immediately, with no separate per-tenant step to remember. Revoking a
+  tenancy's grant cascades the same way in reverse.
 - **`IntegrationTypeSelector`** — picks `tenant_system_integration_id` at
   create time from `tenant.systemIntegrations` (added to `TenantResource.php`
   alongside `systemMarketplaces`/`systemPointOfSales` for exactly this),
