@@ -455,7 +455,7 @@ stateDiagram-v2
 
     Configured --> Connecting : Frontend calls\nsetUpConnection()
 
-    Connecting --> Connected : Provider redirects to the fixed\noauth-callback URL, tokens stored\nin encrypted connection_params
+    Connecting --> Connected : Provider redirects to the fixed FRONTEND\ncallback url, which calls oAuthCallback -\ntokens stored in encrypted connection_params
 
     Connected --> Associated : Tenant Admin associates the\ninstance to a LabProject
 
@@ -472,23 +472,27 @@ stateDiagram-v2
 
 ## OAuth & Connection Flow
 
-Unlike Marketplace's own per-instance callback URL, an OAuth app (Facebook's
-included) whitelists **exact** redirect URIs in its own dashboard — a URL
-parameterised per `Integration` instance does not scale. The callback is
-therefore **one fixed public route**; `state` (set to the `Integration`'s own
-id in `setUpConnection()`'s redirect URL) ties the single callback back to a
-specific row.
+Mirrors `MarketplaceController::oAuthCallback()`/`MarketplaceCallback.tsx`
+exactly, by explicit design choice — earlier versions of this flow had the
+provider redirect straight to a fixed **backend** URL; this is the corrected
+shape.
 
-The callback is also a **full browser redirect**, not a popup+authenticated-XHR
-round trip like `MarketplaceCallback.tsx`'s own flow: the provider redirects
-the raw browser here with no session or Authorization header attached, so
-the response itself must be what the browser renders next — a `redirect()`
-back into the SPA, the same shape `GoogleAuthController`'s own
-provider-redirects-here login callback already uses.
+An OAuth app (Facebook's included) whitelists **exact** redirect URIs in its
+own dashboard, so the URL registered with the provider must be **one fixed
+url** — but that url is the **frontend's** own callback route
+(`{frontend_url}/oauth/integration/callback`, one per vanexa app — see
+below), not a backend one. The provider therefore never dials the backend
+directly at all: it redirects the raw browser to the frontend route, which
+now runs inside the authenticated SPA and calls the backend's per-instance
+`oAuthCallback` route itself, via a normal authenticated `axios` request —
+an ordinary authorized action
+(`_authorize('manage', $integration)`), not a public endpoint trusting a
+bare `state` id.
 
 ```mermaid
 sequenceDiagram
-    participant FE as Frontend (IntegrationConnectionOptions)
+    participant FE as IntegrationConnectionOptions
+    participant CB as IntegrationCallback (oauth/integration/callback)
     participant API as IntegrationController
     participant SVC as InstagramIntegrationService
     participant EXT as Instagram Graph API / Facebook
@@ -499,23 +503,31 @@ sequenceDiagram
 
     FE->>API: POST /integration/{id}/setUpConnection
     API->>SVC: setUpConnection(params)
-    SVC-->>FE: {redirect_url: "https://facebook.com/.../dialog/oauth?state={id}&..."}
+    SVC-->>FE: {redirect_url: "https://facebook.com/.../dialog/oauth?\nredirect_uri={frontend_url}/oauth/integration/callback&state={id}&..."}
     FE->>FE: window.location.href = redirect_url
 
     FE->>EXT: Browser navigates, user authorizes on Facebook
-    EXT->>API: GET /integration/oauth-callback?code=...&state={id}\n(ONE FIXED public route, no auth)
+    EXT->>CB: Browser redirected to the FIXED frontend url\n?code=...&state={id}
+    CB->>API: POST /integration/{id}/oAuthCallback\n(authenticated axios - the SPA's own session)
     API->>SVC: oAuthCallback(request)
     SVC->>EXT: Exchange code -> short-lived token
     SVC->>EXT: Exchange -> long-lived token (fb_exchange_token)
     SVC->>EXT: GET /me/accounts (resolve instagram_business_account)
     SVC-->>API: {access_token, ig_user_id, page_id, expires_at}
     API->>API: Merge into encrypted connection_params,\nis_active=true, last_connected_at=now()
-    API-->>FE: redirect($frontendUrl . "/integration/{id}?oauth=success")
+    API-->>CB: IntegrationResource JSON
+    CB->>CB: Toast + redirect to /integration/{id}
 ```
 
-`IntegrationConnectionOptions.tsx` reads the `?oauth=success` /
-`?oauth=error&message=...` query flags on mount and surfaces one toast, then
-the query string is left for the next navigation to replace naturally.
+`InstagramIntegrationService::redirectUri()` computes the frontend url from
+`config('app.frontend_url')` — the same value both `setUpConnection()`'s
+authorize URL and `oAuthCallback()`'s token exchange must use, byte-identical
+(OAuth2 requires the `redirect_uri` to match across both legs of one flow).
+Since `frontend_url` names only ONE app, `oauth/integration/callback` is
+registered in **both** `vanexa-web` (TenancyAdmin panel) and `vanexa-app`
+(Tenant-facing) — whichever one the config value points at is where
+Facebook's redirect actually lands, but either app's user might have started
+the Connect flow.
 
 ---
 
@@ -631,7 +643,7 @@ should read before writing its own.
 | DELETE | `/api/integration/{id}` | Delete instance | Owner |
 | GET | `/api/integration/{id}/connectionParamFormats` | Get connection field schema | Owner |
 | POST | `/api/integration/{id}/setUpConnection` | Begin the connection (OAuth redirect URL, or validate a manual token) | Owner |
-| GET | `/api/integration/oauth-callback` | **One fixed** provider callback, `state`=instance id | Public |
+| POST | `/api/integration/{id}/oAuthCallback` | Completes the connection — called by the frontend's own callback page (`{frontend_url}/oauth/integration/callback`), never by the provider directly | Owner |
 
 ### Lab-Side Association (vanexa-backend-domain)
 
@@ -740,6 +752,15 @@ already carries.
   described above. `connection_params` is never returned by the API (see
   `IntegrationResource.php`'s own docblock); this component only ever reads
   `connectionParamFormats()`'s descriptor and the derived status fields.
+- **`IntegrationCallback`** — the OAuth provider's own fixed redirect
+  target, registered at `oauth/integration/callback` in both `vanexa-web`
+  and `vanexa-app`. Ported directly from kt-ecommerce's
+  `MarketplaceCallback`: reads `code`/`state` off the query string,
+  authenticated-`axios`-POSTs to `/integration/{state}/oAuthCallback`
+  itself, then toasts and redirects to the integration's edit page. This is
+  what makes `IntegrationController::oAuthCallback()` a normal authorized
+  route instead of a public one — see
+  [OAuth & Connection Flow](#oauth--connection-flow).
 - **`IntegrationEnabledActionsSelector`** — the Lab's own two-level picker
   ("which connected instances, and which of each one's actions"), added as
   an **Integrations** tab on `labProjectResource.tsx` next to
