@@ -1,23 +1,27 @@
 # Physical POS Integrations — card-present payments at a point of sale (`PosPaymentCore`)
 
-> **Status:** 🟡 **Phases 1, 3 and 5 built; phase 4 partly built.**
+> **Status:** 🟡 **Phases 1 to 5 built; phase 6 needs hardware.**
 > - Phase 1: the core foundation.
-> - Phase 3: the Mercado Pago Point connector, with its webhook and operator commands.
-> - Phase 4, partly: the staff API, the shared settings and charge UI, and partial refunds.
-> - Phase 5: KitchnTabs counter, self-service and VaneXa kiosk payments.
+> - Phase 2: card terminals behind a venue device. DeviceCore acks carry results; the venue
+>   program's shared core (`dash_core`) runs the charges. No real terminal driver yet.
+> - Phase 3: the Mercado Pago Point connector, plus "Connect Mercado Pago" (platform OAuth).
+> - Phase 4: the staff API, the shared settings, charge and payments-list UI, and refunds.
+> - Phase 5: KitchnTabs counter, self-service and VaneXa kiosk payments, with refunds booked in
+>   cash counts.
 >
-> Phases 2 and 6, and the rest of phase 4 (the payments list), are designed here but not built.
-> Every terminal path is tested against a faked Mercado Pago only. The first terminal test is the
-> runbook in §14.4. It is pending because no terminal is available yet.
+> Phase 6 (Transbank, a Mercado Pago paired reader) needs hardware. Every terminal path is tested
+> against a fake only. The first terminal test is the runbook in §14.4; it is pending because no
+> terminal is available yet. OAuth's live test needs the platform's Mercado Pago application.
 >
 > | Repo | Branch | Commits | State |
 > |---|---|---|---|
 > | `dash-backend` | `development` | `99b3671` merges phases 1 and 3 (`feat/pos-payment-core`) | merged locally, **not pushed** |
-> | `dash-backend` | `feat/pos-terminals` | `b4f8b2d` opt-in, `a72da11` staff API, `8815019` partial refunds | committed, **not pushed, not merged** |
-> | `dash-frontend-core` | `feat/pos-payments` | `12369c6`, `11e8482` (package `dash-pos-payments`) | committed, **not published to npm** |
-> | `kitchntabs-backend-domain` | `feat/pos-terminals` | `c4c109f`, `ccff8ab`, `8deb8b1`, `afd2893`, `231d59b` | committed, **not pushed, not merged** |
-> | `kitchntabs-frontend` | `feat/pos-terminals` | `9ab27c8`, `560baef`, `e7d0ccd`, `e5cd88e`, `cad8b72` | committed, **not pushed, not merged** |
+> | `dash-backend` | `feat/pos-terminals` | `b4f8b2d` opt-in, `a72da11` staff API, `8815019` partial refunds, `28dcff8` payments list, `94d1abf` texts, `733f7ba` OAuth, `16f1ea7` phase 2 | committed, **not pushed, not merged** |
+> | `dash-frontend-core` | `feat/pos-payments` | `12369c6`, `11e8482`, `9c8da32` (list), `23741cf` (OAuth) — package `dash-pos-payments` | committed, **not published to npm** |
+> | `kitchntabs-backend-domain` | `feat/pos-terminals` | `c4c109f`, `ccff8ab`, `8deb8b1`, `afd2893`, `231d59b`, `a5b1d2f` (refunds, cash counts) | committed, **not pushed, not merged** |
+> | `kitchntabs-frontend` | `feat/pos-terminals` | `9ab27c8`, `560baef`, `e7d0ccd`, `e5cd88e`, `cad8b72`, `7f40312` (cash counts), `e01f3bd` (payments page) | committed, **not pushed, not merged** |
 > | `vanexa-backend-domain` | `feat/pos-terminals` | `5ade22d` (kiosk terminal), `d0d41a8` (seeder fix, §21.13) | committed, **not pushed, not merged** |
+> | `dash-python-service` | `feat/pos-device-core` | `91c0f08` (`dash_core`, §17.5) | committed, **not pushed, not merged** |
 >
 > **Layer:** `dash-backend` **core** (`app/PosPaymentCore`). Two domains use it:
 > `kitchntabs-backend-domain` (§16) and `mbtickets-backend-domain` (box office, documented in
@@ -33,13 +37,14 @@
 > hardware and APIs, October 2026). None are stored in this workspace. §4 below lists where the
 > implementation deliberately departs from spec 09; §2.1 summarises what the pre-study says the
 > hardware allows.
-> **Last updated:** 2026-10-20. Changes in this update:
-> - The module is now opt-in per domain (§12).
-> - Staff API and shared UI (§15).
-> - Partial refunds and a refund mode per point of sale (§15.3).
-> - KitchnTabs wiring: counter, self-service and the VaneXa kiosk (§16).
-> - Design of the Mercado Pago account options: a pasted token or platform OAuth (§14.6).
-> - Design of the shared Python device service (§17.5).
+> **Last updated:** 2026-10-20 (second update). Changes:
+> - Phase 2 built: device results, ack tokens, device kinds, device-routed connectors (§13).
+> - "Connect Mercado Pago" built (§14.6).
+> - The payments list, and refunds from it for administrators (§15).
+> - KitchnTabs refunds: the `REFUNDED` payment status, and refunds in cash counts and reports
+>   (§16.7).
+> - The venue program's shared core, `dash_core` (§17.5).
+> - New implementation notes (§21.14 to §21.17).
 
 ---
 
@@ -57,9 +62,9 @@
 10. [Events: how a domain consumes a payment](#10-events-how-a-domain-consumes-a-payment)
 11. [Card data hygiene](#11-card-data-hygiene)
 12. [Configuration and scheduling](#12-configuration-and-scheduling)
-13. [Phase 2 — device dispatch through DeviceCore (designed)](#13-phase-2--device-dispatch-through-devicecore-designed)
+13. [Phase 2 — device dispatch through DeviceCore (built)](#13-phase-2--device-dispatch-through-devicecore-built)
 14. [Phase 3 — Mercado Pago Point connector (built, not yet run on a terminal)](#14-phase-3--mercado-pago-point-connector-built-not-yet-run-on-a-terminal)
-15. [Phase 4 — staff API, shared UI and refunds (partly built)](#15-phase-4--staff-api-shared-ui-and-refunds-partly-built)
+15. [Phase 4 — staff API, shared UI and refunds (built)](#15-phase-4--staff-api-shared-ui-and-refunds-built)
 16. [Phase 5 — KitchnTabs wiring (built)](#16-phase-5--kitchntabs-wiring-built)
 17. [Phase 6 — companion agent, Raspberry bridge, Transbank (designed)](#17-phase-6--companion-agent-raspberry-bridge-transbank-designed)
 18. [Verification](#18-verification)
@@ -134,13 +139,13 @@ flowchart LR
 | # | Phase | Needs hardware | Status |
 |---|---|---|---|
 | 1 | **Core foundation:** module, adopted `point_of_sales`, payment columns, `pos_payment_transactions`, contract, registry, service (manual, charge, settle once, cancel, timeout), event, tests; KitchnTabs model extends core | no | ✅ built, 15 tests |
-| 2 | **Device dispatch:** DeviceCore ack carries a result and fires an event; `pos_terminal_agent` / `pos_bridge` device kinds; `charge_pos_terminal` / `cancel_pos_charge` as DeviceCommands; fake device for tests | no | designed (§13) |
+| 2 | **Device dispatch:** DeviceCore ack carries a result and fires an event; `pos_terminal_agent` / `pos_bridge` device kinds; `charge_pos_terminal` / `cancel_pos_charge` as DeviceCommands; the venue program runs them (`dash_core`) | no | ✅ built, 4 + 13 tests (§13, §17.5); no real terminal driver yet |
 | 3 | **Mercado Pago Point connector** (Orders API, no device on our side): charge, webhook, polling backstop, cancel, refund, operator commands | a Point Smart 2 for the last step; the rest runs on the virtual terminal | ✅ built, 18 tests; terminal test pending (§14.4) |
-| 4 | **Staff API, shared UI and refunds** (FR-23): endpoints, permissions, `dash-pos-payments` package (settings + charge dialog), partial refunds, refund mode | no | 🟡 API, UI and refunds built; the payments list is pending (§15) |
+| 4 | **Staff API, shared UI and refunds** (FR-23): endpoints, permissions, `dash-pos-payments` package (settings, charge dialog, payments list), partial refunds, refund mode | no | ✅ built (§15) |
 | 5 | **KitchnTabs wiring:** every counter, self-service and VaneXa payment is a `PosPaymentTransaction`; a tab is paid when the event says approved | no | ✅ built, 6 tests (§16) |
 | 6 | **Transbank through a Raspberry Pi bridge**; shared Python device service; Mercado Pago Android companion only if a venue needs a paired reader | yes | designed (§17) |
 
-Phase 2 and the rest of phase 4 can still be built and tested before any terminal arrives.
+Everything except phase 6 is built and tested without a terminal.
 
 ### 2.1 What the hardware allows (acquirer pre-study)
 
@@ -622,76 +627,76 @@ passes its own model as well. The env flag `POS_PAYMENT_ENABLED=true` does the s
 | `mercadopago.connect_timeout` / `timeout` | `POS_PAYMENT_MERCADOPAGO_CONNECT_TIMEOUT` / `_TIMEOUT` | `5` / `15` | Seconds per HTTP call. |
 | `mercadopago.result_grace_seconds` | `POS_PAYMENT_MERCADOPAGO_GRACE` | `60` | Added to a Mercado Pago charge's deadline, so Mercado Pago's own expiry notification arrives before our sweep (§14.2). |
 
-## 13. Phase 2 — device dispatch through DeviceCore (designed)
+## 13. Phase 2 — device dispatch through DeviceCore (built)
 
-For the two device-routed transports: an Android companion agent next to the kiosk app, and a
-Raspberry Pi bridge. Both are DeviceCore devices with their own revocable credentials (spec 09
-FR-22, §7).
+For the two device-routed transports: a Raspberry Pi bridge wired to the terminal, and an Android
+companion next to the kiosk app. Both are DeviceCore devices of the venue program, announced like
+printers. Built 2026-10-20 in `dash-backend` (`16f1ea7`) and `dash-python-service` (`91c0f08`,
+§17.5). **No real terminal driver exists yet**; the fake terminal runs the whole flow.
 
-### 13.1 What DeviceCore has today
+### 13.1 The DeviceCore extension (backward compatible)
 
-Read in `dash-backend/app/DeviceCore/` on 2026-10-17:
-
-| Piece | File | Fit |
+| Change | File | Effect on print agents |
 |---|---|---|
-| `DeviceCommand` (uuid, `type`, `payload`, `status` queued/sent/acked/failed, `error`, `sent_at`, `acked_at`) | `Models/DeviceCommand.php` | ✓ carries a charge |
-| `DeviceCommandDispatcherContract::dispatch(Device, type, payload, userId)` + `BroadcastDeviceCommandDispatcher` | `Contracts/`, `Services/` | ✓ sends it to one device |
-| Device ack: `POST` with `command_id`, `status` acked/failed, `error`, scoped to the caller's tenant | `Http/Controllers/DeviceAgentController.php:445` | ✗ **no result payload, no event** |
-| `DeviceTypeContract` + `DeviceTypeRegistry` | `Contracts/`, `Services/` | ✓ for the two device kinds |
+| Nullable `result` json on `device_commands` | migration `2026_10_21_000100_add_result_to_device_commands` | none |
+| `ack()` accepts `result` (an object, at most 16 KB) and `ack_token` | `DeviceAgentController::ack` | none: both optional |
+| `App\DeviceCore\Events\DeviceCommandAcked($command, $result, $repeat)` fired after every ack | `Events/DeviceCommandAcked.php` | nothing listens for prints |
+| **Proof-carrying commands:** a payload with `ack_token` only accepts an ack that echoes it (`hash_equals`), else `403` | `DeviceCommand::PAYLOAD_ACK_TOKEN` | prints carry no token |
+| A proof-carrying command keeps its **first** answer; later ones are announced with `repeat = true` | | prints keep "the latest answer wins" (a print retried after a failure) |
 
-### 13.2 The DeviceCore extension (backward compatible)
+Why the token: a charge's answer must come from the device the charge was sent to. The token is
+random per command and travels only on that device's channel.
 
-1. Migration: nullable `result` json on `device_commands`.
-2. `ack()` accepts an optional `result` object (validated as an array, size-limited), stores it,
-   and fires a new `App\DeviceCore\Events\DeviceCommandAcked($command)` after saving.
-3. Print agents, which send no `result`, behave exactly as today.
+### 13.2 The payment side
 
-### 13.3 The payment side
+| Piece | File |
+|---|---|
+| Device kinds `pos_bridge` and `pos_terminal_agent`, registered in DeviceCore's type registry when the module is on. A descriptor's `driver` names the terminal protocol (`transbank_pos_integrado`, `mercadopago_point_app`, `fake_terminal`); a bridge needs `connection.port`. Config: pairing (cable / Bluetooth) and backend reachability (direct / relay, D13). | `Devices/PosPaymentDeviceType.php` |
+| `AbstractDeviceRoutedConnector`: `charge()` dispatches the command to the point of sale's device (`payment_device_id`) and stores `device_command_id`; an undelivered command throws, so the charge settles `error`. `cancel()` dispatches `cancel_pos_charge`. `verifyCredentials()` is "the device is active and connected". | `Support/AbstractDeviceRoutedConnector.php` |
+| `DeviceCommandResultListener`: a `charge_pos_terminal` ack settles the transaction through `PosPaymentService::settle()`. It matches by `transaction_id` **and** `device_command_id`. A failed ack, or a result without a known status, settles `error` with the device's message. | `Listeners/DeviceCommandResultListener.php` |
 
-- Device types `pos_terminal_agent` and `pos_bridge` registered in `DeviceTypeRegistry`, with a
-  config schema for pairing medium (cable/Bluetooth) and backend reachability (direct/relay, D13).
-- An `AbstractDeviceRoutedConnector` whose `charge()` dispatches:
+| Command | Payload |
+|---|---|
+| `charge_pos_terminal` | `transaction_id`, `amount`, `currency`, `reference`, `idempotency_key`, `connector`, `timeout_seconds`, `ack_token` |
+| `cancel_pos_charge` | `transaction_id`, `ack_token` |
 
-  | type | payload |
-  |---|---|
-  | `charge_pos_terminal` | `transaction_id`, `amount`, `currency`, `reference`, `idempotency_key` |
-  | `cancel_pos_charge` | `transaction_id` |
-
-  and stores the command id in `pos_payment_transactions.device_command_id`.
-- A listener on `DeviceCommandAcked` for those two types maps the device's `result.status`
-  (`approved` / `declined` / `cancelled` / `error`) to `PosPaymentService::settle()`. A `failed`
-  ack with no result settles `error`. A late ack lands in `late_results` like any other (§6.3).
-- If the device never acks, the existing expiry sweep settles `timeout` and dispatches
-  `cancel_pos_charge`.
-- Transbank's protocol has operations beyond a sale (reprint the last sale, totals, close the
-  batch, §17.1). Those become further DeviceCommand types on the same bridge when phase 6 needs
-  them; they do not create payment transactions.
+The ack's `result`: `status` (`approved`, `declined`, `cancelled`, `timeout`, `error`),
+`auth_code`, `card_brand`, `masked_pan` (last four only), `acquirer_transaction_id`, `error`, and
+any extra keys (kept in `raw_response`, sanitized). The settle-once rules of §6 apply unchanged:
+an answer after the timeout lands in `late_results`, and the expiry sweep dispatches
+`cancel_pos_charge`.
 
 ```mermaid
 sequenceDiagram
     participant Caller as KitchnTabs / MBTickets
     participant SVC as PosPaymentService
-    participant DC as DeviceCore dispatcher
-    participant AG as Companion agent / RPi bridge
+    participant DC as DeviceCore
+    participant AG as Venue program (dash_core)
     participant T as Card terminal
 
     Caller->>SVC: charge(pos, amount, ref, key)
-    SVC->>SVC: create pending tx (expires_at)
-    SVC->>DC: dispatch(device, charge_pos_terminal, payload)
+    SVC->>DC: dispatch(device, charge_pos_terminal, payload + ack_token)
     DC-->>AG: command on the agent's channel
-    AG->>T: SDK / serial charge request
+    AG->>T: sale (driver over serial / Bluetooth / network)
     T-->>AG: approved (auth code, brand, last 4)
-    AG->>DC: POST ack {command_id, status: acked, result}
+    AG->>DC: POST device/agent/ack {status: acked, result, ack_token}
     DC-->>SVC: DeviceCommandAcked → settle(tx, approved, result)
-    SVC-->>Caller: PosPaymentSettled (approved)
-    Note over SVC,AG: No ack before expires_at → settle(timeout) + cancel_pos_charge.<br/>A later ack is kept in late_results only.
+    SVC-->>Caller: PosPaymentSettled
+    Note over DC,AG: Wrong or missing ack_token → 403. A second answer → repeat, first kept.
 ```
 
-### 13.4 Tests to write (no hardware)
+### 13.3 Tests
 
-A `FakeDeviceConnector` already exists. Phase 2 adds tests that dispatch, simulate the ack through
-the real ack endpoint with a device token, and assert: approval settles once; a failed ack settles
-`error`; an ack after timeout lands in `late_results`; a print ack without `result` is unchanged.
+`tests/Feature/PosPaymentCore/DeviceRoutedChargeTest.php` (4) announces a `pos_bridge` device
+through the real `DeviceRegistrar` and answers through the real ack endpoint:
+- a charge travels as a command with a 40-character token;
+- without the token, or with a wrong one, the answer is refused (`403`) and the charge stays
+  pending; with it, the charge settles once and a second answer is a repeat;
+- a failed ack settles `error`; after the timeout the device is asked to stop, and a late approval
+  lands in `late_results`;
+- an ordinary command still acks without a token, and its latest answer wins.
+
+DeviceCore's own suite (`DeviceCoreTest`) passes unchanged.
 
 ## 14. Phase 3 — Mercado Pago Point connector (built, not yet run on a terminal)
 
@@ -945,7 +950,7 @@ alias kt='docker exec -it -e MP_TOKEN -e MP_WEBHOOK_SECRET dash_image_app php ar
 - Point Mini, Plus and Air: the Orders API documentation lists Point Smart 2 as the integrable
   terminal.
 
-### 14.6 Mercado Pago accounts: a pasted token or platform OAuth (decided; OAuth not built)
+### 14.6 Mercado Pago accounts: a pasted token or platform OAuth (both built)
 
 Decided by the product owner (October 2026): a venue connects its Mercado Pago account **either
 way**, as the KitchnTabs marketplaces already do (Uber Eats, Paris, Ripley). There, the integration
@@ -953,7 +958,7 @@ form asks whether the venue uses the platform's application or its own (`use_own
 `use_custom_connection`). The platform's application goes through OAuth, with `getAuthUrl()`, the
 callback at `/oauth/marketplace/callback`, and a scheduled `refreshToken()`.
 
-| | **A. Pasted token** (built) | **B. Platform OAuth** (designed) |
+| | **A. Pasted token** | **B. Platform OAuth** ("Connect Mercado Pago") |
 |---|---|---|
 | Who owns the Mercado Pago application | The venue (or whoever set its terminal up) | The platform: one KitchnTabs application and one MBTickets application |
 | What the venue does | Creates an application in *Your integrations*, copies its access token into the point of sale's form | Clicks "Connect Mercado Pago", logs in to Mercado Pago and authorises the platform |
@@ -962,30 +967,63 @@ callback at `/oauth/marketplace/callback`, and a scheduled `refreshToken()`.
 | Webhook | The venue configures it in its own application, and pastes the signing secret | Configured **once** on the platform's application; one secret in the backend's env, not per point of sale |
 | Who it suits | A venue with technical staff, or the first pilots | Every other venue; no developer panel for the venue |
 
-How B fits the existing code, without touching the state machine:
+How B is built (`dash-backend` `733f7ba`, `dash-frontend-core` `23741cf`). The state machine and
+the connector's charge path are untouched; the connector keeps reading `access_token`.
 
-1. **Connect.** A new staff endpoint `GET pos-payments/point-of-sales/{id}/oauth/url` builds
-   `https://auth.mercadopago.com/authorization?client_id=…&response_type=code&platform_id=mp&state=<signed point of sale id>&redirect_uri=…`.
-   The `state` is signed, so a callback can only land on the point of sale that asked.
-2. **Callback.** A public route exchanges the code at `POST /oauth/token`
-   (`grant_type=authorization_code`, with the platform's client id and secret from env). It stores
-   the tokens in the point of sale's encrypted params and redirects back to the settings screen.
-3. **Refresh.** A scheduled command refreshes every OAuth token that expires within 30 days. A
-   failed refresh marks the integration as unverified, and the settings screen shows "reconnect".
-4. **Connector.** `MercadoPagoPointConnector` keeps reading `access_token`. Only its webhook
-   secret lookup changes: with `auth_mode: oauth` it uses the platform secret from env.
-5. **Form.** `PosPaymentSettings` shows the two choices. "Use your own application" is mode A, as
-   today. "Connect with Mercado Pago" is mode B, a button instead of the token field.
-6. **Terminals.** The terminal picker (`GET …/terminals`) works the same in both modes, because it
-   only needs a valid token.
+| Piece | Where | What it does |
+|---|---|---|
+| `MercadoPagoOAuth` | `Connectors/MercadoPago/MercadoPagoOAuth.php` | Authorization URL, callback, refresh, status. Offered only when the platform application is configured (`available()`). |
+| Staff endpoint | `GET pos-payments/point-of-sales/{id}/oauth/mercadopago?return_url=…` (`api.pos-payments.pointOfSale.oauthUrl`, admins) | Returns `{url}`: `auth_url?client_id&response_type=code&platform_id=mp&state&redirect_uri`. |
+| Callback | `GET /api/pos-payments/oauth/mercadopago/callback` (public, 30/min) | Exchanges the code at `POST /oauth/token` (form-encoded, platform client id + secret). Stores the tokens and redirects to the return page with `mp_oauth=connected` or `mp_oauth=error&reason=…`. |
+| Refresh | `pos-payments:mercadopago:refresh-tokens [--all]`, scheduled daily (`17 4 * * *`) when OAuth is configured | Renews tokens that expire within 30 days. A refused refresh sets `oauth_error = refresh_failed`, and the form asks to reconnect. Exits non-zero if any failed. |
+| Webhook | `MercadoPagoPointConnector::webhookSecret()` | A point of sale's own `webhook_secret` first; with `auth_mode = oauth`, the platform application's secret from env. |
+| Form | `PosPaymentSettings` | "Conectar mi cuenta" / "Usar mi propia aplicación". In Connect mode the token and webhook-secret fields are hidden, a "Conectar con Mercado Pago" button starts the flow, and "Conectado (cuenta …)" shows the result. Save waits until connected. On return it shows the outcome once and cleans the address. |
 
-Still open: Mercado Pago's application review for the platform applications, and whether
-`platform_id` or the marketplace fee fields apply to Point orders (Q15).
+**Security rules.**
+- **The `state`** is encrypted with the app key. It holds the point of sale, the user, the return
+  page, a nonce and an expiry (15 minutes). A forged, expired or foreign-origin state connects
+  nothing and calls nothing.
+- **Return pages** must be on one of our frontends: `POS_PAYMENT_MP_OAUTH_RETURN_ORIGINS`,
+  `FRONTEND_URL`, or `APP_URL`. Anything else is refused (`422`), so the flow is never an open
+  redirect.
+- **The tokens** stay in the point of sale's encrypted params as internal fields: `auth_mode`,
+  `refresh_token`, `token_expires_at`, `mp_user_id` and `oauth_error`. Internal fields are never
+  returned, and the form can never edit them. Saving the form later (picking the terminal) keeps
+  them. Pasting a token of the venue's own switches to `auth_mode = token` and drops the OAuth
+  tokens.
 
-## 15. Phase 4 — staff API, shared UI and refunds (partly built)
+**Configuration** (`pos_payment_core.mercadopago.oauth`):
 
-Spec 09 FR-23. Built: the staff API, the shared UI package, partial refunds and the refund mode.
-Still to build: the payments list with filters, and the audit view (§15.5).
+| Env | Meaning |
+|---|---|
+| `POS_PAYMENT_MP_CLIENT_ID`, `POS_PAYMENT_MP_CLIENT_SECRET` | The platform application. Without them the option is not offered. One application per product (KitchnTabs, MBTickets). |
+| `POS_PAYMENT_MP_WEBHOOK_SECRET` | Its webhook signing secret. |
+| `POS_PAYMENT_MP_AUTH_URL` | Default `https://auth.mercadopago.com/authorization`. |
+| `POS_PAYMENT_MP_OAUTH_REDIRECT_URI` | Default: this backend's callback route. It must match the redirect URL registered in the application. |
+| `POS_PAYMENT_MP_OAUTH_RETURN_ORIGINS` | Extra frontends allowed as return pages, comma separated. |
+| `POS_PAYMENT_MP_OAUTH_STATE_TTL`, `_REFRESH_DAYS`, `_REFRESH_CRON` | 15 minutes, 30 days, `17 4 * * *`. |
+
+**Tests:** `MercadoPagoOAuthTest` (4):
+- the URL carries the platform application and only returns to our frontends, and cashiers
+  cannot start it;
+- the callback stores the tokens, which never come back to the form; a later save keeps them; the
+  platform webhook secret applies; a pasted token replaces the connection;
+- a forged, expired or foreign state connects nothing;
+- tokens close to expiring are renewed, and a refused refresh asks to reconnect.
+
+Also checked in the browser with placeholder credentials: the button leads to Mercado Pago's
+authorization page with the platform client id and an opaque state.
+
+**Still open:**
+- the platform applications themselves, one per product, and their redirect URL registration;
+- Mercado Pago's review of those applications;
+- a live connect test;
+- whether `platform_id` or the marketplace fee fields apply to Point orders (Q15).
+
+## 15. Phase 4 — staff API, shared UI and refunds (built)
+
+Spec 09 FR-23. Built: the staff API, the shared UI package (settings, charge dialog, payments
+list), partial refunds, refunds from the list, and the refund mode. What remains is in §15.6.
 
 ### 15.1 Staff API
 
@@ -1004,6 +1042,10 @@ belongs to the domain flow that knows what is being paid (a tab, a booking), whi
 | `POST pos-payments/transactions/{id}/refresh` | `api.pos-payments.transaction.refresh` | Asks the acquirer now instead of waiting for its webhook (`PosPaymentService::refresh()`). |
 | `POST pos-payments/transactions/{id}/cancel` | `api.pos-payments.transaction.cancel` | The customer walked away. The terminal is asked to stop. |
 | `POST pos-payments/transactions/{id}/confirm` | `api.pos-payments.transaction.confirm` | Body `{note}`. Staff checked the terminal or the voucher and confirm the approval (Mercado Pago's `action_required`). Refused once the charge is final. |
+| `GET pos-payments/point-of-sales` | `api.pos-payments.pointOfSale.list` | The points of sale this user sees, for the list's filter. |
+| `GET pos-payments/transactions` | `api.pos-payments.transaction.list` | The payments list: `point_of_sale_id`, `status` (comma separated), `provider`, `reference_type`, `reference` (also matches the acquirer id, the order id and the auth code), `from` / `to`, `attention=1`, `late=1`, `page`, `per_page` (max 100). Newest first. Answers `{data, total, page, per_page}`. |
+| `POST pos-payments/transactions/{id}/refund` | `api.pos-payments.transaction.refund` | Body `{amount?}` (default: what is left). Administrators only (§15.5). |
+| `GET pos-payments/point-of-sales/{id}/oauth/mercadopago` | `api.pos-payments.pointOfSale.oauthUrl` | "Connect Mercado Pago" (§14.6). |
 
 A transaction is returned by `PosPaymentTransactionResource`: id, point of sale, amount,
 currency, status, provider status, receipt fields, timestamps, and the derived flags:
@@ -1012,7 +1054,10 @@ currency, status, provider status, receipt fields, timestamps, and the derived f
 |---|---|
 | `final` | Stop polling. |
 | `approved` | Paid. |
-| `needs_attention` | Pending with `provider_status = action_required`: show "check the terminal" and, for staff, the confirm button. |
+| `needs_attention` | Pending and `provider_status` starts with `action_required` (Mercado Pago stores `action_required:check_on_terminal`): show "check the terminal" and, for staff, the confirm button (§21.14). |
+| `refunded_amount`, `refundable_amount`, `refunds[]` | What was returned, what is left, and each refund. |
+| `late_results_count` | Results that arrived after it settled: money to reconcile. |
+| `refund` | `{allowed, hint}` for this user. The hint comes translated, because a domain's own message (MBTickets) is unknown to the shared UI. |
 | `error` | Failed before reaching the terminal (credentials, terminal busy). |
 
 ### 15.2 Who sees what
@@ -1086,15 +1131,51 @@ The translate fallback: react-admin returns the key itself (or `_`) when it has 
 The package asks the host without a default and falls back to its own text when the answer is
 the key.
 
-### 15.5 Still to build
+### 15.5 Refunds from the payments list
 
-- **Payments list:** the transactions of a venue, filtered by point of sale, status, date range
-  and provider. Pending charges with `provider_status = action_required` should stand out. Plus
-  refund from the list.
-- **Audit view:** manual confirmations, cancels and refunds already store the user
-  (`settled_by_user_id`, `raw_response.note` with `manual_confirmation`, `raw_response.refunds[].user_id`). The view to read them
-  is still to build.
-- **Device picker** for connectors that `requires_device` (phase 2).
+Product decision: **administrators only** (venue, tenancy, system). Cashiers follow, cancel and
+confirm a charge, but never refund. The route permission goes to the admin roles
+(`2026_10_21_000010_add_pos_payment_list_permissions`), and `PosPaymentAccess::canRefund()`
+checks the same rule per row.
+
+A row can be refunded when every one of these holds:
+- it is approved, with something left to refund;
+- it is not a manual payment ("refund it by hand");
+- its connector supports refunds ("do it in the acquirer's panel");
+- its domain does not refund it through its own flow.
+
+The last rule comes from `PosPaymentCoreServiceProvider::refundsHandledByDomain($referenceType,
+$hint)`. MBTickets registers `mbtickets.booking`: a card sale is refunded by cancelling it from
+the booking, which voids its tickets and keeps MBTickets' refund records.
+
+Each refund uses the idempotency key `<transaction>-refund-<n>`, so a double click repeats the same
+refund at the acquirer. A successful refund fires **`PosPaymentRefunded($transaction, $amount,
+$outcome, $userId)`** after commit, and the domain records it. KitchnTabs does so in §16.7.
+
+### 15.6 Still to build
+
+- An **audit view**. The data is there: `settled_by_user_id`, `raw_response.note` with
+  `manual_confirmation`, `raw_response.refunds[].user_id`.
+- A **device picker** in the settings for connectors that `requires_device` (phase 2 devices).
+  Today `payment_device_id` is set through the API.
+
+### 15.7 The payments list screen
+
+`PosPaymentsList` in `dash-pos-payments` (`9c8da32`), mounted by each product:
+- KitchnTabs: *Cobros* (`/ecommerce/pos-payments`, `kt-ecommerce/resources/posPaymentsResource.tsx`).
+- MBTickets: *Ventas > Cobros* (`/mbtickets/pos-payments`).
+
+It offers:
+- filters by point of sale, status, dates and reference, plus "Revisar terminal" and "Resultados
+  tardíos";
+- the refunded amount under each amount;
+- **Seguir**, which opens the charge dialog for a pending charge;
+- **Detalle**, with everything stored for reconciliation, including the acquirer's error;
+- **Devolver**, the refund dialog, whole or in part.
+
+A row the domain refunds itself shows a disabled button with the hint. The filters wrap by width,
+not by breakpoint, because host themes define their own breakpoints. The product passes
+`renderReference` to show what was paid (a tab, a booking).
 
 ## 16. Phase 5 — KitchnTabs wiring (built)
 
@@ -1304,6 +1385,56 @@ sequenceDiagram
    (§14.4). Without it, a charge still settles while its dialog is open (the dialog polls the
    acquirer) or when the expiry sweep polls it, but other screens learn about it later.
 
+### 16.7 Refunds, cash counts and reports
+
+Built 2026-10-20 (`kitchntabs-backend-domain` `a5b1d2f`, `kitchntabs-frontend` `7f40312`,
+`e01f3bd`). An administrator refunds a card payment from *Cobros* (§15.5). KitchnTabs follows
+`PosPaymentRefunded`:
+
+| What | Where |
+|---|---|
+| The tab's `Payment` records `data.refunds[]`, `data.refunded_amount` and `data.refunded`. A **full** refund sets the new status **`Payment::STATUS_REFUNDED`** (`REFUNDED`). A partial one keeps `approved`. The order stays paid: it was served, and the refund corrects the money. | `TabPosPaymentService::refunded()` |
+| One row per refund in the new **`payment_refunds`** table: tenant, order, payment, point of sale, transaction, sequence, amount, reference, user, `refunded_at`. It is unique per (transaction, sequence), so a repeated event books nothing twice. | `Models/Order/PaymentRefund.php`, migration `2026_10_21_000100_create_payment_refunds_and_cash_count_refunds` |
+
+**Where a refund lands in the cash counts.** Product decision, one rule: a refund belongs to the
+**cash count whose period covers the moment it was made**.
+- If the sale's count is still open and covers that moment, it is the same count, and the sale
+  and its refund net out.
+- If the sale's count is closed, the refund lands in the count that is open now. **A closed count
+  never changes.**
+
+There is no admin choice: two people booking the same kind of refund differently would make
+totals incomparable, and a count that changes after closing breaks the reconciliation it was
+closed against.
+
+```mermaid
+flowchart LR
+    S["Sale, Monday<br/>(count #1)"] --> R{"Refund made<br/>on…"}
+    R -- "Monday, count #1 still open" --> C1["Count #1:<br/>sales 15.000 · refunds −15.000 · net 0"]
+    R -- "Wednesday, count #1 closed" --> C3["Count #3 (open):<br/>refunds −15.000<br/>count #1 unchanged"]
+```
+
+How it is computed:
+- **Sales** keep coming from orders (`SaleDefinition`). A refunded sale stays a sale in its own
+  period. `SaleDefinition::settledPaymentStatuses()` is `approved` plus `REFUNDED`, used by the
+  tips total and the payment-methods report. Dropping refunded payments there would take the sale
+  out of a period that may already be closed.
+- **Refunds** are read from `payment_refunds` by `refunded_at` within the count's period. They go
+  into `cash_counts.system_total_refunds` and, per point of sale,
+  `cash_count_pos_breakdowns.system_refunds`. They are system figures only, with no `final_*`
+  correction, because they come from the acquirer, not from counting a drawer.
+- **Net** = amount (corrected, when corrected) − refunds: `net_total_amount` on the count and
+  `net_amount` per point of sale, both in the API resource.
+- **The screen:** the cash count view shows *Devoluciones del período* and *Neto* when there are
+  refunds, overall and under each point of sale's amount.
+- **The export:** the Excel sheets add *Refunds* and *Net Amount* as their last columns, so earlier
+  columns keep their letters.
+- **Reports:** a new **Devoluciones** report (`RefundsReport`, key `refunds`) is dated by the
+  refund. *Medios de pago* stays dated by the sale.
+
+Test: `a_refund_is_booked_in_the_cash_count_covering_when_it_was_made_never_in_an_earlier_one`
+(`TabTerminalPaymentTest`, now 8 tests).
+
 ## 17. Phase 6 — companion agent, Raspberry bridge, Transbank (designed)
 
 Needs hardware. Spec 09 §5–§7, adjusted by the pre-study (§2.1).
@@ -1394,25 +1525,42 @@ device running on the terminal itself. Out of scope for v1.
 validation, there is no offline mode for charging; a local relay only protects against *our*
 backend being briefly unreachable. Venue-facing documentation must say so.
 
-### 17.5 Shared Python device service (decided, not built)
+### 17.5 Shared Python device service: `dash_core` (built, additive)
 
-The device-routed transports (§13) need a program at the venue: the Raspberry Pi bridge for
-Transbank, and a local relay (D13). KitchnTabs already ships a Python service for printing and
-its tray (`dash-python-service`, packaged per product as `kitchntabs-python-service`, with
-builds for Windows, macOS and ARM). The product owner decided to restructure it into **one shared
-core** for both products, rather than write a separate bridge:
+KitchnTabs already ships a Python service for printing and its tray (`dash-python-service`,
+packaged per product as `kitchntabs-python-service`, with builds for Windows, macOS and ARM). The
+product owner decided it becomes **one shared core** for both products, with thin product layers
+loaded from a `domain/` folder, like dash-backend.
 
-| Decision | Detail |
+Built on `dash-python-service` `feat/pos-device-core` (`91c0f08`), documented in its
+`docs/DASH_CORE.md`. It is **additive**: the shipping KitchnTabs code (`kt_service.py`,
+`pinoywok/`) keeps its files and behaviour, because moving them would risk builds that cannot be
+tested here on Windows or a Pi.
+
+| Decision | As built |
 |---|---|
-| Shared core + thin domain layers | `dash-python-service` becomes the core. It holds what every product needs: DeviceCore pairing and credentials, the command channel and acks, health, logging, config, updates, and the device drivers. Each product adds a thin layer, loaded from a `domain/` folder, with only its own commands and screens. MBTickets' layer becomes `mbtickets-python-service`. |
-| Headless, optional tray | Runs as a service (systemd, launchd, a Windows service). A tray icon (status, pairing, logs) is optional and never required to charge or print. |
-| Platforms | Windows, Raspberry Pi (arm64), macOS and Linux x64. |
-| Bluetooth | For printers and card readers. The driver interfaces (`Printer`, `CardTerminal`) are defined from the start with serial, USB, network and Bluetooth transports, so a Bluetooth reader is a new driver, not a new service. |
+| Shared core + thin domain layers | `src/dash_core`: command router, driver registry, discoverers. Product layers are `domain/<product>/__init__.py` → `register(app)` (`kitchntabs` and `mbtickets` are empty for now). `DASH_DOMAINS` filters them and `DASH_DOMAIN_PATH` relocates them. A failing layer is logged and skipped. |
+| Card terminals | `charge_pos_terminal` / `cancel_pos_charge` (§13). The sale runs on the device's `CardTerminal` driver off the event loop. The ack carries the `result` and echoes the `ack_token`. A declined card is an acked command with a `declined` result; `failed` means the terminal could not be driven. A redelivered command runs once and the duplicate is not acked. |
+| Doesn't block the websocket | `kt_service` runs core commands as background tasks. Its receive loop awaits each message, and a charge waiting minutes for the customer would stop Reverb pings and block the cancel (§21.17). |
+| Headless, optional tray | `kt_service` already runs without the tray. Service installers (systemd, launchd, a Windows service) are still to write. |
+| Platforms | Windows, macOS, Linux x64, Raspberry Pi arm64. `build-service.js` and the four Linux Dockerfiles bundle `domain/`. |
+| Bluetooth | Driver interfaces (`CardTerminal`, `Printer`) sit over transports: serial (pyserial), network, **Bluetooth** (RFCOMM on Linux / Raspberry Pi; elsewhere the paired device's serial port), loopback. Libraries load lazily, so a missing one only fails the device that needs it, with a clear `TransportNotSupported`. |
+| Terminals at a venue | Listed in the service config (`pos_terminals:`), because a serial terminal cannot be discovered. They are announced to DeviceCore with the printers. |
 
-How it meets phase 2: the service is the DeviceCore device that receives `charge_pos_terminal`
-and `cancel_pos_charge`, runs the sale through a `CardTerminal` driver (Transbank POS Integrado
-first), and acks with the `result` of §13.2. Payments never get a special path through it. The
-backend's state machine stays the only judge of a charge's outcome.
+**Fake terminal** (`driver: fake_terminal`): amounts ending in 13 decline, amounts ending in 99
+wait for a cancel or the timeout, and anything else approves. It rehearses the whole flow
+(backend → venue program → ack → settlement) before a real terminal arrives.
+
+**Tests:** 13, standard library `unittest` (`pw_env/bin/python -m unittest discover -s tests`).
+They cover the router, card masking, approved, declined, an undrivable terminal, a redelivery plus
+cancel of a waiting sale, the domain loader (including a broken layer), config terminals, transport
+selection, Bluetooth on an unsupported platform, and the agent's ack body.
+
+**Not built:**
+- the Transbank POS Integrado driver (§17.1, needs the terminal);
+- moving KitchnTabs printing into `domain/kitchntabs/`;
+- MBTickets' own layer (ticket printing, the scanner);
+- service installers.
 
 ## 18. Verification
 
@@ -1476,6 +1624,27 @@ Checked in the browser on the dev stack (PinoyWok, points of sale 111 "Efectivo 
 - the counter charge dialog: Mercado Pago refused the dummy token and the tab stayed open;
 - the point-of-sale settings: the stored terminal loads and the token shows as saved.
 
+Results on 2026-10-20, second update (payments list, refunds, cash counts, OAuth, phase 2):
+
+```bash
+docker exec dash_image_app php artisan route:cache     # the dev container serves cached routes
+docker exec -e DB_DATABASE=kt_dev_db_test dash_image_app php -d error_reporting=22527 \
+  artisan test --filter='DeviceCoreTest|PosPaymentCore|TabTerminalPaymentTest|CashCount|DeviceRoutedChargeTest|MercadoPagoOAuthTest' --no-ansi
+```
+
+| Where | Suites | Result |
+|---|---|---|
+| KitchnTabs, `kt_dev_db_test` | `DeviceCoreTest` and every PosPaymentCore suite: service 15, Mercado Pago 19, API 6, OAuth 4, device-routed 4. Plus `TabTerminalPaymentTest` 8 and the cash-count suites. | **100 tests, 406 assertions, 0 failures** |
+| MBTickets, test DB | `PosTerminalSalesTest`, `PosPaymentApiTest`, `DeviceRoutedChargeTest` | **16 tests, 137 assertions, 0 failures** |
+| `dash-python-service` | `tests/test_dash_core.py` (`unittest`) | **13 tests, OK** |
+
+Checked in the browser:
+- **KitchnTabs *Cobros*:** the list, the filters, and the detail with the acquirer's error.
+- **MBTickets *Cobros*:** cash payments show "A mano" without a refund button.
+- **KitchnTabs settings:** "Conectar mi cuenta" / "Usar mi propia aplicación", and the redirect to
+  Mercado Pago's authorization page with placeholder credentials. The placeholders were removed
+  from the dev env afterwards.
+
 `DEPR` in the output is the long-standing `PDO::MYSQL_ATTR_SSL_CA` deprecation notice, not a
 failure.
 
@@ -1531,6 +1700,16 @@ keep their catalog relation.
   migrations), then `php artisan route:cache`, because the dev container serves cached routes.
 - **Before a production frontend build:** publish `dash-pos-payments` to npm and remove it from
   `UNPUBLISHED_CORE_PACKAGES` (§15.4).
+- **Migrations of this update**, applied with plain `migrate` on the KitchnTabs and MBTickets dev
+  databases:
+  - core: `2026_10_21_000010_add_pos_payment_list_permissions`,
+    `2026_10_21_000020_add_pos_payment_oauth_permission` and DeviceCore's
+    `2026_10_21_000100_add_result_to_device_commands` (every domain gets this nullable column);
+  - KitchnTabs: `2026_10_21_000100_create_payment_refunds_and_cash_count_refunds`.
+- **To offer "Connect Mercado Pago"**, set `POS_PAYMENT_MP_CLIENT_ID`,
+  `POS_PAYMENT_MP_CLIENT_SECRET` and `POS_PAYMENT_MP_WEBHOOK_SECRET` from the platform application,
+  and register the callback URL `https://<api host>/api/pos-payments/oauth/mercadopago/callback`
+  in it (§14.6).
 - **Merge order:** `dash-backend` first (`feat/pos-terminals`), then the domains, because the
   domains call `PosPaymentCoreServiceProvider::enable()`. Pushing `development` triggers the core
   image rebuild.
@@ -1548,6 +1727,8 @@ keep their catalog relation.
 |---|---|---|
 | Q1 | Which terminal models are bought first? **Partly answered by the pre-study:** Mercado Pago Point Smart over the cloud API first, Transbank POS Integrado through a Raspberry Pi bridge. Still open: units per venue, and whether any venue needs a Bluetooth-paired Mercado Pago reader (§17.2). | Product, before phase 3 |
 | Q2 | Where does the local relay run: the Raspberry bridge itself, another always-on venue device, or the venue router/NAS? | Before phase 6 detailed design |
+| Q16 | ~~How do card refunds show in cash counts?~~ **Decided:** in the count covering the moment the refund was made, and closed counts never change (§16.7). | — |
+| Q17 | Service installers for a headless venue program (systemd, launchd, Windows service): one per product, or one shared installer that picks the domain layer? | Before the first Raspberry bridge |
 | Q3 | ~~Refunds: a status or records?~~ **Answered:** the transaction keeps `approved` and lists its refunds in `raw_response.refunds[]`. Partial refunds are supported. Each domain keeps its own refund records and passes their ids as idempotency keys (§15.3). | — |
 | Q4 | ~~Gate the migrations?~~ **Done:** opt-in per domain (§12.1). | — |
 | Q5 | MBTickets: does a refund void the ticket automatically, need organizer action, or depend on how close the event is? | MBTickets requirements |
@@ -1654,3 +1835,33 @@ CheckoutCore reached `development`, every domain got those tables, the guard let
 through, and every VaneXa test that seeds failed before running. The seeder now delegates to
 `App\CheckoutCore\Seeders\SystemCheckoutGatewaysSeeder`, as KitchnTabs' does. After merging a
 core module, run each domain's suite, not only the domains the module is for.
+
+### 21.14 Mercado Pago's "check the terminal" is stored with its detail
+
+The connector stores `provider_status` as `<order status>:<detail>`, so Mercado Pago's
+`action_required` arrives as `action_required:check_on_terminal`. The staff resource and
+KitchnTabs' order state compared it to exactly `action_required`, so on a real terminal the
+dialog would never have shown "check the terminal" or the confirm button. Every reader now uses
+`PosPaymentTransaction::needsAttention()`, which matches the prefix. The list's `attention=1`
+filter does the same.
+
+### 21.15 Core translations live in `resources/lang`
+
+`dash-backend` has both a `lang/` and a `resources/lang/` folder, but Laravel loads
+`resources/lang`. `pos_payments.php` had been placed in `lang/`, so every backend POS message
+showed as a raw key in both products. It moved, and `PosPaymentApiTest` now asserts a translated
+text is not its key.
+
+### 21.16 Reference types contain dots, and config() reads dots as nesting
+
+`config(["pos_payment_core.domain_refunds.{$type}" => …])` with `mbtickets.booking` stored the hint
+under `domain_refunds.mbtickets.booking` (nested), and the lookup by the flat key found nothing.
+The map is now read and written whole.
+
+### 21.17 The venue program awaits each message inline
+
+`kt_service`'s receive loop awaits `handle_reverb_event` before reading the next message. A print
+takes seconds; a card charge can wait minutes for the customer. Inline, that would stop answering
+Reverb's pings (the connection drops mid-charge), and a `cancel_pos_charge` could not arrive until
+the charge ended. Core commands therefore run as background tasks, and the ack is sent from the
+task.
