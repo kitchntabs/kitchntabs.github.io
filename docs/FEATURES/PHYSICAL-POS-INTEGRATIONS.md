@@ -1245,6 +1245,25 @@ the customer does first:
   the order already paid, records the payment with `data.duplicate_payment = true`, and logs a
   warning. Staff refund one of the two. Nothing is lost.
 
+### 16.3.1 Editing an order while its charge waits
+
+A self-service or VaneXa order can still be changed until the kitchen confirms it (add an item,
+make it two). A terminal charge waiting at that moment is for the **old** total, so
+`SelfServiceTabsController::updateByHash` (the one path every kiosk edit takes) does this:
+
+1. `supersedePendingCharge()` asks the acquirer for the charge's real state first (nothing polls
+   for a kiosk, so a card just tapped can still look pending). **Approved: the edit is refused**
+   with `409`, the order is paid and frozen.
+2. Otherwise the charge is cancelled (`cancelled`), the edit is saved, and `rechargeAfterEdit()`
+   charges the **new total** on the same terminal and channel (a new attempt, a new transaction).
+3. If the edit fails, the unchanged order is charged again. If the new charge cannot start
+   (for example Mercado Pago still holds the old order on the terminal, `409
+   already_queued_order_for_terminal`), the edit still stands and the customer pays with the QR.
+
+The old transaction approving late (the card was already in) lands in `late_results` and never
+pays the edited order; staff refund it from the payments list. The service fee is the amount
+decided at order time; it is not recomputed for the new total.
+
 ### 16.4 The three flows
 
 **Counter.**
@@ -1378,7 +1397,10 @@ sequenceDiagram
    §14.1), and save. "Verified" means the token works and the terminal is listed in PDV mode.
 3. **Counter.** Nothing more. The new point of sale appears among the payment methods.
 4. **Self-service tablet.** Open the venue's self-service page on the tablet once with
-   `?terminal=<point of sale id>`.
+   `?terminal=<point of sale id>`. The page only offers "Pagar en el terminal" when the tenant setting
+   `selfservice_allow_terminal_payment` is on (off by default). Online payment is on by default
+   (`enable_self_service_checkout_gateway`, with `selfservice_allow_gateway_selection`); these are the defaults
+   for a tenant that has not saved a value, a value already saved is kept.
 5. **VaneXa kiosk.** In VaneXa, the kiosk's KitchnTabs integration: set *Terminal de tarjeta de
    este kiosco* (the point of sale id).
 6. **Webhook.** Mercado Pago must reach `https://<api host>/api/pos-payments/webhooks/mercadopago`

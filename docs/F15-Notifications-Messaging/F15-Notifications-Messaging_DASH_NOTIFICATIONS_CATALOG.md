@@ -3,6 +3,8 @@
 
 This document lists all notifications sent by the KitchnTabs system, including their purpose, when they occur, who receives them, and through which channels they are delivered.
 
+> **Who receives a notification is now configurable per tenant.** Targets below are the intended audience; see [Notification Routing](F15-Notifications-Messaging_NOTIFICATION_ROUTING.md) for what actually applies.
+
 ---
 
 ## Channel Legend

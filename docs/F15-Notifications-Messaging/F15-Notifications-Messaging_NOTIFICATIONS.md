@@ -1,6 +1,8 @@
 
 NOTIFICATIONS DOCUMENTATION
 
+> For a notification that uses `ManagedNotification`, the tenant's routing decides who receives it and `targets` does not. See [Notification Routing](F15-Notifications-Messaging_NOTIFICATION_ROUTING.md).
+
 This sample sends a notificiation for a job completion message to a specific tenant system channel
 AppNotificationBuilder::send(
 notificationClass: JobCompletionNotification::class,
