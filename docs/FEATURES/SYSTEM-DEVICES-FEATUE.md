@@ -530,6 +530,12 @@ Via `PermissionMigration`s, never hand-edited JSON (see the `dashadmin-permissio
 | `…_add_device_agent_status_permission.php` (core) + `…_add_device_agent_status_domain_permission.php` (domain) | `api.device.agent.status` (§14.6) to the same two role sets — added as new migrations, not folded into the two above, since those had already run in every environment |
 | `…_add_device_agent_unregister_permission.php` (core ONLY — no domain counterpart) | `api.device.agent.unregister` (§14.7) to `TenancyAdmin`/`Tenant` only. Deliberately asymmetric with every other agent route: registering a printer is routine till setup any signed-in terminal should be able to do; removing one is an administrative decision, so `Staff`/`Kitchen`/`TenantServiceAccount` do NOT get this one |
 
+| `kitchntabs-backend-domain/.../2026_11_03_000100_grant_device_permissions_to_floor_roles.php` | (1) Re-grants the agent routes (`register/heartbeat/ack/status/session-log/settings/settings.reset`) to `Staff`, `Kitchen`, `Waiter`, `Cashier`, `TenantServiceAccount` — the earlier domain migrations granted them but no `rolePermissions/*.json` listed them, so a role sync had stripped them all (no terminal role held any `api.device.*` on 2026-11-03). (2) The **device manager for Staff**: `api.device.device.*` and `api.device.kiosk.*` read routes plus `device.test` / `device.setDefault`. Editing driver settings, delete, trash, `node.*`, tail, session logs and `agent.unregister` stay TenancyAdmin/Tenant. Both mirrored in the role JSONs |
+| `…/2026_11_03_000200_add_tab_ticket_permission.php` | `api.tab.tab.ticket` (§15) to every role that can download the sale note PDF |
+
+Frontend: `'Staff'` is in the `roles` of `printerDeviceResource` and `kioskDeviceResource`. Staff's
+edit drawer Save answers 403 by design (no `update` grant).
+
 `TenantServiceAccount` (`Domain\App\Models\Extended\Role:17-27`) is seeded but has never
 been assigned to anything. The headless printer terminal is exactly what it was
 anticipating — the same observation the ServiceAccounts feature made about it.
@@ -706,3 +712,79 @@ and a real `TenancyAdmin`:
 
 16 feature tests in `dash-backend/tests/Feature/DeviceCoreTest.php`; full backend suite runs
 clean (3167 assertions, 0 failures).
+
+---
+
+## 15. Tablet Bluetooth printers (Capacitor / Android agent)
+
+**Status:** implemented 2026-11-03 and verified on a Lenovo TB-X6C6L (Android 11) with a
+PT-210 58 mm printer: registered from the tablet, Test print and a real tab reprint printed
+legibly as rasters (~6 s each), selection and connection survive a cold restart.
+
+A printer paired with the Android tablet is registered and printed to by the tablet itself — a
+second agent next to `dash-python-service`, speaking the same protocol (§6).
+
+```mermaid
+flowchart LR
+    subgraph TABLET["Android tablet — kitchntabs-app (Capacitor)"]
+        UI["Printers list → 'Bluetooth printers'<br/>(pick from paired devices)"]
+        AG["useTabletPrinterAgent<br/>register · heartbeat · device.command · ack"]
+        ENC["escpos.ts<br/>ticket lines → raster ESC/POS"]
+        BT["BluetoothPrinterPlugin.java<br/>RFCOMM/SPP write"]
+    end
+    API["DeviceAgentController<br/>+ GET tab/tab/{id}/ticket"]
+    RV(("Reverb<br/>tenant.{t}.agent.{uid}"))
+    PR["PT-210 (paired)"]
+    UI --> AG
+    AG -->|"register / heartbeat / ack"| API
+    RV -->|"device.command"| AG
+    AG -->|"GET ticket"| API
+    AG --> ENC --> BT --> PR
+```
+
+| Piece | Where |
+|---|---|
+| Native byte output (list bonded devices, chunked RFCOMM write, reconnect once) | `kitchntabs-frontend/android/app/src/main/java/com/kitchntabs/app/BluetoothPrinterPlugin.java`, registered in `MainActivity` **before** `super.onCreate` (a local plugin is not in `capacitor.plugins.json`; registering after never reaches the bridge) |
+| Permissions | `BLUETOOTH_CONNECT` (Android 12+ runtime prompt, no scanning) + `BLUETOOTH`/`BLUETOOTH_ADMIN` `maxSdkVersion=30` |
+| Agent | `packages/kt-devices/src/bluetooth/useTabletPrinterAgent.tsx`, mounted from the app's `DASHWSMessagesManager`; no-op on web/Electron/old APKs |
+| Picker UI | `BluetoothPrintersButton` on the Printers list toolbar and in its empty state (`PrintersEmpty`), Android only |
+| Encoder | `escpos.ts` `encodeTicketRaster` (default): the backend's lines drawn on a 384/576 px canvas (monospace, bold, double size, alignment), 1-bit, `GS v 0` in 24-row bands, feed, `GS V 1`; written at 128 B / 30 ms. `encodeTicket` (printer-font text) is kept but unused |
+| Driver | `PrinterDeviceType::DRIVER_BLUETOOTH` — `connection.bt_address` required; `device_uid = bt:<MAC>` |
+| Ticket | `GET tab/tab/{id}/ticket?width=58|80&variant=full|kitchen` → `TicketRenderer` (32/48 columns, kitchen variant without prices) over `SaleNoteData::fromTab()`, which the PDF now uses too |
+
+**Status is measured.** The plugin's `probe` opens (or reuses) the RFCOMM link and sends `DLE EOT 1`;
+the agent probes every chosen printer before each register and heartbeat (30 s), on resume, and
+records print results, so `reported_status` is `connected` / `disconnected` / `error` with
+`last_error` — not "paired, therefore connected". The same probe re-opens the link after an app
+restart, so the printer reconnects without opening any dialog.
+
+Rules it keeps: registration is an explicit pick (never every paired device); a register always
+carries the full chosen set (absent devices go `disconnected`); commands for other terminals'
+devices are ignored; the legacy `tenant.{id}.system` print message is never acted on; each
+`command_id` runs once.
+
+**Traps found building it**
+- `useAxios()` returns a new instance per render — the agent keeps it in a ref, or its effects
+  re-register in a loop.
+- `kt-devices/bluetooth` does not resolve (`./*` → `dist/bluetooth.js`); import the file,
+  `kt-devices/bluetooth/useTabletPrinterAgent`.
+- react-admin's empty-list page drops the toolbar, so the picker must also live in the empty state.
+- **The PT-210's text font is unusable:** every ASCII character printed as a solid black cell
+  (accented CP437 characters were fine), even for a job with no commands, and neither `ESC % 0`,
+  `GS B 0` nor `FS .` changed it. A raster of the same text printed cleanly, so the tablet prints
+  rasters — the same reason the desktop agent rasterises the PDF.
+- **The selection was wiped on every cold restart.** dash-auth's `syncDeviceStoreToLocalStorage()`
+  copies every Capacitor Preferences key over localStorage at startup, and Preferences is only
+  refreshed from localStorage at auth moments, so a stale `{printers: []}` snapshot won each time.
+  The store now writes through to Preferences. Anything else the app keeps in raw localStorage on
+  Android has the same exposure.
+- **The agent never started after a cold restart:** the WS manager only learns the user from its auth
+  context, which can be late or empty. The agent falls back to the stored `user`, and retries a failed
+  register on the next heartbeat. `window.__ktTabletAgent` exposes its state for debugging.
+- **Dev APKs had no console output:** `vite build` sets `NODE_ENV=production`, so `isProduction` was
+  true for every build and `esbuild.drop` stripped `console`. kitchntabs-app's vite config now keeps
+  the console for `MODE=development` / `DEBUG_MODE` builds.
+
+**Known limit:** the agent runs in the WebView, so it only prints while the app is open; a command
+sent while the tablet sleeps is lost (Reverb does not queue) and stays `sent`. Options if needed:
+foreground service, or FCM wake-up plus a pending-commands endpoint.

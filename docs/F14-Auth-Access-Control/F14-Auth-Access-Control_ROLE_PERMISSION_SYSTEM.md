@@ -24,6 +24,74 @@ The system uses a **level-based hierarchy** where lower numbers indicate higher 
 
 > **Note:** `Role::MAX_LEVEL = 32767` is reserved for future use.
 
+### Domain roles (KitchnTabs)
+
+The KitchnTabs domain adds floor-facing roles on top of the four core roles
+(`Domain\App\Models\Extended\Role`). Each one has a name constant, a level
+constant, a `RoleSeeder` entry and its own `database/data/rolePermissions/*.json`
+in `kitchntabs-backend-domain`. Every row below must stay consistent across all
+four places, plus the frontend `roles` arrays (see the matrix).
+
+| Role | Level | Name / level constants | JSON file | Access |
+|------|-------|------------------------|-----------|--------|
+| **Kitchen** | 15 | `NAME_KITCHEN` / `LEVEL_KITCHEN` | `kitchenPermissions.json` | Kitchen view only |
+| **Staff** | 16 | `NAME_STAFF` / `LEVEL_STAFF` | `staffPermissions.json` | Tabs (`tab`, `tab-admin`) and Reports |
+| **Cashier** | 17 | `NAME_CASHIER` / `LEVEL_CASHIER` | `cashierPermissions.json` | Cash count and POS card-terminal payments. The backend also grants `api.tab.tab.*`, but no frontend Tabs menu lists Cashier today |
+| **Waiter** | 18 | `NAME_WAITER` / `LEVEL_WAITER` | `waiterPermissions.json` | Tabs (`tab`, `tab-admin` menu); no reports, no `tab-admin` API grants |
+| TenantServiceAccount | 13 | `NAME_TENANT_SERVICE_ACCOUNT` | `tenantServiceAccountPermissions.json` | Service account |
+| MallServiceAccount | 14 | `NAME_MALL_SERVICE_ACCOUNT` | `mallServiceAccountPermissions.json` | Service account |
+
+Why Waiter is 18 and not the legacy `LEVEL_WAITRESS` (11): a user's level
+resolves to the **minimum** across their roles, so a lower number would out-rank
+Kitchen, Staff and Cashier. New floor roles go **below** the existing ones.
+
+**Consistency rules** (check all of them when adding or changing a role):
+
+1. The JSON `role` equals the `NAME_*` constant and the JSON `level` equals the
+   `LEVEL_*` constant. The seeder takes the level from the constant; the JSON
+   `level` is metadata, but `validate:role-permissions` reads it.
+2. No duplicate entries in `permissions` (a duplicate is harmless but hides drift).
+3. Every entry exists as a permission row, and every JSON entry is actually
+   granted in `role_has_permissions`. `syncPermissions()` **replaces** a role's
+   set, so a grant that exists only in a migration is stripped by the next
+   `db:sync_roles`.
+4. A change is a `PermissionMigration` (applies to a running environment) **and**
+   the JSON entry (survives a resync) — never only one of them.
+5. The role is in the notification role lists (`KitchnTabsNotifications`) and
+   the `notifications_catalog` lang files if it should receive notifications.
+
+#### Frontend role matrix
+
+The frontend only decides who sees a **menu entry** (`roles` on the resource
+config, matched by role name; `'*'` means everyone). The backend permissions
+are what actually authorise a request, so both must agree.
+
+| Menu / resource | System | Tenant | TenancyAdmin | Staff | Waiter | Kitchen | Cashier |
+|---|---|---|---|---|---|---|---|
+| Tabs — admin view `tab/tab-admin` (`kt-tabs` `tabResource`) | yes | yes | – | yes | – | – | – |
+| Tabs — `tab/tab` (`kt-tabs` `tabResource`) | yes | yes | – | yes | yes | – | – |
+| Kitchen view `tab/kitchentab` (`kt-tabs` `tabResource`) | – | yes | – | – | – | yes | – |
+| Reports (`kt-ecommerce` `reportResources`) | yes | yes | yes | yes | – | – | – |
+| Cash count `tab/cashcount` (`kt-cashcount`) | yes | yes | – | – | – | – | yes |
+| Devices — Printers / Kiosks (`kt-devices` `deviceResources`) | yes | yes | yes | yes (view, Test, Set default) | – | – | – |
+
+> **Checked 2026-11-03** against every resource `kitchntabs-app` registers: each
+> floor role's menu entries now have the matching backend `getList`. Fixed then:
+> Kitchen had no `api.tab.kitchentab.*` and Cashier no `api.tab.cashcount.*`
+> (their only screens answered 403 — migration `2026_11_03_000300`), and Waiter
+> was wrongly listed on the tab-admin menu. **Still open:** `tab/kiosk` (kiosk
+> ordering mode, roles Tenant/Staff/Kiosk) — its `api.tab.kiosk.*` routes have
+> no permission rows at all, so it answers 403 for every role except System.
+>
+> The terminal roles (Staff, Kitchen, Waiter, Cashier, TenantServiceAccount) also
+> hold the printer-agent routes `api.device.agent.*` again (`2026_11_03_000100`):
+> they had been granted by migration only and stripped by a role sync.
+
+> Each report also has its own `roles()` allowlist in the domain
+> (`app/Reports/*`), which currently lists System, TenancyAdmin, Tenant and
+> Staff. A role with the route permission but missing from a report's `roles()`
+> sees an empty report list.
+
 ### AccessMiddleware (Route-Level Enforcement)
 
 The `AccessMiddleware` (`app/Http/Middleware/AccessMiddleware.php`) enforces permissions at the route level:
