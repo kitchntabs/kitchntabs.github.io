@@ -310,6 +310,15 @@ Details:
   rather than keep opening sessions.
 - **Throttle:** 120 requests/minute per IP — generous on purpose, a crowd on the venue's wifi
   shares one address.
+- **Cleanup:** every scan opens a session, including people who only look at the menu.
+  `kt:selfservice:prune-sessions` (hourly, `--dry-run` available) force-deletes sessions **without
+  orders**: active ones untouched for `selfservice.abandoned_session_minutes` (env
+  `SELFSERVICE_ABANDONED_SESSION_MINUTES`, default 120) and pending dynamic codes older than
+  `selfservice.pending_session_days` (`SELFSERVICE_PENDING_SESSION_DAYS`, default 7). Orders link to
+  sessions polymorphically (`orders.brokerable_*`, a string id), which is what the "without orders"
+  check reads; a session with any order is never removed. Their notifications cascade. A customer
+  whose empty session was removed scans again (the cookie then points nowhere and a new session is
+  made).
 - **Staff screen:** `SelfServiceQRGenerator` reads `selfservice_qr_mode` from the stored tenant
   settings. In static mode it creates no session, shows the start URL (with the tablet's attached
   terminal as `pos`), ignores activation events (nothing to rotate) and offers **Print** and
@@ -504,8 +513,6 @@ Frontend reads these via `AuthPersistenceService.getSystemValues()?.selfservice`
   as the tenant is back on `dynamic`.
 - **Static QR — the VaneXa / Python welcome kiosk** still shows the dynamic code (it creates its own
   sessions); pointing it at `start/{slug}` in static mode is not done.
-- **Static QR — abandoned sessions:** every scan opens a session, including people who never order.
-  They expire after 10 hours like any session, but are not cleaned up sooner.
 - **Staff note input** stays visually editable on a paid order (it is a plain field); the backend
   ignores note changes when paid, so it cannot actually change. A custom read-only note field would
   close the UX gap.
