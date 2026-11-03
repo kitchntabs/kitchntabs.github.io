@@ -118,6 +118,37 @@ staff QR generator listens for to mint a fresh code. See
 
 ---
 
+### Start (Static QR Landing)
+
+**The URL encoded in a static QR** (tenant setting `selfservice_qr_mode = static`). The code
+carries the tenant, not a session: every request creates its own session, already claimed by the
+requesting phone, and redirects to it — so any number of people can scan the same code at once.
+See the [Feature doc §6.1](./F5-Customer-Self-Service_SELFSERVICE_FEATURE.md#61-static-qr-mode-many-people-one-code).
+
+```http
+GET /public/selfservice/start/{tenantSlug}?r={frontendOrigin}&pos={pointOfSaleId}
+```
+
+| Parameter | In | Required | Description |
+|-----------|----|----------|-------------|
+| `tenantSlug` | path | Yes | The tenant's URL slug |
+| `r` | query | No | Frontend origin to redirect to; same allow-list rule as `scan` |
+| `pos` | query | No | Point of sale (card terminal) to bind to the session; ignored unless it is an active point of sale of this tenant |
+
+**Response:** always a `302` redirect. Throttled to 120 requests per minute per IP.
+
+| Outcome | Redirects to |
+|---|---|
+| Unknown tenant | `{base}/selfservice/invalid?reason=not_found` |
+| Tenant uses the dynamic QR | `{base}/selfservice/invalid?reason=static_disabled` |
+| Phone already holds an active, unexpired session of this tenant (cookie `kt_ss_{tenantId}`) | `{base}/selfservice/{thatHash}` |
+| Otherwise: new session created as `active` (meta `client_ip`, `user_agent`, `activated_at`, `claimed_via: static_qr`, `point_of_sale_id`) | `{base}/selfservice/{newHash}`, with the cookie set |
+| Session could not be created | `{base}/selfservice/invalid?reason=error` |
+
+Also broadcasts `self_service_session_activated`, like a successful `scan`.
+
+---
+
 ### Get Session Auth
 
 Validates and activates a session, returning tenant data.

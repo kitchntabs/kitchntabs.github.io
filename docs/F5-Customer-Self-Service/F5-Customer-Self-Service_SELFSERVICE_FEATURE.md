@@ -255,6 +255,67 @@ SPA never depends on having gone through the scan redirect — `scan()` only clo
 it isn't the sole activation path. See [API Reference — Scan (QR Landing / Claim)](./F5-Customer-Self-Service_SELFSERVICE_API_REFERENCE.md#scan-qr-landing--claim)
 for the full endpoint contract, including the `r` open-redirect protection.
 
+### 6.1 Static QR mode (many people, one code)
+
+The dynamic code above carries **one pending session**. The claim is atomic, so two scans of the
+same code can't both win — and that is exactly the problem in front of a crowd: the second person
+lands on `already-used` and must wait for the screen to renew. No rotation speed fixes it on a big
+screen or a printed poster.
+
+So a tenant can switch the tenant setting **`selfservice_qr_mode`** (store settings → *General*,
+self-service group) from `dynamic` (default) to `static`. The static code carries only the tenant:
+
+```
+GET {api}/public/selfservice/start/{tenantSlug}?r={kioskFrontendOrigin}[&pos={pointOfSaleId}]
+```
+
+and **every request creates its own session**, already claimed by the phone that made it
+(`SelfServiceSessionController::start()`), then redirects to `{r}/selfservice/{hash}`. Nothing is
+shared between two scanners, so there is nothing to race on — verified locally with 30 simultaneous
+scans → 30 distinct sessions.
+
+```mermaid
+sequenceDiagram
+    participant Screen as Big screen / poster (static QR)
+    participant P1 as Phone A
+    participant P2 as Phone B
+    participant API as Backend API
+
+    Note over Screen: QR = {api}/public/selfservice/start/{slug}?r=... (never changes)
+    par same instant
+        P1->>API: GET /start/{slug}
+        API->>API: create session X, status active, meta = A's IP + UA
+        API-->>P1: 302 -> {r}/selfservice/X  (+ cookie kt_ss_{tenantId}=X)
+    and
+        P2->>API: GET /start/{slug}
+        API->>API: create session Y (independent of X)
+        API-->>P2: 302 -> {r}/selfservice/Y
+    end
+    P1->>API: scans again later (cookie X, X still active)
+    API-->>P1: 302 -> {r}/selfservice/X  (back to the open order, no new session)
+```
+
+Details:
+
+- The session is created **active**, with the same `meta` `scan()` records (`client_ip`,
+  `user_agent`, `activated_at`, `claimed_via: static_qr`), so `getSessionAuth`'s identity check and
+  10-hour expiry apply unchanged. `self_service_session_activated` is still broadcast.
+- **Re-scan:** a cookie on the API domain (`kt_ss_{tenantId}`, path `/api/public/selfservice`,
+  10 h, HttpOnly, SameSite=Lax) names the phone's session; while it is active and not expired,
+  scanning again returns to it instead of starting an empty order.
+- **Card terminal:** `pos` binds a point of sale as the dynamic generator's `?terminal=` does; it is
+  kept only if it is an **active point of sale of this tenant**.
+- **Mode off:** a tenant on the dynamic QR refuses its static URL
+  (`{r}/selfservice/invalid?reason=static_disabled`), so a poster printed earlier stops working
+  rather than keep opening sessions.
+- **Throttle:** 120 requests/minute per IP — generous on purpose, a crowd on the venue's wifi
+  shares one address.
+- **Staff screen:** `SelfServiceQRGenerator` reads `selfservice_qr_mode` from the stored tenant
+  settings. In static mode it creates no session, shows the start URL (with the tablet's attached
+  terminal as `pos`), ignores activation events (nothing to rotate) and offers **Print** and
+  **Download** for a poster. The setting is read from the sign-in data, so a staff device picks up
+  a change after signing in again.
+
 ---
 
 ## 7. Flow 2 — Browse, Cart & Order Creation
@@ -391,6 +452,7 @@ merged into `config('tenants.setting_formats')`), surfaced to the guest in
 |---|---|
 | `enable_self_service_user_confirm_order` | Shows the **Confirmar Pedido** button (customer self-confirm). |
 | `enable_self_service_checkout_gateway` | Enables online payment; combined with a resolved default gateway it shows **Pagar**. |
+| `selfservice_qr_mode` | `dynamic` (default): one session per code, renewed after each claim. `static`: one fixed code, a session per scan (§6.1). Read by the staff QR screen and by `start()`. |
 
 Frontend reads these via `AuthPersistenceService.getSystemValues()?.selfservice` —
 `user_confirm_order_enabled`, `checkout_gateway_enabled`, `checkout_gateway_available`,
@@ -405,6 +467,7 @@ Frontend reads these via `AuthPersistenceService.getSystemValues()?.selfservice`
 | Method | Path | Description |
 |---|---|---|
 | POST | `/client_session/{tenantSlug}` | Staff: create a pending session, returns `{ hash }`. |
+| GET | `/start/{tenantSlug}?r={origin}&pos={id}` | **Static QR target** (§6.1). Creates and claims a session per request, `302` to `{origin}/selfservice/{hash}`; returns a phone with an open session (cookie) to it; `invalid?reason=static_disabled` when the tenant is on the dynamic QR. Throttled 120/min per IP. |
 | GET | `/scan/{hash}?r={origin}` | **The QR's actual target.** Atomic claim (pending→active) + `302` redirect to `{origin}/selfservice/{hash}` (or `.../already-used`, `.../invalid`). `r` is checked against `config('selfservice.allowed_scan_redirect_origins')`. |
 | GET | `/{hash}/getSessionAuth` | Validate + activate (fallback claim path if `scan()` wasn't used); returns tenant data, theme, `systemValues.selfservice.*`. `403` mismatch · `404` not found · `410` expired. |
 | GET / POST | `/{hash}/tab` … | React-Admin tab list/create (`DASHSelfServiceClientDataProvider`). |
@@ -429,12 +492,20 @@ Frontend reads these via `AuthPersistenceService.getSystemValues()?.selfservice`
 | No delete | The client data provider disables delete; cancellation is a guarded status action. |
 | Public channel | Only order-status/update payloads broadcast to `selfservice_session.{hash}`; no cross-session data. |
 | Scan redirect allow-list | `scan()` is public/unauthenticated, so its `?r=` redirect-target param is attacker-controlled input. `r` is only honoured when its host is in `config('selfservice.allowed_scan_redirect_origins')` (env `SELFSERVICE_ALLOWED_SCAN_REDIRECT_ORIGINS`); anything else falls back to `app.frontend_url`, never to the raw input — otherwise `?r=https://phish.example` would turn a trusted `kitchntabs.com` QR into an open redirect. |
+| Static QR endpoint | `start()` is public and creates a session per request, so it is throttled (120/min per IP), only answers tenants that chose `static`, and validates `pos` against the tenant's active points of sale. Its `r` goes through the same allow-list as `scan()`. |
 | Atomic claim | `scan()`'s pending→active transition is a conditional `UPDATE ... WHERE status = 'pending'` checked by affected-row count, not a `find()`-then-`save()` — two simultaneous scans of the same code can't both "win". |
 
 ---
 
 ## 15. Known Gaps & Future Work
 
+- **Static QR — staff screen picks up a mode change only after signing in again** (it reads the
+  stored tenant settings). The backend applies a change immediately: a static URL is refused as soon
+  as the tenant is back on `dynamic`.
+- **Static QR — the VaneXa / Python welcome kiosk** still shows the dynamic code (it creates its own
+  sessions); pointing it at `start/{slug}` in static mode is not done.
+- **Static QR — abandoned sessions:** every scan opens a session, including people who never order.
+  They expire after 10 hours like any session, but are not cleaned up sooner.
 - **Staff note input** stays visually editable on a paid order (it is a plain field); the backend
   ignores note changes when paid, so it cannot actually change. A custom read-only note field would
   close the UX gap.
