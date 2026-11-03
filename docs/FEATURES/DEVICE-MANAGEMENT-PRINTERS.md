@@ -7,8 +7,10 @@
 >
 > **Status (2026-11-03):** desktop/USB/CUPS/Windows printing is in production use. Built 2026-11-03 on
 > unmerged branches: per-driver printing, measured status and kitchen tickets on the desktop agent;
-> the Android tablet Bluetooth agent (verified on one tablet); Bluetooth printers on macOS (verified
-> with a PT-210) and Windows (not yet run on a Windows machine) desktops — §8.6.
+> Bluetooth agents in both Android apps — the Capacitor tablet app (§8.3) and the native Android 4/5
+> kitchen app (§8.9), each verified printing on a PT-210; Bluetooth printers on macOS (verified with a
+> PT-210) and Windows (not yet run on a Windows machine) desktops — §8.6; network printers added from
+> the tray; the "choose" routing mode's printer picker.
 >
 > **Related:** [SYSTEM-DEVICES-FEATUE.md](./SYSTEM-DEVICES-FEATUE.md) (the design and its history) ·
 > [KT-TRAY-FEATURE.md](./KT-TRAY-FEATURE.md) (the desktop tray) ·
@@ -96,6 +98,8 @@ Five ideas carry the whole system:
 | Frontend | `kitchntabs-frontend/packages/kt-devices/` | Devices screens (Printers, Kiosks), status chips, row actions, printer picker |
 | Tablet agent | `kitchntabs-frontend/packages/kt-devices/src/bluetooth/` | Agent hook, picker dialog, ESC/POS raster encoder, local state |
 | Tablet native | `kitchntabs-frontend/android/app/src/main/java/com/kitchntabs/app/BluetoothPrinterPlugin.java` | List paired devices, probe, write bytes over Bluetooth |
+| Android 4/5 kitchen app | `kitchntabs-android5/app/src/main/java/com/kitchntabs/kitchen/printing/` | `PrinterAgent`, `TicketRaster`, `BluetoothPrinter`, `PrinterStore`; picker in `ui/BluetoothPrintersDialog.java` |
+| Print buttons | `kitchntabs-frontend/packages/kt-tabs` (`TabsList`, `tab2/…/TabActionButtonsField`, `KitchenTabsList`) | Go through `kt-devices` `useTabPrintFlow` + `PrinterPickerDialog` |
 
 ---
 
@@ -281,7 +285,7 @@ retries it. Horizon must be running, or nothing is broadcast at all.
 
 | Trigger | Entry point | Targets |
 |---|---|---|
-| **Automatic**, order reaches a status in `auto_print_statuses` | `TabsNotificationService::dispatchAutoPrint()` → `PrintDispatchService::printTab($tab, null, "auto:{status}")` | routing policy (§7); `choose` acts as `default` |
+| **Automatic**, order reaches a status in `auto_print_statuses` | `TabsNotificationService::dispatchAutoPrint()` → `PrintDispatchService::printTab($tab, null, "auto:{status}")` | routing policy (§7); `choose` acts as `default` (nobody is there to choose) |
 | **Manual**, Print button on a tab | `GET /api/tab/tab/{id}/print` → `TabController::printSaleNote()` | routing policy, or explicit `device_ids[]` if sent |
 | **Test**, Test button on a printer row | `POST /api/device/device/{id}/test` → `DeviceController::test()` | that one printer, skipping routing |
 | **Tray test print** (desktop only) | tray menu → `ThermalPrinter` directly | that printer, with no backend involved |
@@ -324,6 +328,11 @@ flowchart TD
   kitchen ticket appearing at the counter is a real failure.
 - One default per tenant and type. **Set default** moves the flag and broadcasts so every open list
   updates.
+- `choose`: every Print button (tab list, tab2 action buttons, kitchen list) goes through
+  `useTabPrintFlow`, which reads `print_routing_mode` from the stored tenant settings and, in `choose`,
+  opens `PrinterPickerDialog` (disconnected printers visible but not selectable, last pick
+  remembered). The picked printers are sent as `device_ids[]`. Before 2026-11-03 nothing used the
+  dialog, so `choose` behaved as `default`.
 
 ---
 
@@ -364,11 +373,18 @@ sequenceDiagram
 | Windows printers (`win32print.EnumPrinters`) | Windows | `win32` | `win32:<name>` | `printer_name` |
 | `/dev/usb/lp*` and `/dev/rfcomm*` | Linux | `device_file` | `devfile:<path>` | `device_path` |
 | Paired Bluetooth devices (`system_profiler` / outgoing Bluetooth COM ports) | macOS, Windows | `bluetooth` | `bt:<MAC>` | `bt_address`, `serial_port` |
+| Network printers typed into the picker (`network_printers.json`) | all | `network` | `ip:<host>:<port>` | `host`, `port` |
 
 The serial is appended to the USB uid when the printer has one, so two identical printers on one till
 stay two devices. The same printer can appear twice (raw USB and a CUPS queue); duplicates are dropped
-by `device_uid`, keeping the first source. The agent can also print to a `network` printer (`host`,
-`port`, raw port 9100 by default), but the tray has no discovery source for it yet.
+by `device_uid`, keeping the first source.
+
+**Network printers** (raw TCP, port 9100 by default) cannot be enumerated, so the picker has a
+*Network printer* section: host or IP with an optional `:port`, and a label. The address is checked
+over TCP first (an unreachable printer is refused with the reason), then kept in
+`network_printers.json` in the service home (`pinoywok/network_printers.py`) and registered.
+Discovery offers every kept entry, so a later re-register still announces it; unregistering one
+forgets it.
 
 **Registration** is manual from the tray menu ("Register printers…"), one printer at a time, and only
 the picked printer is announced. The tray can also **Unregister** a printer (needs a TenancyAdmin or
@@ -383,7 +399,7 @@ reset), the agent registers again.
 | Driver | `connected` when | otherwise |
 |---|---|---|
 | `escpos_usb` | the USB vendor/product is present | `disconnected` |
-| `cups` | `lpstat -p <queue>` knows the queue and it is not disabled | `disconnected` (no queue) / `error` (disabled) |
+| `cups` | `lpstat -p <queue>` knows the queue and it is not disabled, **and** the printer behind it is there: a `usb://Make/Model?serial=` device URI (`lpstat -v`) must be on the USB bus (make, model and serial matched), a `socket://`, `ipp(s)://`, `http(s)://` or `lpd://` one must accept a TCP connection; other backends (`dnssd://`) are not judged | `disconnected` (no queue, printer unplugged or unreachable) / `error` (disabled) |
 | `win32` | Windows does not report it offline or in error | `disconnected` (offline) / `error` (paper, jam, door…) |
 | `device_file` | the path exists and is writable | `disconnected` / `error` (permission) |
 | `network` | the TCP port accepts a connection within 2 s | `disconnected` |
@@ -589,6 +605,34 @@ the printers of every restaurant in the tenancy (with a Restaurant column); afte
 in the tenant switcher (`X-Tenant-Id`), only that one's. The same screens serve kitchntabs-web
 (tenancy-wide) and kitchntabs-app (one restaurant).
 
+### 8.9 Android 4/5 kitchen app (kitchntabs-android5)
+
+The native app for old tablets (Android 4.2 / 5, no Capacitor) is a printer agent too, with the same
+protocol and rules as the Capacitor app (§8.3), written in plain Java for API 17.
+
+- **Choosing printers:** ⋮ → *Ajustes* → **Impresoras Bluetooth** lists the devices paired in
+  Android's Bluetooth settings (printers first, with their last measured status); ticked ones are
+  saved (`PrinterStore`, its own preferences file, survives sign-out) and registered as
+  `driver: bluetooth`, `device_uid: bt:<MAC>`. Unticking all asks for confirmation and announces the
+  empty set.
+- **The agent** (`printing/PrinterAgent`) runs while the Kitchen or Staff board is open (started in
+  their `onStart`, stopped in `onStop`, counted so moving between the two never restarts it), on one
+  background thread: register with each printer's measured status, heartbeat every
+  `heartbeat_interval` (404 → register again; a failed register is retried), its own `ReverbClient`
+  on `private-tenant.{t}.agent.{uid}`, `device.command` → print → ack. Commands run once each and one
+  at a time; other terminals' commands are ignored.
+- **Printing:** `GET tab/tab/{id}/ticket?width&variant` (kitchen variant without prices), drawn by
+  `TicketRaster` on a `Canvas` in monospace and sent as `GS v 0` in 24-row bands, feed and cut;
+  `BluetoothPrinter` writes over an SPP socket at 128 bytes / 30 ms, reconnecting once. A test
+  command prints a built-in test ticket.
+- **Status:** a probe (`DLE EOT 1` over the link) before each register and heartbeat.
+- **Permissions:** `BLUETOOTH`/`BLUETOOTH_ADMIN` up to API 30 (no prompt), `BLUETOOTH_CONNECT` asked
+  at runtime on Android 12+. The Kitchen, Staff, Waiter and Cashier roles hold the agent routes and
+  `api.tab.tab.ticket`.
+
+Verified on a Lenovo TB-X6C6L (android5 flavor) with a PT-210. Same limit as every Android agent: it
+prints only while the app is open.
+
 ---
 
 ## 9. The Devices screen and who can do what
@@ -653,8 +697,7 @@ with force-stop + launch rather than reloading the page at a deep route, which h
 |---|---|---|
 | Desktop probes and Bluetooth printing are verified on macOS only | Windows status flags, Windows COM-port printing and Linux paths are covered by code review, not a real till | test on a Windows and a Linux till |
 | Bluetooth in a packaged Mac app not verified | the permission prompt and the `--bt-rfcomm` helper in a PyInstaller build are untested | build and run the packaged app once |
-| A CUPS queue whose USB printer is unplugged can stay "idle" | macOS/Linux may still show such a printer connected | also check the queue's device URI |
-| `choose` routing mode has no dialog | `PrinterPickerDialog` and `useTabPrintFlow` exist in `kt-devices` but no Print button uses them, so `choose` behaves like `default` | wire `useTabPrintFlow` into `kt-tabs` Print buttons |
+| CUPS device check covers `usb`, `socket`, `ipp(s)`, `http(s)`, `lpd` URIs | a `dnssd://` queue (Bonjour/AirPrint) with its printer off still shows connected; a USB check needs readable device strings (else not judged) | resolve dnssd names, or use the printer's own status |
 | No command queue | a command sent while the agent is offline is lost and stays `sent` | pending-commands endpoint, or (tablet) FCM wake-up / foreground service |
-| Tablet agent only runs while the app is open | a sleeping tablet misses tickets | same as above |
+| The Android agents only run while the app is open | a sleeping tablet misses tickets | same as above |
 | The 2026-11-03 work is on unmerged branches, not pushed | not deployed anywhere | merge and deploy backend domain, frontend, `dash-python-service` together |

@@ -79,9 +79,11 @@ are what actually authorise a request, so both must agree.
 > floor role's menu entries now have the matching backend `getList`. Fixed then:
 > Kitchen had no `api.tab.kitchentab.*` and Cashier no `api.tab.cashcount.*`
 > (their only screens answered 403 — migration `2026_11_03_000300`), and Waiter
-> was wrongly listed on the tab-admin menu. **Still open:** `tab/kiosk` (kiosk
-> ordering mode, roles Tenant/Staff/Kiosk) — its `api.tab.kiosk.*` routes have
-> no permission rows at all, so it answers 403 for every role except System.
+> was wrongly listed on the tab-admin menu. `tab/kiosk` (kiosk ordering mode):
+> its six `api.tab.kiosk.*` routes had no permission rows at all (403 for every
+> role but System); `2026_11_03_000700` creates them for TenancyAdmin, Tenant and
+> Staff. The resource is still commented out in kitchntabs-app's resource list,
+> and its menu names a `Kiosk` role that does not exist.
 >
 > The terminal roles (Staff, Kitchen, Waiter, Cashier, TenantServiceAccount) also
 > hold the printer-agent routes `api.device.agent.*` again (`2026_11_03_000100`):
