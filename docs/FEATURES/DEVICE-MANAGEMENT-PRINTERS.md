@@ -146,7 +146,8 @@ kept.
 A device shows **Connected** only when both are true:
 
 1. its node is online (Redis key `device_core:node:{id}` alive — TTL 90 s, renewed by each heartbeat);
-2. the agent's last report for that printer was `connected`.
+2. the agent's last report for that printer was `connected`. Both agents measure it: the desktop agent
+   probes each printer's driver (§8.1), the tablet asks the printer over Bluetooth (§8.3).
 
 Otherwise it shows the reported status (`disconnected` / `error`, with `last_error` in a tooltip), or
 `disconnected` if the node itself is gone. `ReapStaleDeviceNodesCommand` runs every minute, flips
@@ -185,10 +186,10 @@ Defined by `PrinterDeviceType::configSchema()`.
 | Key | Values | Default | Read by |
 |---|---|---|---|
 | `copies` | 1–5 | 1 | desktop agent, tablet agent. There is no tenant-wide copies setting |
-| `cut` | bool | true | tablet agent |
-| `paper_width_mm` | 58 \| 80 | 58 | tablet agent (32 / 48 columns, 384 / 576 px) |
+| `cut` | bool | true | tablet agent; desktop agent for USB, device-file and network printers |
+| `paper_width_mm` | 58 \| 80 | 58 | both agents (32 / 48 columns, 384 / 576 px) |
 | `encoding` | string | `cp437` | (text mode only; unused — both agents print images) |
-| `ticket_variant` | `full` \| `kitchen` (no prices) | `full` | tablet agent; **not** the desktop agent (§11) |
+| `ticket_variant` | `full` \| `kitchen` (no prices) | `full` | both agents |
 
 The backend sends the device's config inside every command, so an agent always prints with the
 latest admin settings without re-registering.
@@ -364,8 +365,8 @@ sequenceDiagram
 
 The serial is appended to the USB uid when the printer has one, so two identical printers on one till
 stay two devices. The same printer can appear twice (raw USB and a CUPS queue); duplicates are dropped
-by `device_uid`, keeping the first source. The backend also accepts a `network` driver (`host`, `port`),
-but the tray has no discovery source for it.
+by `device_uid`, keeping the first source. The agent can also print to a `network` printer (`host`,
+`port`, raw port 9100 by default), but the tray has no discovery source for it yet.
 
 **Registration** is manual from the tray menu ("Register printers…"), one printer at a time, and only
 the picked printer is announced. The tray can also **Unregister** a printer (needs a TenancyAdmin or
@@ -373,6 +374,20 @@ Tenant sign-in; a Staff sign-in gets a clear 403 message). At start the tray doe
 reloads the earlier registration from `~/.kt_service/agent.json` and resumes heartbeating, so a restart
 does not drop known printers. If the backend answers a heartbeat with 404 (node deleted, database
 reset), the agent registers again.
+
+**Status.** Before each register and heartbeat the agent probes every registered printer
+(`ThermalPrinter.probe()`) and reports what it measures:
+
+| Driver | `connected` when | otherwise |
+|---|---|---|
+| `escpos_usb` | the USB vendor/product is present | `disconnected` |
+| `cups` | `lpstat -p <queue>` knows the queue and it is not disabled | `disconnected` (no queue) / `error` (disabled) |
+| `win32` | Windows does not report it offline or in error | `disconnected` (offline) / `error` (paper, jam, door…) |
+| `device_file` | the path exists and is writable | `disconnected` / `error` (permission) |
+| `network` | the TCP port accepts a connection within 2 s | `disconnected` |
+
+Only status changes are logged. Other device types on the node (card terminals) keep reporting
+`connected`.
 
 **Credential.** Electron writes the signed-in user's token to `~/.kt_service/agent.conf`; signing out
 clears it, which stops the service. The tray can also sign in on its own (email/password or a pasted
@@ -382,9 +397,15 @@ Details in [KT-TRAY-FEATURE.md §4–5](./KT-TRAY-FEATURE.md).
 **Printing a tab** (`kt_service.handle_device_command` → `print_order_on_device`):
 
 1. Look up the device locally by `device_uid`; ignore the command if it is not ours.
-2. Download the sale-note PDF: `GET /api/tab/tab/{id}/download` (permission `downloadSaleNote`) with
-   the same token.
-3. Rasterise the PDF and send it with the driver for that device; repeat for `copies` (max 5).
+2. Get what to print, with the same token:
+   - printer set to `ticket_variant: kitchen`: the text ticket without prices
+     (`GET /api/tab/tab/{id}/ticket?width=…&variant=kitchen`), drawn in a monospace system font
+     (Menlo, Consolas or DejaVu Sans Mono) at the printer's width (`pinoywok/ticket_image.py`). If it
+     cannot be fetched, the agent falls back to the PDF: a priced ticket in the kitchen beats none;
+   - otherwise the sale-note PDF (`GET /api/tab/tab/{id}/download`, permission `downloadSaleNote`),
+     rasterised.
+3. Send it through **that printer's own driver** (CUPS queue, Windows printer by name, USB ids, device
+   file, network port), scaled to its paper width, with or without the cut; repeat for `copies` (max 5).
 4. Ack `acked`, or `failed` with the reason.
 
 A test command prints the device test page (`print_test_page_on_device`) on that device's own
@@ -580,7 +601,8 @@ Start from the command row: `device_commands` for the tab or test, ordered by `c
 | Row `failed` with an error | the agent tried and failed | desktop: `kt_service` log; tablet: `window.__ktTabletAgent.lastError` |
 | Desktop prints nothing, log shows 403 on `/download` | token or ServiceAccount lacks the download permission | grant `api.tab.tab.downloadSaleNote` (§8.2) |
 | Every ticket printed twice | an old till plus an updated one both acting, or `all` mode with two printers | `legacy_print_broadcast`, routing mode |
-| Printer shows Connected but is off (desktop) | the desktop agent always reports `connected` (§11) | use the tray test print |
+| Printer shows Connected but is off (desktop) | an agent build older than 2026-11-03 reports every printer `connected` | update the app; the status then follows the printer within one heartbeat |
+| Ticket printed on the wrong printer of a till (desktop) | an agent build older than 2026-11-03 picks the print method by platform, not by the printer's driver | update the app |
 | Tablet printer `disconnected` | Bluetooth off, printer off, or the printer is connected to another device | turn it on; it reconnects within one heartbeat |
 | Tablet garbled ticket | text mode on a printer with a broken font | the agent prints images by default; check it is a current build |
 | Bluetooth printers button missing | not the Android app, or an APK built before the plugin | install a current build |
@@ -598,8 +620,8 @@ with force-stop + launch rather than reloading the page at a deep route, which h
 
 | Gap | Effect | Where to fix |
 |---|---|---|
-| The desktop agent heartbeats every printer as `connected` | an unplugged or off printer still shows Connected until the node itself goes offline | `device_agent.heartbeat()` needs a real status check, like the tablet's probe |
-| The desktop agent ignores `ticket_variant` and `paper_width_mm` | a "kitchen" printer on a till still prints the full priced sale note | `print_order_on_device` could use `GET tab/tab/{id}/ticket` like the tablet |
+| Desktop probes are verified on macOS only | Windows status flags and Linux paths are covered by code review, not a real till | test on a Windows and a Linux till |
+| A CUPS queue whose USB printer is unplugged can stay "idle" | macOS/Linux may still show such a printer connected | also check the queue's device URI |
 | `choose` routing mode has no dialog | `PrinterPickerDialog` and `useTabPrintFlow` exist in `kt-devices` but no Print button uses them, so `choose` behaves like `default` | wire `useTabPrintFlow` into `kt-tabs` Print buttons |
 | No command queue | a command sent while the agent is offline is lost and stays `sent` | pending-commands endpoint, or (tablet) FCM wake-up / foreground service |
 | Tablet agent only runs while the app is open | a sleeping tablet misses tickets | same as above |
