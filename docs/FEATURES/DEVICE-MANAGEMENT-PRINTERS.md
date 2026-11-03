@@ -5,9 +5,10 @@
 > Python tray on Windows, macOS or Linux), a headless Linux box or Raspberry Pi, and an Android
 > tablet with a Bluetooth printer.
 >
-> **Status (2026-11-03):** desktop/USB/CUPS/network/Windows printing is in production use; the
-> Android tablet Bluetooth agent is built and verified on one device but not yet committed;
-> Bluetooth printers on a macOS or Windows desktop are not supported yet (§8.6).
+> **Status (2026-11-03):** desktop/USB/CUPS/Windows printing is in production use. Built 2026-11-03 on
+> unmerged branches: per-driver printing, measured status and kitchen tickets on the desktop agent;
+> the Android tablet Bluetooth agent (verified on one tablet); Bluetooth printers on macOS (verified
+> with a PT-210) and Windows (not yet run on a Windows machine) desktops — §8.6.
 >
 > **Related:** [SYSTEM-DEVICES-FEATUE.md](./SYSTEM-DEVICES-FEATUE.md) (the design and its history) ·
 > [KT-TRAY-FEATURE.md](./KT-TRAY-FEATURE.md) (the desktop tray) ·
@@ -362,6 +363,7 @@ sequenceDiagram
 | CUPS queues (`lpstat -p`) | macOS, Linux | `cups` | `cups:<queue>` | `queue` |
 | Windows printers (`win32print.EnumPrinters`) | Windows | `win32` | `win32:<name>` | `printer_name` |
 | `/dev/usb/lp*` and `/dev/rfcomm*` | Linux | `device_file` | `devfile:<path>` | `device_path` |
+| Paired Bluetooth devices (`system_profiler` / outgoing Bluetooth COM ports) | macOS, Windows | `bluetooth` | `bt:<MAC>` | `bt_address`, `serial_port` |
 
 The serial is appended to the USB uid when the printer has one, so two identical printers on one till
 stay two devices. The same printer can appear twice (raw USB and a CUPS queue); duplicates are dropped
@@ -385,6 +387,7 @@ reset), the agent registers again.
 | `win32` | Windows does not report it offline or in error | `disconnected` (offline) / `error` (paper, jam, door…) |
 | `device_file` | the path exists and is writable | `disconnected` / `error` (permission) |
 | `network` | the TCP port accepts a connection within 2 s | `disconnected` |
+| `bluetooth` | the Bluetooth link opens (macOS: RFCOMM channel; Windows: COM port) | `disconnected` |
 
 Only status changes are logged. Other device types on the node (card terminals) keep reporting
 `connected`.
@@ -405,7 +408,9 @@ Details in [KT-TRAY-FEATURE.md §4–5](./KT-TRAY-FEATURE.md).
    - otherwise the sale-note PDF (`GET /api/tab/tab/{id}/download`, permission `downloadSaleNote`),
      rasterised.
 3. Send it through **that printer's own driver** (CUPS queue, Windows printer by name, USB ids, device
-   file, network port), scaled to its paper width, with or without the cut; repeat for `copies` (max 5).
+   file, network port, Bluetooth link), scaled to its paper width, with or without the cut; repeat for
+   `copies` (max 5). Before 2026-11-03 the method was chosen per platform instead, so a till with
+   several printers could print on the wrong one, and a Windows till always used the Windows default.
 4. Ack `acked`, or `failed` with the reason.
 
 A test command prints the device test page (`print_test_page_on_device`) on that device's own
@@ -531,17 +536,41 @@ Turn it off only when someone has checked that every till in the venue is update
 person, never the decision: old tills are exactly the ones that cannot be counted.
 `DEVICE_LEGACY_PRINT_BROADCAST=false` is the global kill switch.
 
-### 8.6 Bluetooth printer on a macOS or Windows desktop — not supported yet
+### 8.6 Bluetooth printer on a macOS or Windows desktop
 
-Pairing a Bluetooth printer with a Mac or Windows PC creates a serial port (`/dev/cu.<name>` on macOS,
-a "Standard Serial over Bluetooth link" `COMx` on Windows). The desktop agent does not discover serial
-ports on those systems today, so such a printer cannot be registered. Linux works through
-`rfcomm bind` (§8.2).
+Pair the printer in the operating system's Bluetooth settings, then register it from the tray menu
+("Register printers…") like any other printer. It is registered as `driver: bluetooth`,
+`device_uid: bt:<MAC>` — the same identity the tablet agent uses — and printed to as an image:
+`GS v 0` in 24-row bands, written 128 bytes every 30 ms (the pacing the PT-210 prints cleanly at).
 
-The planned route is the Python tray, not the tablet code: add serial-port discovery as
-`driver: bluetooth` with the port name, paced writes like the tablet's, a real status check, and let the
-`bluetooth` driver accept a port instead of a MAC address. A Bluetooth printer accepts one connection at
-a time, so a printer cannot be shared live between a tablet and a desktop.
+| | macOS | Windows |
+|---|---|---|
+| Discovery | paired devices from `system_profiler SPBluetoothDataType`: anything of minor type *Printer* or with a `/dev/cu.<name>` port (keyboards and headsets stay out of the picker) | outgoing "Standard Serial over Bluetooth link" COM ports (`pyserial`); the MAC comes from the hardware id, incoming ports (`000000000000`) are skipped |
+| Transport | **IOBluetooth RFCOMM** (`pinoywok/bt_macos.py`, `pyobjc-framework-IOBluetooth`) | the COM port (`pyserial`), opened exclusively |
+| Status | the RFCOMM channel opens | the port opens |
+| Verified | macOS 15 + PT-210: probe, test print, full and kitchen tickets, off → `disconnected` | not yet run on Windows |
+
+**Why not `/dev/cu.<name>` on macOS.** macOS creates that port for a paired SPP device, but on current
+versions opening it never connects the device: writes are buffered and silently lost, and the device
+stays "Not Connected". The first version printed nothing this way. IOBluetooth's RFCOMM channel does
+connect.
+
+**The helper process.** IOBluetooth delivers its callbacks (the channel opening) to the main thread's
+run loop only. `kt_service` prints from a worker thread with asyncio on the main thread, and the tray
+probes from a worker thread, so the Bluetooth work runs in a short-lived helper process that owns its
+main thread: `python bt_macos.py probe|write <MAC>` from source, or `<frozen executable> --bt-rfcomm …`
+in a PyInstaller build (`kt_service`, `kt_status_tray` and `print_service` hand that flag over before
+starting anything). A lock file per printer (`~/.kt_service/bt-<MAC>.lock`) keeps the tray's probe and
+`kt_service`'s print from colliding; a probe that finds it held reports the printer `connected`.
+
+**Packaged Mac app.** macOS asks for Bluetooth permission on behalf of the Electron app that launches
+the tray; electron-builder's `mac.extendInfo` declares `NSBluetoothAlwaysUsageDescription` (without it
+macOS kills the process instead of asking). Not yet verified in a packaged build.
+
+**One link at a time.** A Bluetooth printer accepts one connection: a printer paired with a tablet and
+a desktop is printed to by whichever reaches it first, and shows `disconnected` on the other.
+
+Linux keeps using `rfcomm bind` (§8.2).
 
 ### 8.7 Several tills and printers in one venue
 
@@ -604,6 +633,8 @@ Start from the command row: `device_commands` for the tab or test, ordered by `c
 | Printer shows Connected but is off (desktop) | an agent build older than 2026-11-03 reports every printer `connected` | update the app; the status then follows the printer within one heartbeat |
 | Ticket printed on the wrong printer of a till (desktop) | an agent build older than 2026-11-03 picks the print method by platform, not by the printer's driver | update the app |
 | Tablet printer `disconnected` | Bluetooth off, printer off, or the printer is connected to another device | turn it on; it reconnects within one heartbeat |
+| Desktop Bluetooth printer prints nothing (macOS), log shows no error | an agent build that wrote to `/dev/cu.<name>` | update the agent; it now uses IOBluetooth (§8.6) |
+| Desktop Bluetooth printer `disconnected` while the tablet prints fine | the tablet holds the printer's only link | close the app on the tablet or untick the printer there |
 | Tablet garbled ticket | text mode on a printer with a broken font | the agent prints images by default; check it is a current build |
 | Bluetooth printers button missing | not the Android app, or an APK built before the plugin | install a current build |
 | Tablet forgets its printers after a restart | a raw localStorage key not written through to Preferences | `tabletAgentStore.write()` must set both ([SYSTEM-DEVICES-FEATUE.md §15](./SYSTEM-DEVICES-FEATUE.md#15-tablet-bluetooth-printers-capacitor--android-agent)) |
@@ -620,10 +651,10 @@ with force-stop + launch rather than reloading the page at a deep route, which h
 
 | Gap | Effect | Where to fix |
 |---|---|---|
-| Desktop probes are verified on macOS only | Windows status flags and Linux paths are covered by code review, not a real till | test on a Windows and a Linux till |
+| Desktop probes and Bluetooth printing are verified on macOS only | Windows status flags, Windows COM-port printing and Linux paths are covered by code review, not a real till | test on a Windows and a Linux till |
+| Bluetooth in a packaged Mac app not verified | the permission prompt and the `--bt-rfcomm` helper in a PyInstaller build are untested | build and run the packaged app once |
 | A CUPS queue whose USB printer is unplugged can stay "idle" | macOS/Linux may still show such a printer connected | also check the queue's device URI |
 | `choose` routing mode has no dialog | `PrinterPickerDialog` and `useTabPrintFlow` exist in `kt-devices` but no Print button uses them, so `choose` behaves like `default` | wire `useTabPrintFlow` into `kt-tabs` Print buttons |
 | No command queue | a command sent while the agent is offline is lost and stays `sent` | pending-commands endpoint, or (tablet) FCM wake-up / foreground service |
 | Tablet agent only runs while the app is open | a sleeping tablet misses tickets | same as above |
-| Bluetooth on macOS / Windows desktops | cannot register such printers | §8.6 |
-| Tablet Bluetooth work is uncommitted | — | commit across backend domain, frontend and docs |
+| The 2026-11-03 work is on unmerged branches, not pushed | not deployed anywhere | merge and deploy backend domain, frontend, `dash-python-service` together |

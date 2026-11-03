@@ -86,6 +86,22 @@ are what actually authorise a request, so both must agree.
 > The terminal roles (Staff, Kitchen, Waiter, Cashier, TenantServiceAccount) also
 > hold the printer-agent routes `api.device.agent.*` again (`2026_11_03_000100`):
 > they had been granted by migration only and stripped by a role sync.
+>
+> Same cause, same day, on the store record (`api/tenant/tenant/{id}/…`):
+> `sendTestNotification`, `sendTestPrint`, `toggleOpen`, `getSchedules`,
+> `saveSchedules` (core migration `2026_08_12_000000` had granted them to
+> TenancyAdmin/Tenant; no domain JSON listed them) and the six banner/logo
+> `upload*`/`delete*` routes (never had permission rows — `AccessMiddleware`
+> refuses a route without one). The store form's Tests tab, open/closed toggle,
+> schedules and Images tab all answered 403 except to System. Fixed by domain
+> migration `2026_11_03_000500` plus both admin JSONs. `TenantServiceAccount`
+> also got `api.tab.tab.downloadSaleNote` / `ticket` (`2026_11_03_000400`) so a
+> headless printer terminal can fetch what it prints.
+>
+> **A route with no permission row is a 403 for everyone but System**, and a
+> grant missing from the role JSON disappears at the next `db:sync_roles`. To
+> audit a route group: list its route names and, per name, the roles holding the
+> permission row (see the `dashadmin-permissions` skill).
 
 > Each report also has its own `roles()` allowlist in the domain
 > (`app/Reports/*`), which currently lists System, TenancyAdmin, Tenant and
