@@ -74,6 +74,7 @@ are what actually authorise a request, so both must agree.
 | Reports (`kt-ecommerce` `reportResources`) | yes | yes | yes | yes | – | – | – |
 | Cash count `tab/cashcount` (`kt-cashcount`) | yes | yes | – | – | – | – | yes |
 | Devices — Printers / Kiosks (`kt-devices` `deviceResources`) | yes | yes | yes | yes (view, Test, Set default) | – | – | – |
+| Self-service QR `selfservice/qr` (`kt-selfservice` `selfServiceResource`) | – | yes | – | yes | – | – | – |
 
 > **Checked 2026-11-03** against every resource `kitchntabs-app` registers: each
 > floor role's menu entries now have the matching backend `getList`. Fixed then:
