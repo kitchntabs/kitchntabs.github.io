@@ -423,7 +423,6 @@ core's `config('tenants.setting_formats')` by
 | `print_routing_mode` | select `default` \| `all` \| `choose` | `default` | |
 | `print_fallback_enabled` | boolean | `true` | off = print HERE or not at all |
 | `auto_print_statuses` | multi-select of `Tab::STATUS_*` | `['CONFIRMED']` | every marketplace, one rule |
-| `print_copies` | integer | `1` | a device's own `copies` overrides this |
 | `legacy_print_broadcast` | boolean | `true` | keep on until every terminal is updated — see §6 |
 
 **No frontend change was needed.** `DashAutoFormTabs` builds its tabs from the `tab` key, so

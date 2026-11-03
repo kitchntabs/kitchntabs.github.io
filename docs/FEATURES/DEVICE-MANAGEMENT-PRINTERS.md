@@ -184,7 +184,7 @@ Defined by `PrinterDeviceType::configSchema()`.
 
 | Key | Values | Default | Read by |
 |---|---|---|---|
-| `copies` | 1–5 | 1 | desktop agent, tablet agent |
+| `copies` | 1–5 | 1 | desktop agent, tablet agent. There is no tenant-wide copies setting |
 | `cut` | bool | true | tablet agent |
 | `paper_width_mm` | 58 \| 80 | 58 | tablet agent (32 / 48 columns, 384 / 576 px) |
 | `encoding` | string | `cp437` | (text mode only; unused — both agents print images) |
@@ -202,7 +202,6 @@ Defined in `kitchntabs-backend-domain/config/printing_tenant_settings.php`.
 | `print_fallback_enabled` | bool | true | if the default printer is offline, use the next connected one |
 | `auto_print_statuses` | any of `CREATED`, `CONFIRMED`, `IN_PREPARATION`, `PREPARED` | `['CONFIRMED']` | order statuses that print automatically |
 | `legacy_print_broadcast` | bool | true | also send the old tenant-wide print message (§8.5) |
-| `print_copies` | integer | 1 | not read by anything yet (§11) — use the printer's `copies` |
 
 The settings form schema is cached by the frontend for 5 minutes (`SystemRequestsCache`), so a new
 field can take that long to appear.
@@ -402,7 +401,7 @@ Same Python agent, no person signing in.
 1. In the admin, create a ServiceAccount key for the tenant (see
    [SERVICE-ACCOUNTS-API-KEYS.md](./SERVICE-ACCOUNTS-API-KEYS.md)).
 2. Give it a role that has **both** the agent routes and `api.tab.tab.downloadSaleNote`. The seeded
-   `TenantServiceAccount` role has the agent routes but **not** the download.
+   `TenantServiceAccount` role has both (the download since migration `2026_11_03_000400`).
 3. Start the tray or service with that key (sign-in dialog, `KT_AGENT_TOKEN`, or `argv`).
 
 The node is marked `is_headless`; it is expected to stay online.
@@ -557,7 +556,8 @@ Restaurant. There is no Create: a printer exists because an agent reported it. R
 | Delete, trash | ✅ | ❌ | — | — |
 | Run an agent (register, heartbeat, ack, status) | ✅ | ✅ | ✅ | ✅ |
 | Unregister from the tray | ✅ | ❌ | ❌ | ❌ |
-| Print a tab, fetch the ticket or PDF (`printSaleNote`, `ticket`, `downloadSaleNote`) | ✅ | ✅ | ✅ | ❌ — grant `downloadSaleNote` for a headless till |
+| Print a tab (`printSaleNote`) | ✅ | ✅ | ✅ | ❌ |
+| Fetch the ticket or PDF (`ticket`, `downloadSaleNote`) | ✅ | ✅ | ✅ | ✅ |
 
 Every grant lives in a `PermissionMigration` **and** the matching `database/data/rolePermissions/*.json`
 file; a grant in only one of them is removed by the next `db:sync_roles` (this happened to all agent
@@ -600,11 +600,8 @@ with force-stop + launch rather than reloading the page at a deep route, which h
 |---|---|---|
 | The desktop agent heartbeats every printer as `connected` | an unplugged or off printer still shows Connected until the node itself goes offline | `device_agent.heartbeat()` needs a real status check, like the tablet's probe |
 | The desktop agent ignores `ticket_variant` and `paper_width_mm` | a "kitchen" printer on a till still prints the full priced sale note | `print_order_on_device` could use `GET tab/tab/{id}/ticket` like the tablet |
-| `print_copies` (tenant setting) is not read anywhere | only the printer's own `copies` has any effect | `PrintDispatchService` or the agents |
 | `choose` routing mode has no dialog | `PrinterPickerDialog` and `useTabPrintFlow` exist in `kt-devices` but no Print button uses them, so `choose` behaves like `default` | wire `useTabPrintFlow` into `kt-tabs` Print buttons |
-| Seeded `TenantServiceAccount` role lacks `api.tab.tab.downloadSaleNote` | a headless till using it registers and receives commands but prints nothing | add it to the role (migration + JSON) or give the key another role |
 | No command queue | a command sent while the agent is offline is lost and stays `sent` | pending-commands endpoint, or (tablet) FCM wake-up / foreground service |
 | Tablet agent only runs while the app is open | a sleeping tablet misses tickets | same as above |
 | Bluetooth on macOS / Windows desktops | cannot register such printers | §8.6 |
-| `config/device_core.php` comment says the legacy broadcast is "suppressed automatically" | misleading; the code uses the tenant setting | fix the comment |
 | Tablet Bluetooth work is uncommitted | — | commit across backend domain, frontend and docs |
